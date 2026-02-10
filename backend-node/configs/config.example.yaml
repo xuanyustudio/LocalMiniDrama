@@ -1,0 +1,39 @@
+app:
+  name: "LocalMiniDrama API"
+  version: "1.0.0"
+  debug: true
+  language: "zh"
+
+server:
+  port: 5679
+  host: "0.0.0.0"
+  cors_origins:
+    - "http://localhost:3012"
+  read_timeout: 600
+  write_timeout: 600
+
+database:
+  type: "sqlite"
+  path: "./data/drama_generator.db"
+  max_idle: 10
+  max_open: 100
+
+storage:
+  type: "local"
+  local_path: "./data/storage"
+  base_url: "http://localhost:5679/static"
+
+ai:
+  default_text_provider: "openai"
+  default_image_provider: "openai"
+  default_video_provider: "doubao"
+
+style:
+  default_style: ""
+  default_role_style: "Modern Japanese anime style, cel-shaded."
+  default_scene_style: "Modern Japanese anime style, cel-shaded."
+  default_prop_style: "Modern Japanese anime style, cel-shaded."
+  default_image_ratio: "16:9"
+  default_video_ratio: "16:9"
+  default_prop_ratio: "1:1"
+  default_image_size: "1024x1024"

@@ -1,0 +1,22 @@
+import request from '@/utils/request'
+
+export const characterAPI = {
+  generateImage(characterId, model) {
+    return request.post(`/characters/${characterId}/generate-image`, { model })
+  },
+  batchGenerateImages(characterIds, model) {
+    return request.post('/characters/batch-generate-images', {
+      character_ids: characterIds.map(String),
+      model
+    })
+  },
+  update(characterId, data) {
+    return request.put(`/characters/${characterId}`, data)
+  },
+  putImage(characterId, data) {
+    return request.put(`/characters/${characterId}/image`, data)
+  },
+  delete(characterId) {
+    return request.delete(`/characters/${characterId}`)
+  }
+}
