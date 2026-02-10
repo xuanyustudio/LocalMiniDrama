@@ -1,4 +1,4 @@
-// 与 Go ScriptGenerationService.GenerateCharacters + processCharacterGeneration 对齐
+
 const taskService = require('./taskService');
 const aiClient = require('./aiClient');
 const promptI18n = require('./promptI18n');

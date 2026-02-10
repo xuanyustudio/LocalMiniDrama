@@ -1,5 +1,5 @@
 {
-  "name": "huobao-drama-backend",
+  "name": "LocalMiniDrama-backend",
   "version": "1.0.0",
   "description": "Node.js backend for LocalMiniDrama",
   "main": "src/server.js",

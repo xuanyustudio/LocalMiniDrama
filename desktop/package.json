@@ -1,0 +1,63 @@
+{
+  "name": "localminidrama-desktop",
+  "version": "1.0.0",
+  "description": "LocalMiniDrama 本地桌面客户端",
+  "main": "main.js",
+  "author": "LocalMiniDrama",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build:front": "cd ../frontweb && npm run build",
+    "copy-front": "node scripts/copy-front.js",
+    "pack": "npm run prepare-backend && npm run build:front && npm run copy-front && electron-builder --dir",
+    "dist": "npm run prepare-backend && npm run build:front && npm run copy-front && electron-builder --win",
+    "dist:cn": "node scripts/dist-cn.js",
+    "postinstall": "node scripts/copy-backend.js && electron-rebuild",
+    "prepare-backend": "node scripts/copy-backend.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "js-yaml": "^4.1.0",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "electron-rebuild": "^3.2.9"
+  },
+  "build": {
+    "appId": "com.localminidrama.desktop",
+    "productName": "LocalMiniDrama",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "package.json",
+      "backend-app/**/*",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ],
+    "extraResources": [
+      {
+        "from": "frontweb-dist",
+        "to": "frontweb/dist",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": null,
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

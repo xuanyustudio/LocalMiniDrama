@@ -3,7 +3,7 @@ const { closeDb } = require('./db/index.js');
 const logger = require('./logger.js');
 
 const { app, config } = createApp();
-const port = config.server.port || 5678;
+const port = config.server.port || 5679;
 const host = config.server.host || '0.0.0.0';
 
 const server = app.listen(port, host, () => {

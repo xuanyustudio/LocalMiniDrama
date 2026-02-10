@@ -26,5 +26,15 @@
 
 - 至于未来？随缘吧，纠结归纠结，先做了再说，万一哪天就不纠结了（也万一哪天就放弃了），至少还留下点东西，也希望能碰到同样纠结着入局AI漫剧的朋友，一起唠唠、一起进步～
 
+## 本地桌面客户端（exe）
+
+如需打包成 Windows 单机 exe，使用仓库中的 Electron 壳：
+
+- 后端：`backend-node`
+- 前端：`frontweb`
+- 桌面壳：`desktop/`（Electron + electron-builder）
+
+打包步骤见 [desktop/README.md](desktop/README.md)。在 `desktop` 目录执行 `npm install` 后运行 `npm run dist` 即可生成安装包与便携版 exe。
+
 ## 参考
 项目参考了Kino视界，Filmaction AI ，还参考了oiioii，本来是打算做 oiioii的平替产品的，然后可以本地运行的，后来发现积累不够，开源的主要是参考了chatfire，chatfire的帮助最大，只是他的服务器是go写的，我虽然也写过半年，但是好多年了，现在已经不熟悉了。

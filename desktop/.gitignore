@@ -1,0 +1,5 @@
+node_modules/
+release/
+frontweb-dist/
+backend-app/
+*.log

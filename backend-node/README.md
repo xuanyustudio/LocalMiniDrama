@@ -1,6 +1,6 @@
 # LocalMiniDrama 后端 (Node.js)
 
-纯 **JavaScript** 后端，与 Go 版 **接口一致**，便于一键切换。
+纯 **JavaScript** 后端
 
 ## 环境
 
@@ -12,29 +12,26 @@
 cd backend-node
 npm install
 cp configs/config.example.yaml configs/config.yaml
-# 按需修改 config.yaml（端口建议与 Go 一致 5678，便于前端不改配置）
+# 按需修改 config.yaml
 npm run migrate   # 首次运行：初始化数据库表
 npm start         # 启动服务
 # 或开发时热重载：
 npm run dev
 ```
 
-## 一键异动（从 Go 切到 Node）
+## 一键异动
 
-1. **同一端口**：在 `configs/config.yaml` 里把 `server.port` 设为与 Go 相同（如 5679），前端无需改任何代码。
-2. **停 Go、启 Node**：
+1. **同一端口**：在 `configs/config.yaml` 里把 `server.port` 设为与 5679，前端无需改任何代码。
+2. **启 Node**：
    ```bash
-   # 停掉 Go 服务后
    cd backend-node && npm start
    ```
-3. **前端开发**：若用 Vite 代理，`vite.config.ts` 里 `proxy['/api'].target` 已是 `http://localhost:5679`，无需改；直接启动 Node 在 5678 即可。
-4. **数据库**：Node 使用独立 DB 路径（如 `./data/drama_generator.db`）。若要用 Go 已有数据，把 `config.yaml` 里 `database.path` 指到 Go 的 db 文件（如 `../data/drama.db`），然后只跑一次 `npm run migrate`（若表已存在会跳过或报字段已存在，可忽略重复迁移）。
-## 接口与 Go 对齐情况
-
+3. **前端开发**：若用 Vite 代理，`vite.config.ts` 里 `proxy['/api'].target` 已是 `http://localhost:5679`，无需改；直接启动 Node 在 5679 即可。
+4. **数据库**：Node 使用独立 DB 路径（如 `./data/drama_generator.db`）。
 - **已完整实现**：剧本 CRUD、分页、统计、大纲/角色/集数/进度保存、道具 CRUD 与关联、任务查询、AI 配置 CRUD、设置语言、剧集 finalize/download、分镜列表与生成任务、静态文件 `/static`。
 - **桩实现（返回 200/201，可后续替换）**：角色库、角色图片上传/生成、场景/图片/视频/资源/音频等写操作与部分列表，返回空数组或 `task_id`，前端可正常调接口不报错。
 
-响应格式与 Go 一致：`success`、`data`、`error`、`timestamp`；分页为 `items` + `pagination`。
+响应格式：`success`、`data`、`error`、`timestamp`；分页为 `items` + `pagination`。
 
 ## 目录结构
 
