@@ -59,15 +59,32 @@ function getDrama(db, dramaId, baseUrl) {
     } catch (_) {
       ep.scenes = [];
     }
-    // 本集关联的道具：本集分镜中出现的道具（storyboard_props），无则空数组
+    // 本集关联的道具：本集提取的（episode_id=本集）+ 本集分镜中出现的（storyboard_props），合并去重
     try {
-      const epProps = db.prepare(
+      const byEpisode = db.prepare(
+        'SELECT * FROM props WHERE episode_id = ? AND deleted_at IS NULL ORDER BY id ASC'
+      ).all(ep.id);
+      const byStoryboard = db.prepare(
         `SELECT DISTINCT p.* FROM props p
          INNER JOIN storyboard_props sp ON p.id = sp.prop_id
          INNER JOIN storyboards sb ON sb.id = sp.storyboard_id AND sb.episode_id = ? AND sb.deleted_at IS NULL
          WHERE p.deleted_at IS NULL ORDER BY p.id ASC`
       ).all(ep.id);
-      ep.props = epProps.map((p) => rowToProp(p));
+      const seen = new Set();
+      ep.props = [];
+      for (const p of byEpisode) {
+        if (!seen.has(p.id)) {
+          seen.add(p.id);
+          ep.props.push(rowToProp(p));
+        }
+      }
+      for (const p of byStoryboard) {
+        if (!seen.has(p.id)) {
+          seen.add(p.id);
+          ep.props.push(rowToProp(p));
+        }
+      }
+      ep.props.sort((a, b) => a.id - b.id);
     } catch (_) {
       ep.props = [];
     }

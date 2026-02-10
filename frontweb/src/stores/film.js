@@ -6,8 +6,6 @@ export const useFilmStore = defineStore('film', () => {
   const currentEpisode = ref(null)
   const storyInput = ref('')
   const scriptContent = ref('')
-  const selectedImageModel = ref('')
-  const selectedVideoModel = ref('')
   const videoResolution = ref('1920x1080')
   const videoProgress = ref(0)
   const videoStatus = ref('idle') // idle | generating | done | error
@@ -35,14 +33,6 @@ export const useFilmStore = defineStore('film', () => {
     scriptContent.value = text
   }
 
-  function setSelectedImageModel(model) {
-    selectedImageModel.value = model
-  }
-
-  function setSelectedVideoModel(model) {
-    selectedVideoModel.value = model
-  }
-
   function setVideoProgress(p) {
     videoProgress.value = p
   }
@@ -65,8 +55,6 @@ export const useFilmStore = defineStore('film', () => {
     currentEpisode,
     storyInput,
     scriptContent,
-    selectedImageModel,
-    selectedVideoModel,
     videoResolution,
     videoProgress,
     videoStatus,
@@ -79,8 +67,6 @@ export const useFilmStore = defineStore('film', () => {
     setCurrentEpisode,
     setStoryInput,
     setScriptContent,
-    setSelectedImageModel,
-    setSelectedVideoModel,
     setVideoProgress,
     setVideoStatus,
     reset

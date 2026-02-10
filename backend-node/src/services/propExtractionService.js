@@ -77,6 +77,7 @@ async function processPropExtraction(db, log, taskId, episodeId) {
 
     const prop = propService.create(db, log, {
       drama_id: dramaId,
+      episode_id: episodeId,
       name,
       type: (p.type && String(p.type).trim()) || null,
       description: (p.description && String(p.description).trim()) || null,

@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const aiConfigService = require('./aiConfigService');
 
+// 使用前端设置的「默认」与「优先级」：listConfigs 已按 is_default DESC, priority DESC 排序
 function getDefaultVideoConfig(db, preferredModel) {
   const configs = aiConfigService.listConfigs(db, 'video');
   const active = configs.filter((c) => c.is_active);
@@ -13,7 +14,8 @@ function getDefaultVideoConfig(db, preferredModel) {
       if (models.includes(preferredModel)) return c;
     }
   }
-  return active[0];
+  const defaultOne = active.find((c) => c.is_default);
+  return defaultOne != null ? defaultOne : active[0];
 }
 
 function buildVideoUrl(config) {
@@ -35,6 +37,7 @@ function buildQueryUrl(config, taskId) {
 function getModelFromConfig(config, preferredModel) {
   const models = Array.isArray(config.model) ? config.model : (config.model != null ? [config.model] : []);
   if (preferredModel && models.includes(preferredModel)) return preferredModel;
+  if (config.default_model && models.includes(config.default_model)) return config.default_model;
   return models[0] || '';
 }
 

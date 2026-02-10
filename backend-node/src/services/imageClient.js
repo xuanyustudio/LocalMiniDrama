@@ -3,9 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const aiConfigService = require('./aiConfigService');
 const uploadService = require('./uploadService');
+const taskService = require('./taskService');
 
 /**
- * 获取默认图片配置：优先按 preferredProvider（如 YAML ai.default_image_provider）匹配，再按 preferredModel 匹配
+ * 获取默认图片配置：优先使用前端勾选的「默认」配置（is_default），同类型内按优先级（priority）排序；
+ * 可选按 preferredProvider / preferredModel 进一步筛选。
  * @param {object} db
  * @param {string} [preferredModel] - 指定模型名时，在匹配到的配置中选含该模型的
  * @param {string} [preferredProvider] - 指定供应商（如 openai / dashscope），只在该 provider 的配置中选
@@ -25,6 +27,9 @@ function getDefaultImageConfig(db, preferredModel, preferredProvider) {
       if (models.includes(preferredModel)) return c;
     }
   }
+  // 显式使用前端设置的「默认」：优先 is_default，再按 priority 降序（listConfigs 已按 is_default DESC, priority DESC 排序，取第一个即可）
+  const defaultOne = active.find((c) => c.is_default);
+  if (defaultOne) return defaultOne;
   return active[0];
 }
 
@@ -39,6 +44,7 @@ function buildImageUrl(config) {
 function getModelFromConfig(config, preferredModel) {
   const models = Array.isArray(config.model) ? config.model : (config.model != null ? [config.model] : []);
   if (preferredModel && models.includes(preferredModel)) return preferredModel;
+  if (config.default_model && models.includes(config.default_model)) return config.default_model;
   return models[0] || 'dall-e-3';
 }
 
@@ -370,7 +376,8 @@ async function callImageApi(db, log, opts) {
 }
 
 /**
- * 创建 image_generation 记录并异步调用 API，完成后更新记录与角色 image_url
+ * 创建 image_generation 记录并异步调用 API，完成后更新记录与角色 image_url。
+ * 与场景图一致：创建 task 并写入 task_id，便于前端轮询 /tasks/:task_id 获知完成或报错。
  */
 function createAndGenerateImage(db, log, opts) {
   const {
@@ -387,11 +394,14 @@ function createAndGenerateImage(db, log, opts) {
   const dramaIdNum = Number(drama_id) || 0;
   const charIdNum = character_id != null ? Number(character_id) : null;
 
+  const task = taskService.createTask(db, log, 'image_generation', String(charIdNum != null ? `character_${charIdNum}` : dramaIdNum));
+  const taskId = task.id;
+
   let imageGenId;
   try {
     const info = db.prepare(
-      `INSERT INTO image_generations (drama_id, character_id, provider, prompt, model, size, quality, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
+      `INSERT INTO image_generations (drama_id, character_id, provider, prompt, model, size, quality, status, task_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`
     ).run(
       dramaIdNum,
       charIdNum,
@@ -400,6 +410,7 @@ function createAndGenerateImage(db, log, opts) {
       model || null,
       size || null,
       quality || null,
+      taskId,
       now,
       now
     );
@@ -407,9 +418,9 @@ function createAndGenerateImage(db, log, opts) {
   } catch (e) {
     if ((e.message || '').includes('character_id')) {
       const info = db.prepare(
-        `INSERT INTO image_generations (drama_id, provider, prompt, model, size, quality, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
-      ).run(dramaIdNum, provider || 'openai', prompt || '', model || null, size || null, quality || null, now, now);
+        `INSERT INTO image_generations (drama_id, provider, prompt, model, size, quality, status, task_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`
+      ).run(dramaIdNum, provider || 'openai', prompt || '', model || null, size || null, quality || null, taskId, now, now);
       imageGenId = info.lastInsertRowid;
     } else {
       throw e;
@@ -434,6 +445,7 @@ function createAndGenerateImage(db, log, opts) {
         db.prepare(
           'UPDATE image_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?'
         ).run('failed', result.error, now2, imageGenId);
+        taskService.updateTaskError(db, taskId, result.error);
         log.error('Image generation failed', { image_gen_id: imageGenId, error: result.error });
         return;
       }
@@ -449,6 +461,7 @@ function createAndGenerateImage(db, log, opts) {
       db.prepare(
         'UPDATE image_generations SET status = ?, image_url = ?, local_path = ?, completed_at = ?, updated_at = ? WHERE id = ?'
       ).run('completed', result.image_url, localPath, now2, now2, imageGenId);
+      taskService.updateTaskResult(db, taskId, { image_generation_id: imageGenId, image_url: result.image_url, status: 'completed' });
       if (charIdNum != null) {
         db.prepare('UPDATE characters SET image_url = ?, local_path = ?, updated_at = ? WHERE id = ?').run(
           result.image_url,
@@ -464,12 +477,13 @@ function createAndGenerateImage(db, log, opts) {
       db.prepare(
         'UPDATE image_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?'
       ).run('failed', (err.message || '').slice(0, 500), now2, imageGenId);
+      taskService.updateTaskError(db, taskId, err.message);
       log.error('Image generation error', { image_gen_id: imageGenId, error: err.message });
     }
   });
 
   const row = db.prepare('SELECT * FROM image_generations WHERE id = ?').get(imageGenId);
-  return row ? rowToItem(row) : { id: imageGenId, status: 'pending', drama_id: dramaIdNum, character_id: charIdNum, prompt, model, size, quality, created_at: now, updated_at: now };
+  return row ? rowToItem(row) : { id: imageGenId, task_id: taskId, status: 'pending', drama_id: dramaIdNum, character_id: charIdNum, prompt, model, size, quality, created_at: now, updated_at: now };
 }
 
 function rowToItem(r) {

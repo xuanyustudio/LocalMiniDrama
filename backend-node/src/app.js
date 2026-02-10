@@ -10,6 +10,8 @@ const { setupRouter } = require('./routes/index.js');
 function createApp() {
   const config = loadConfig();
   const db = getDb(config.database);
+  const { runMigrationsAndEnsure } = require('./db/migrate.js');
+  runMigrationsAndEnsure(db);
   const log = logger;
 
   const app = express();

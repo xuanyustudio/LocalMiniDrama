@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS ai_service_configs (
   base_url TEXT DEFAULT '',
   api_key TEXT,
   model TEXT,
+  default_model TEXT,
   endpoint TEXT,
   query_endpoint TEXT,
   priority INTEGER DEFAULT 0,

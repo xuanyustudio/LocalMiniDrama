@@ -2,7 +2,7 @@
   <div class="film-list">
     <header class="header">
       <div class="header-inner">
-        <h1 class="logo">Filmaction.ai</h1>
+        <h1 class="logo">LocalMiniDrama.ai</h1>
         <span class="page-title">项目列表</span>
         <el-button type="primary" class="btn-new" @click="goNewProject">
           <el-icon><Plus /></el-icon>

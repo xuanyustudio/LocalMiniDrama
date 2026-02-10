@@ -18,11 +18,13 @@ function listByDramaId(db, dramaId) {
 
 function create(db, log, req) {
   const now = new Date().toISOString();
+  const episodeId = req.episode_id != null ? Number(req.episode_id) : null;
   const info = db.prepare(
-    `INSERT INTO props (drama_id, name, type, description, prompt, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO props (drama_id, episode_id, name, type, description, prompt, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     req.drama_id,
+    episodeId,
     req.name || '',
     req.type ?? null,
     req.description ?? null,

@@ -16,15 +16,39 @@ function modelFromDb(val) {
   }
 }
 
+/** 每种服务类型只保留一个默认：若有多个 is_default=1，只保留优先级最高（同优先级取 id 最小）的那条 */
+function ensureSingleDefaultPerType(db) {
+  const types = ['text', 'image', 'video'];
+  for (const st of types) {
+    const rows = db.prepare(
+      'SELECT id, priority FROM ai_service_configs WHERE deleted_at IS NULL AND service_type = ? AND is_default = 1 ORDER BY priority DESC, id ASC'
+    ).all(st);
+    if (rows.length <= 1) continue;
+    const keepId = rows[0].id;
+    db.prepare(
+      'UPDATE ai_service_configs SET is_default = 0 WHERE deleted_at IS NULL AND service_type = ? AND id != ?'
+    ).run(st, keepId);
+  }
+}
+
 function listConfigs(db, serviceType) {
-  let sql = 'SELECT * FROM ai_service_configs WHERE deleted_at IS NULL ORDER BY priority DESC, created_at DESC';
+  ensureSingleDefaultPerType(db);
+  const order = 'ORDER BY is_default DESC, priority DESC, created_at DESC';
+  let sql = 'SELECT * FROM ai_service_configs WHERE deleted_at IS NULL ' + order;
   const params = [];
   if (serviceType) {
-    sql = 'SELECT * FROM ai_service_configs WHERE deleted_at IS NULL AND service_type = ? ORDER BY priority DESC, created_at DESC';
+    sql = 'SELECT * FROM ai_service_configs WHERE deleted_at IS NULL AND service_type = ? ' + order;
     params.push(serviceType);
   }
   const rows = params.length ? db.prepare(sql).all(...params) : db.prepare(sql).all();
   return rows.map(rowToConfig);
+}
+
+function clearOtherDefault(db, serviceType, exceptId) {
+  const stmt = db.prepare(
+    'UPDATE ai_service_configs SET is_default = 0 WHERE deleted_at IS NULL AND service_type = ? AND id != ?'
+  );
+  stmt.run(serviceType, exceptId);
 }
 
 function getConfig(db, id) {
@@ -57,9 +81,10 @@ function createConfig(db, log, req) {
       }
     }
   }
+  const defaultModel = req.default_model != null ? String(req.default_model).trim() || null : null;
   const info = db.prepare(
-    `INSERT INTO ai_service_configs (service_type, provider, name, base_url, api_key, model, endpoint, query_endpoint, priority, is_default, is_active, settings, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`
+    `INSERT INTO ai_service_configs (service_type, provider, name, base_url, api_key, model, default_model, endpoint, query_endpoint, priority, is_default, is_active, settings, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`
   ).run(
     req.service_type || 'text',
     req.provider || '',
@@ -67,6 +92,7 @@ function createConfig(db, log, req) {
     req.base_url || '',
     req.api_key || '',
     model,
+    defaultModel,
     endpoint,
     queryEndpoint,
     req.priority ?? 0,
@@ -76,7 +102,9 @@ function createConfig(db, log, req) {
     now
   );
   log.info('AI config created', { config_id: info.lastInsertRowid, provider: req.provider });
-  return getConfig(db, info.lastInsertRowid);
+  const newId = info.lastInsertRowid;
+  if (req.is_default) clearOtherDefault(db, req.service_type || 'text', newId);
+  return getConfig(db, newId);
 }
 
 function updateConfig(db, log, id, req) {
@@ -103,6 +131,10 @@ function updateConfig(db, log, id, req) {
   if (req.model != null) {
     updates.push('model = ?');
     params.push(modelToDb(req.model));
+  }
+  if (req.default_model !== undefined) {
+    updates.push('default_model = ?');
+    params.push(req.default_model != null ? String(req.default_model).trim() || null : null);
   }
   if (req.priority != null) {
     updates.push('priority = ?');
@@ -131,6 +163,7 @@ function updateConfig(db, log, id, req) {
   if (updates.length === 0) return existing;
   params.push(new Date().toISOString(), id);
   db.prepare('UPDATE ai_service_configs SET ' + updates.join(', ') + ', updated_at = ? WHERE id = ?').run(...params);
+  if (req.is_default === true) clearOtherDefault(db, existing.service_type, id);
   log.info('AI config updated', { config_id: id });
   return getConfig(db, id);
 }
@@ -152,6 +185,7 @@ function rowToConfig(r) {
     base_url: r.base_url,
     api_key: r.api_key,
     model: modelFromDb(r.model),
+    default_model: r.default_model ? String(r.default_model).trim() : null,
     endpoint: r.endpoint,
     query_endpoint: r.query_endpoint,
     priority: r.priority ?? 0,

@@ -20,7 +20,7 @@ function generateCharacterImage(db, log, cfg, characterId, modelName, style) {
   prompt += (cfg?.style?.default_style || '');
   prompt += (cfg?.style?.default_role_style || '');
   prompt += (cfg?.style?.default_role_ratio || '') || (cfg?.style?.default_image_ratio ? ', image ratio: ' + cfg.style.default_image_ratio : '');
-
+  console.log('characters generateCharacterImage prompt', prompt);
   const imageGen = imageClient.createAndGenerateImage(db, log, {
     drama_id: charRow.drama_id,
     character_id: charRow.id,

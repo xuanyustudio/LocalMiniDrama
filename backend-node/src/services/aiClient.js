@@ -1,10 +1,13 @@
 // 与 Go pkg/ai + application/services/ai_service 对齐：读取 ai_service_configs，调用 OpenAI 兼容的 chat completions
 const aiConfigService = require('./aiConfigService');
 
+// 使用前端设置的「默认」与「优先级」：listConfigs 已按 is_default DESC, priority DESC 排序
 function getDefaultConfig(db, serviceType) {
   const configs = aiConfigService.listConfigs(db, serviceType);
   const active = configs.filter((c) => c.is_active);
-  return active.length ? active[0] : null;
+  if (active.length === 0) return null;
+  const defaultOne = active.find((c) => c.is_default);
+  return defaultOne != null ? defaultOne : active[0];
 }
 
 function getConfigForModel(db, serviceType, modelName) {
@@ -27,6 +30,7 @@ function buildChatUrl(config) {
 function getModelFromConfig(config, preferredModel) {
   const models = Array.isArray(config.model) ? config.model : (config.model != null ? [config.model] : []);
   if (preferredModel && models.includes(preferredModel)) return preferredModel;
+  if (config.default_model && models.includes(config.default_model)) return config.default_model;
   return models[0] || 'gpt-3.5-turbo';
 }
 

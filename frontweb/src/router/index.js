@@ -14,13 +14,19 @@ const router = createRouter({
       name: 'film',
       component: () => import('@/views/FilmCreate.vue'),
       meta: { title: 'AI 视频生成' }
+    },
+    {
+      path: '/ai-config',
+      name: 'ai-config',
+      component: () => import('@/views/AiConfig.vue'),
+      meta: { title: 'AI 配置' }
     }
   ]
 })
 
 router.beforeEach((to) => {
   if (to.meta.title) {
-    document.title = `${to.meta.title} - Filmaction`
+    document.title = `${to.meta.title} - LocalMiniDrama`
   }
   return true
 })

@@ -3,11 +3,15 @@
     <!-- 顶部 -->
     <header class="header">
       <div class="header-inner">
-        <h1 class="logo" @click="goList">Filmaction.ai</h1>
+        <h1 class="logo" @click="goList">LocalMiniDrama.ai</h1>
         <span class="page-title">{{ dramaId ? (store.drama?.title || '项目') : '新建故事' }}</span>
         <el-button class="btn-new" @click="goList">
           <el-icon><Plus /></el-icon>
           新建项目
+        </el-button>
+        <el-button class="btn-ai-config" @click="showAiConfigDialog = true">
+          <el-icon><Setting /></el-icon>
+          AI配置
         </el-button>
       </div>
     </header>
@@ -118,7 +122,7 @@
                 <div v-for="char in characters" :key="char.id" class="asset-item asset-item-left-right">
                   <div class="asset-info">
                     <div class="asset-name">{{ char.name }}</div>
-                    <div class="asset-desc-full">{{ char.description || char.appearance || '暂无描述' }}</div>
+                    <div class="asset-desc-full">{{ char.appearance || char.description || '暂无描述' }}</div>
                     <div class="asset-btns">
                       <el-button size="small" :loading="generatingCharId === char.id" @click="onGenerateCharacterImage(char)">
                         AI 生成
@@ -154,7 +158,7 @@
             </div>
             <div v-show="!propsBlockCollapsed" class="resource-block-body">
               <div class="asset-actions">
-                <el-button size="small" :disabled="!currentEpisodeId" @click="onExtractProps">从剧本提取道具</el-button>
+                <el-button size="small" :loading="propsExtracting" :disabled="!currentEpisodeId" @click="onExtractProps">从剧本提取道具</el-button>
                 <el-button type="primary" size="small" :disabled="!dramaId" @click="showAddProp = true">添加道具</el-button>
               </div>
               <div class="asset-list asset-list-two">
@@ -505,19 +509,7 @@
             <el-switch v-model="videoWatermark" />
           </el-form-item>
         </div>
-        <h3 class="sub-title">AI 模型配置</h3>
-        <div class="config-grid">
-          <el-form-item label="图片生成模型">
-            <el-select v-model="selectedImageModel" placeholder="请选择" style="width: 220px" @focus="loadImageModels">
-              <el-option v-for="m in imageModelOptions" :key="m.value" :label="m.label" :value="m.value" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="视频生成模型">
-            <el-select v-model="selectedVideoModel" placeholder="请选择" style="width: 220px" @focus="loadVideoModels">
-              <el-option v-for="m in videoModelOptions" :key="m.value" :label="m.label" :value="m.value" />
-            </el-select>
-          </el-form-item>
-        </div>
+        <p class="config-tip">文本/图片/视频使用的模型以「<el-link type="primary" :underline="false" @click="showAiConfigDialog = true">AI 配置</el-link>」中设为默认的为准。</p>
       </section>
 
       <!-- 8. 生成视频 -->
@@ -624,6 +616,11 @@
       </template>
     </el-dialog>
 
+    <!-- AI 配置弹窗（不跳转，避免本页内容丢失） -->
+    <el-dialog v-model="showAiConfigDialog" title="AI 配置" width="90%" destroy-on-close class="ai-config-dialog">
+      <AIConfigContent v-if="showAiConfigDialog" />
+    </el-dialog>
+
     <!-- 图片放大预览：点击遮罩或图片关闭 -->
     <Teleport to="body">
       <div
@@ -642,7 +639,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowUp, ArrowDown } from '@element-plus/icons-vue'
+import { ArrowUp, ArrowDown, Setting } from '@element-plus/icons-vue'
 import { useFilmStore } from '@/stores/film'
 import { dramaAPI } from '@/api/drama'
 import { generationAPI } from '@/api/generation'
@@ -654,6 +651,7 @@ import { taskAPI } from '@/api/task'
 import { imagesAPI } from '@/api/images'
 import { videosAPI } from '@/api/videos'
 import { uploadAPI } from '@/api/upload'
+import AIConfigContent from '@/components/AIConfigContent.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -664,6 +662,7 @@ function goList() {
   router.push('/')
 }
 
+const showAiConfigDialog = ref(false)
 const storyInput = ref('')
 const storyStyle = ref('')
 const storyType = ref('')
@@ -678,14 +677,6 @@ const scriptGenerating = ref(false)
 const scriptContent = computed({
   get: () => store.scriptContent,
   set: (v) => store.setScriptContent(v)
-})
-const selectedImageModel = computed({
-  get: () => store.selectedImageModel,
-  set: (v) => store.setSelectedImageModel(v)
-})
-const selectedVideoModel = computed({
-  get: () => store.selectedVideoModel,
-  set: (v) => store.setSelectedVideoModel(v)
 })
 const videoResolution = storeVideoResolution
 const videoMusic = ref('')
@@ -708,11 +699,10 @@ const charactersGenerating = ref(false)
 const generatingCharId = ref(null)
 const generatingPropId = ref(null)
 const generatingSceneId = ref(null)
+const propsExtracting = ref(false)
 const scenesExtracting = ref(false)
 const storyboardGenerating = ref(false)
 const videoErrorMsg = ref('')
-const imageModelOptions = ref([])
-const videoModelOptions = ref([])
 const showAddProp = ref(false)
 const addPropForm = ref({ name: '', description: '', prompt: '' })
 
@@ -847,7 +837,7 @@ async function onGenerateSbImage(sb) {
       storyboard_id: sb.id,
       drama_id: dramaId.value,
       prompt: sb.image_prompt || sb.description || '',
-      model: selectedImageModel.value || undefined
+      model: undefined
     })
     ElMessage.success('分镜图生成任务已提交')
     await pollSbImageThenRefetch(sb.id)
@@ -1267,7 +1257,7 @@ async function onDeleteCharacter(char) {
 async function onGenerateCharacterImage(char) {
   generatingCharId.value = char.id
   try {
-    const res = await characterAPI.generateImage(char.id, store.selectedImageModel || undefined)
+    const res = await characterAPI.generateImage(char.id, undefined)
     const taskId = res?.image_generation?.task_id ?? res?.task_id
     if (taskId) {
       await pollTask(taskId, () => loadDrama())
@@ -1293,13 +1283,21 @@ async function onExtractProps() {
     ElMessage.warning('请先完成剧本并保存')
     return
   }
+  propsExtracting.value = true
   try {
     const res = await propAPI.extractFromScript(currentEpisodeId.value)
-    if (res?.task_id) await pollTask(res.task_id, () => loadDrama())
-    await loadDrama()
-    ElMessage.success('道具提取任务已提交')
+    const taskId = res?.task_id
+    if (taskId) {
+      await pollTask(taskId, () => loadDrama())
+      ElMessage.success('道具提取完成')
+    } else {
+      await loadDrama()
+      ElMessage.success('道具提取任务已提交')
+    }
   } catch (e) {
     ElMessage.error(e.message || '提取失败')
+  } finally {
+    propsExtracting.value = false
   }
 }
 
@@ -1353,7 +1351,7 @@ async function onDeleteProp(prop) {
 async function onGeneratePropImage(prop) {
   generatingPropId.value = prop.id
   try {
-    const model = store.selectedImageModel || undefined
+    const model = undefined
     const res = await propAPI.generateImage(prop.id, model)
     const taskId = res?.task_id
     if (taskId) {
@@ -1380,7 +1378,7 @@ async function onExtractScenes() {
   scenesExtracting.value = true
   try {
     const res = await dramaAPI.extractBackgrounds(currentEpisodeId.value, {
-      model: store.selectedImageModel || undefined
+      model: undefined
     })
     const taskId = res?.task_id
     if (taskId) {
@@ -1447,7 +1445,7 @@ async function onGenerateSceneImage(scene) {
   try {
     const res = await sceneAPI.generateImage({
       scene_id: scene.id,
-      model: store.selectedImageModel || undefined
+      model: undefined
     })
     const taskId = res?.image_generation?.task_id ?? res?.task_id
     if (taskId) {
@@ -1502,7 +1500,7 @@ async function onGenerateSbVideo(sb) {
       prompt: sb.video_prompt,
       image_url: absoluteUrl || undefined,
       reference_image_urls: absoluteUrl ? [absoluteUrl] : undefined,
-      model: store.selectedVideoModel || undefined
+      model: undefined
     })
     if (res?.task_id) {
       await pollTask(res.task_id, () => loadStoryboardMedia())
@@ -1522,7 +1520,7 @@ async function onGenerateStoryboard() {
   if (!currentEpisodeId.value) return
   storyboardGenerating.value = true
   try {
-    const res = await dramaAPI.generateStoryboard(currentEpisodeId.value, store.selectedImageModel || undefined)
+    const res = await dramaAPI.generateStoryboard(currentEpisodeId.value, undefined)
     if (res?.task_id) await pollTask(res.task_id, () => loadDrama())
     await loadDrama()
     ElMessage.success('分镜生成任务已提交')
@@ -1581,38 +1579,6 @@ function pollTask(taskId, onDone) {
     }
     setTimeout(tick, interval)
   })
-}
-
-async function loadImageModels() {
-  if (imageModelOptions.value.length > 0) return
-  try {
-    const list = await aiAPI.list('image')
-    const active = (list || []).filter((c) => c.is_active !== false)
-    const opts = []
-    for (const c of active) {
-      const models = Array.isArray(c.model) ? c.model : c.model != null ? [c.model] : []
-      for (const m of models) opts.push({ label: `${c.name || c.provider} - ${m}`, value: m })
-    }
-    imageModelOptions.value = opts
-  } catch (_) {
-    imageModelOptions.value = []
-  }
-}
-
-async function loadVideoModels() {
-  if (videoModelOptions.value.length > 0) return
-  try {
-    const list = await aiAPI.list('video')
-    const active = (list || []).filter((c) => c.is_active !== false)
-    const opts = []
-    for (const c of active) {
-      const models = Array.isArray(c.model) ? c.model : c.model != null ? [c.model] : []
-      for (const m of models) opts.push({ label: `${c.name || c.provider} - ${m}`, value: m })
-    }
-    videoModelOptions.value = opts
-  } catch (_) {
-    videoModelOptions.value = []
-  }
 }
 
 async function submitAddProp() {
@@ -2118,6 +2084,12 @@ onMounted(() => {
   gap: 12px 24px;
   margin-bottom: 16px;
 }
+.config-tip {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  color: #a1a1aa;
+}
+.config-tip .el-link { font-size: inherit; }
 .sub-title {
   font-size: 1rem;
   margin: 16px 0 8px;
