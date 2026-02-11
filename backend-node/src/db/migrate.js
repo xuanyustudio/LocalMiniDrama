@@ -91,11 +91,38 @@ function ensurePropsEpisodeIdColumn(database) {
   }
 }
 
+/** 若 async_tasks 缺少 completed_at/error/result 则补上（taskService 依赖） */
+function ensureAsyncTasksColumns(database) {
+  const cols = ['completed_at', 'error', 'result'];
+  try {
+    const rows = database.prepare("PRAGMA table_info(async_tasks)").all();
+    const names = new Set(rows.map((r) => r.name));
+    for (const col of cols) {
+      if (names.has(col)) continue;
+      try {
+        database.exec(`ALTER TABLE async_tasks ADD COLUMN ${col} TEXT`);
+        console.log('Ran ensureAsyncTasksColumns: added', col);
+      } catch (e) {
+        if ((e.message || '').toLowerCase().includes('duplicate column')) {}
+        else throw e;
+      }
+    }
+  } catch (err) {
+    const msg = (err.message || '').toLowerCase();
+    if (msg.includes('no such table')) {
+      console.log('ensureAsyncTasksColumns: table not found, skip');
+    } else {
+      throw err;
+    }
+  }
+}
+
 /** 对已打开的 database 执行迁移与兜底补列（供 app 启动时调用） */
 function runMigrationsAndEnsure(database) {
   runMigrations(database);
   ensureDefaultModelColumn(database);
   ensurePropsEpisodeIdColumn(database);
+  ensureAsyncTasksColumns(database);
 }
 
 function main() {

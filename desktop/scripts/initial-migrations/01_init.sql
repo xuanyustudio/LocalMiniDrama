@@ -149,6 +149,9 @@ CREATE TABLE IF NOT EXISTS async_tasks (
   resource_id TEXT,
   created_at TEXT,
   updated_at TEXT,
+  completed_at TEXT,
+  error TEXT,
+  result TEXT,
   deleted_at TEXT
 );
 

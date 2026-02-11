@@ -13,13 +13,18 @@ function getBackendCwd() {
 }
 
 function ensureBackendCwd(backendCwd) {
+  if (!fs.existsSync(backendCwd)) {
+    fs.mkdirSync(backendCwd, { recursive: true });
+  }
   const configsDir = path.join(backendCwd, 'configs');
   const dataDir = path.join(backendCwd, 'data');
+  const logsDir = path.join(backendCwd, 'logs');
   const configPath = path.join(configsDir, 'config.yaml');
   const examplePath = path.join(configsDir, 'config.example.yaml');
 
   if (!fs.existsSync(configsDir)) fs.mkdirSync(configsDir, { recursive: true });
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
   const sourceExample = path.join(BACKEND_MODULE_PATH, 'configs', 'config.example.yaml');
 
@@ -74,17 +79,23 @@ function createWindow(port) {
   win.once('ready-to-show', () => win.show());
   win.loadURL(`http://127.0.0.1:${port}`);
   win.on('closed', () => app.quit());
+  if (process.env.LOCALMINIDRAMA_DEVTOOLS === '1') {
+    win.webContents.openDevTools();
+  }
 }
 
 let serverInstance = null;
 
+/** 后端始终在主进程内运行（打包用子进程会重复启动 exe 导致大量进程，故取消） */
 function startBackend() {
   const backendCwd = getBackendCwd();
   ensureBackendCwd(backendCwd);
   process.env.WEB_DIST_PATH = getWebDistPath();
+  if (app.isPackaged) {
+    process.env.LOG_FILE = path.join(backendCwd, 'logs', 'app.log');
+  }
   process.chdir(backendCwd);
 
-  // 启动前自动执行数据库迁移（创建/更新表）
   try {
     require(path.join(BACKEND_MODULE_PATH, 'src', 'db', 'migrate.js'));
   } catch (err) {
