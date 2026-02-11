@@ -31,8 +31,17 @@ function createApp() {
     next();
   });
 
-  if (config.storage?.local_path) {
-    app.use('/static', express.static(config.storage.local_path));
+  // 静态资源目录：统一转为绝对路径（打包 exe 下相对路径可能解析异常）
+  const storageRoot = config.storage?.local_path
+    ? (path.isAbsolute(config.storage.local_path)
+        ? config.storage.local_path
+        : path.join(process.cwd(), config.storage.local_path))
+    : path.join(process.cwd(), 'data', 'storage');
+  try {
+    if (!fs.existsSync(storageRoot)) fs.mkdirSync(storageRoot, { recursive: true });
+    app.use('/static', express.static(storageRoot));
+  } catch (e) {
+    console.warn('Static storage mount skipped:', e.message);
   }
 
   app.get('/health', (req, res) => {

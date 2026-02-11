@@ -117,12 +117,60 @@ function ensureAsyncTasksColumns(database) {
   }
 }
 
+/** 若 image_generations 缺少 completed_at / error_msg 则补上（imageClient 更新完成时间与错误信息用） */
+function ensureImageGenerationsColumns(database) {
+  const cols = ['completed_at', 'error_msg'];
+  try {
+    const rows = database.prepare("PRAGMA table_info(image_generations)").all();
+    const names = new Set(rows.map((r) => r.name));
+    for (const col of cols) {
+      if (names.has(col)) continue;
+      try {
+        database.exec(`ALTER TABLE image_generations ADD COLUMN ${col} TEXT`);
+        console.log('Ran ensureImageGenerationsColumns: added', col);
+      } catch (e) {
+        if ((e.message || '').toLowerCase().includes('duplicate column')) {}
+        else throw e;
+      }
+    }
+  } catch (err) {
+    const msg = (err.message || '').toLowerCase();
+    if (msg.includes('no such table')) {
+      console.log('ensureImageGenerationsColumns: table not found, skip');
+    } else {
+      throw err;
+    }
+  }
+}
+
+/** 若 characters 缺少 local_path 则补上（角色本地图片路径） */
+function ensureCharactersLocalPathColumn(database) {
+  try {
+    const rows = database.prepare("PRAGMA table_info(characters)").all();
+    const hasColumn = rows.some((r) => r.name === 'local_path');
+    if (hasColumn) return;
+    database.exec('ALTER TABLE characters ADD COLUMN local_path TEXT');
+    console.log('Ran ensureCharactersLocalPathColumn: added local_path');
+  } catch (err) {
+    const msg = (err.message || '').toLowerCase();
+    if (msg.includes('duplicate column')) {
+      console.log('ensureCharactersLocalPathColumn: column already exists');
+    } else if (msg.includes('no such table')) {
+      console.log('ensureCharactersLocalPathColumn: table not found, skip');
+    } else {
+      throw err;
+    }
+  }
+}
+
 /** 对已打开的 database 执行迁移与兜底补列（供 app 启动时调用） */
 function runMigrationsAndEnsure(database) {
   runMigrations(database);
   ensureDefaultModelColumn(database);
   ensurePropsEpisodeIdColumn(database);
   ensureAsyncTasksColumns(database);
+  ensureImageGenerationsColumns(database);
+  ensureCharactersLocalPathColumn(database);
 }
 
 function main() {

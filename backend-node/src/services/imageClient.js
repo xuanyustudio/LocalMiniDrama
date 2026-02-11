@@ -458,27 +458,55 @@ function createAndGenerateImage(db, log, opts) {
           : path.join(process.cwd(), cfg.storage?.local_path || './data/storage');
         localPath = await uploadService.downloadImageToLocal(storagePath, result.image_url, 'characters', log, 'ig');
       } catch (_) {}
-      db.prepare(
-        'UPDATE image_generations SET status = ?, image_url = ?, local_path = ?, completed_at = ?, updated_at = ? WHERE id = ?'
-      ).run('completed', result.image_url, localPath, now2, now2, imageGenId);
-      taskService.updateTaskResult(db, taskId, { image_generation_id: imageGenId, image_url: result.image_url, status: 'completed' });
+      // 兼容旧库无 completed_at：先试完整 UPDATE，失败则只更新必有列
+      try {
+        db.prepare(
+          'UPDATE image_generations SET status = ?, image_url = ?, local_path = ?, completed_at = ?, updated_at = ? WHERE id = ?'
+        ).run('completed', result.image_url, localPath, now2, now2, imageGenId);
+      } catch (e) {
+        if ((e.message || '').includes('completed_at')) {
+          db.prepare(
+            'UPDATE image_generations SET status = ?, image_url = ?, local_path = ?, updated_at = ? WHERE id = ?'
+          ).run('completed', result.image_url, localPath, now2, imageGenId);
+        } else {
+          throw e;
+        }
+      }
+      taskService.updateTaskResult(db, taskId, { image_generation_id: imageGenId, image_url: result.image_url, local_path: localPath, status: 'completed' });
       if (charIdNum != null) {
-        db.prepare('UPDATE characters SET image_url = ?, local_path = ?, updated_at = ? WHERE id = ?').run(
-          result.image_url,
-          localPath,
-          now2,
-          charIdNum
-        );
+        try {
+          db.prepare('UPDATE characters SET image_url = ?, local_path = ?, updated_at = ? WHERE id = ?').run(
+            result.image_url,
+            localPath,
+            now2,
+            charIdNum
+          );
+        } catch (e) {
+          if ((e.message || '').includes('local_path')) {
+            db.prepare('UPDATE characters SET image_url = ?, updated_at = ? WHERE id = ?').run(result.image_url, now2, charIdNum);
+          } else {
+            throw e;
+          }
+        }
         log.info('Character image updated', { character_id: charIdNum, image_url: result.image_url, local_path: localPath });
       }
       log.info('Image generation completed', { image_gen_id: imageGenId, local_path: localPath });
     } catch (err) {
       const now2 = new Date().toISOString();
-      db.prepare(
-        'UPDATE image_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?'
-      ).run('failed', (err.message || '').slice(0, 500), now2, imageGenId);
-      taskService.updateTaskError(db, taskId, err.message);
-      log.error('Image generation error', { image_gen_id: imageGenId, error: err.message });
+      const errMsg = (err && err.message) ? String(err.message).slice(0, 500) : 'Unknown error';
+      try {
+        db.prepare(
+          'UPDATE image_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?'
+        ).run('failed', errMsg, now2, imageGenId);
+      } catch (e) {
+        log.error('Image generation: failed to update image_generations', { image_gen_id: imageGenId, error: e.message });
+      }
+      try {
+        taskService.updateTaskError(db, taskId, errMsg);
+      } catch (e) {
+        log.error('Image generation: failed to update task status', { task_id: taskId, error: e.message });
+      }
+      log.error('Image generation error', { image_gen_id: imageGenId, task_id: taskId, error: err.message });
     }
   });
 

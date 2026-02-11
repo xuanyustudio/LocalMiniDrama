@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS characters (
   personality TEXT,
   appearance TEXT,
   image_url TEXT,
+  local_path TEXT,
   voice_style TEXT,
   sort_order INTEGER DEFAULT 0,
   created_at TEXT,
@@ -173,6 +174,8 @@ CREATE TABLE IF NOT EXISTS image_generations (
   local_path TEXT,
   status TEXT,
   task_id TEXT,
+  completed_at TEXT,
+  error_msg TEXT,
   created_at TEXT,
   updated_at TEXT,
   deleted_at TEXT
