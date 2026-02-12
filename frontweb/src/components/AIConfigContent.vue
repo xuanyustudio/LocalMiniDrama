@@ -9,6 +9,10 @@
         <el-icon><MagicStick /></el-icon>
         一键配置通义
       </el-button>
+      <el-button type="success" plain @click="openOneKeyVolc">
+        <el-icon><MagicStick /></el-icon>
+        一键配置火山
+      </el-button>
     </div>
     <p class="default-tip">文本、图片、视频每种类型仅有一个默认配置；生成故事 / 角色图 / 分镜图 / 视频时会使用对应类型的默认配置。</p>
     <el-table v-loading="loading" :data="list" stripe style="width: 100%">
@@ -152,6 +156,34 @@
       </template>
     </el-dialog>
 
+    <!-- 一键配置火山 -->
+    <el-dialog
+      v-model="oneKeyVolcVisible"
+      title="一键配置火山"
+      width="440px"
+      :close-on-click-modal="false"
+      @closed="oneKeyVolcKey = ''"
+    >
+      <p class="one-key-tip">将同时创建「文本」「图片」「视频」三条火山引擎配置，只需填写一次 API Key。</p>
+      <el-form label-width="0">
+        <el-form-item>
+          <el-input
+            v-model="oneKeyVolcKey"
+            type="password"
+            placeholder="请输入火山引擎（方舟）API Key"
+            show-password-on="click"
+            clearable
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="oneKeyVolcVisible = false">取消</el-button>
+        <el-button type="success" :loading="oneKeyVolcSaving" :disabled="!oneKeyVolcKey.trim()" @click="submitOneKeyVolc">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 测试连接 -->
     <el-dialog v-model="testVisible" title="测试连接" width="400px">
       <p v-if="testResult === null">正在测试…</p>
@@ -241,11 +273,15 @@ const testError = ref('')
 const oneKeyTongyiVisible = ref(false)
 const oneKeyTongyiKey = ref('')
 const oneKeyTongyiSaving = ref(false)
+const oneKeyVolcVisible = ref(false)
+const oneKeyVolcKey = ref('')
+const oneKeyVolcSaving = ref(false)
 
 /** 预设厂商与模型（与参考前端一致） */
 const providerConfigs = {
   text: [
     { id: 'openai', name: 'OpenAI', models: ['gpt-4o', 'gpt-4', 'gpt-3.5-turbo'] },
+    { id: 'volcengine', name: '火山引擎', models: ['doubao-1-5-pro-32k-250115', 'kimi-k2-thinking-251104'] },
     { id: 'chatfire', name: 'Chatfire', models: ['gemini-3-flash-preview', 'claude-sonnet-4-5-20250929', 'doubao-seed-1-8-251228'] },
     { id: 'gemini', name: 'Google Gemini', models: ['gemini-2.5-pro', 'gemini-3-flash-preview'] },
     { id: 'deepseek', name: 'DeepSeek', models: ['deepseek-chat', 'deepseek-reasoner'] },
@@ -323,6 +359,13 @@ const TONGYI_CONFIGS = [
   { service_type: 'text', name: '通义千问', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', provider: 'qwen', model: ['qwen-plus'] },
   { service_type: 'image', name: '通义万象', base_url: 'https://dashscope.aliyuncs.com', provider: 'dashscope', model: ['wan2.6-image'] },
   { service_type: 'video', name: '通义万相', base_url: 'https://dashscope.aliyuncs.com', provider: 'dashscope', model: ['wan2.2-kf2v-flash'] }
+]
+
+/** 火山引擎一键配置用 */
+const VOLCENGINE_CONFIGS = [
+  { service_type: 'text', name: '火山引擎 文本', base_url: 'https://ark.cn-beijing.volces.com/api/v3', provider: 'volcengine', model: ['doubao-1-5-pro-32k-250115', 'kimi-k2-thinking-251104'] },
+  { service_type: 'image', name: '火山引擎 即梦', base_url: 'https://ark.cn-beijing.volces.com/api/v3', provider: 'volcengine', model: ['doubao-seedream-4-5-251128'] },
+  { service_type: 'video', name: '火山引擎 即梦 视频', base_url: 'https://ark.cn-beijing.volces.com/api/v3', provider: 'volces', model: ['doubao-seedance-1-5-pro-251215'] }
 ]
 
 function serviceTypeLabel(t) {
@@ -486,6 +529,40 @@ async function submitOneKeyTongyi() {
     // 错误已由 request 统一提示
   } finally {
     oneKeyTongyiSaving.value = false
+  }
+}
+
+function openOneKeyVolc() {
+  oneKeyVolcKey.value = ''
+  oneKeyVolcVisible.value = true
+}
+
+async function submitOneKeyVolc() {
+  const apiKey = oneKeyVolcKey.value.trim()
+  if (!apiKey) return
+  oneKeyVolcSaving.value = true
+  try {
+    for (const cfg of VOLCENGINE_CONFIGS) {
+      const models = cfg.model || []
+      await aiAPI.create({
+        service_type: cfg.service_type,
+        name: cfg.name,
+        provider: cfg.provider,
+        base_url: cfg.base_url,
+        api_key: apiKey,
+        model: models,
+        default_model: models[0] || null,
+        priority: 10,
+        is_default: true
+      })
+    }
+    ElMessage.success('已创建火山引擎文本、图片、视频三条配置')
+    oneKeyVolcVisible.value = false
+    await loadList()
+  } catch (_) {
+    // 错误已由 request 统一提示
+  } finally {
+    oneKeyVolcSaving.value = false
   }
 }
 

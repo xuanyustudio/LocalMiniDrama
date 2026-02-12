@@ -1026,6 +1026,50 @@ function updateStoryboardDialogue(sbId) {
   // 可在此防抖后调用后端更新 dialogue
 }
 
+/** 将当前剧本内容保存到后端（创建/更新项目与集数），供「保存剧本」与「AI 生成」后自动保存共用 */
+async function saveScriptToBackend(content) {
+  const trimmed = (content ?? '').toString().trim()
+  if (!trimmed) return
+  let dramaId = store.dramaId
+  const curEp = store.currentEpisode
+  if (!dramaId) {
+    const drama = await dramaAPI.create({
+      title: scriptTitle.value || '新故事',
+      description: storyInput.value?.trim() || trimmed.slice(0, 200),
+      genre: storyType.value || undefined
+    })
+    store.setDrama(drama)
+    dramaId = drama.id
+    savedCurrentEpisodeNumber.value = 1
+    const episodes = [{ episode_number: 1, title: scriptTitle.value || '第1集', script_content: trimmed }]
+    await dramaAPI.saveEpisodes(dramaId, episodes)
+    await loadDrama()
+    if (route.params.id === 'new') {
+      router.replace('/film/' + dramaId)
+    }
+    return { created: true }
+  }
+  const episodes = store.drama?.episodes || []
+  savedCurrentEpisodeNumber.value = curEp?.episode_number ?? 1
+  const updated = episodes.map((ep, i) => {
+    const num = ep.episode_number ?? i + 1
+    const isCurrent = curEp && Number(ep.id) === Number(curEp.id)
+    return {
+      episode_number: num,
+      title: isCurrent ? (scriptTitle.value || '第' + num + '集') : (ep.title || ''),
+      script_content: isCurrent ? trimmed : (ep.script_content || ''),
+      description: ep.description,
+      duration: ep.duration
+    }
+  })
+  if (updated.length === 0) {
+    updated.push({ episode_number: 1, title: scriptTitle.value || '第1集', script_content: trimmed })
+  }
+  await dramaAPI.saveEpisodes(dramaId, updated)
+  await loadDrama()
+  return { created: false }
+}
+
 async function onGenerateStory() {
   const text = (storyInput.value || '').trim()
   if (!text) {
@@ -1044,7 +1088,19 @@ async function onGenerateStory() {
     if (!scriptTitle.value?.trim()) {
       scriptTitle.value = '第1集'
     }
-    ElMessage.success('剧本已生成，请到下方「剧本生成」查看并保存')
+    scriptGenerating.value = true
+    try {
+      const result = await saveScriptToBackend(content)
+      if (result?.created) {
+        ElMessage.success('剧本已生成，项目已创建并保存第1集')
+      } else {
+        ElMessage.success('剧本已生成并已保存当前集')
+      }
+    } catch (e) {
+      ElMessage.error(e.message || '保存剧本失败')
+    } finally {
+      scriptGenerating.value = false
+    }
   } catch (e) {
     ElMessage.error(e.message || '故事生成失败')
   } finally {
@@ -1060,43 +1116,10 @@ async function onGenerateScript() {
   }
   scriptGenerating.value = true
   try {
-    let dramaId = store.dramaId
-    const curEp = store.currentEpisode
-    if (!dramaId) {
-      const drama = await dramaAPI.create({
-        title: scriptTitle.value || '新故事',
-        description: storyInput.value?.trim() || content.slice(0, 200),
-        genre: storyType.value || undefined
-      })
-      store.setDrama(drama)
-      dramaId = drama.id
-      savedCurrentEpisodeNumber.value = 1
-      const episodes = [{ episode_number: 1, title: scriptTitle.value || '第1集', script_content: content }]
-      await dramaAPI.saveEpisodes(dramaId, episodes)
-      await loadDrama()
+    const result = await saveScriptToBackend(content)
+    if (result?.created) {
       ElMessage.success('项目已创建，剧本已保存')
-      if (route.params.id === 'new') {
-        router.replace('/film/' + dramaId)
-      }
     } else {
-      const episodes = store.drama?.episodes || []
-      savedCurrentEpisodeNumber.value = curEp?.episode_number ?? 1
-      const updated = episodes.map((ep, i) => {
-        const num = ep.episode_number ?? i + 1
-        const isCurrent = curEp && Number(ep.id) === Number(curEp.id)
-        return {
-          episode_number: num,
-          title: isCurrent ? (scriptTitle.value || '第' + num + '集') : (ep.title || ''),
-          script_content: isCurrent ? content : (ep.script_content || ''),
-          description: ep.description,
-          duration: ep.duration
-        }
-      })
-      if (updated.length === 0) {
-        updated.push({ episode_number: 1, title: scriptTitle.value || '第1集', script_content: content })
-      }
-      await dramaAPI.saveEpisodes(dramaId, updated)
-      await loadDrama()
       ElMessage.success('剧本已保存')
     }
   } catch (e) {
