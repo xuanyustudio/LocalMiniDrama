@@ -18,7 +18,20 @@ function getDefaultVideoConfig(db, preferredModel) {
   return defaultOne != null ? defaultOne : active[0];
 }
 
+// 火山引擎视频 API 路径固定为 /contents/generations/tasks，base 读用户配置（并去掉错误子路径）
+const VOLC_VIDEO_CREATE_PATH = '/contents/generations/tasks';
+const VOLC_VIDEO_QUERY_PATH = '/contents/generations/tasks';
+
+function getVolcVideoBase(config) {
+  let base = (config.base_url || '').replace(/\/$/, '');
+  base = base.replace(/\/(contents|video)\/.*$/i, '');
+  return base || 'https://ark.cn-beijing.volces.com/api/v3';
+}
+
 function buildVideoUrl(config) {
+  const p = (config.provider || '').toLowerCase();
+  const isVolc = p === 'volces' || p === 'volcengine' || p === 'volc';
+  if (isVolc) return getVolcVideoBase(config) + VOLC_VIDEO_CREATE_PATH;
   const base = (config.base_url || '').replace(/\/$/, '');
   let ep = config.endpoint || '/video/generations';
   if (!ep.startsWith('/')) ep = '/' + ep;
@@ -26,8 +39,11 @@ function buildVideoUrl(config) {
 }
 
 function buildQueryUrl(config, taskId) {
+  const p = (config.provider || '').toLowerCase();
+  const isDashScope = p === 'dashscope';
+  const isVolc = p === 'volces' || p === 'volcengine' || p === 'volc';
+  if (isVolc) return getVolcVideoBase(config) + VOLC_VIDEO_QUERY_PATH + '/' + encodeURIComponent(taskId);
   const base = (config.base_url || '').replace(/\/$/, '');
-  const isDashScope = (config.provider || '').toLowerCase() === 'dashscope';
   let ep = config.query_endpoint || (isDashScope ? '/api/v1/tasks/{taskId}' : '/video/task/{taskId}');
   ep = String(ep).replace(/{taskId}/g, taskId).replace(/{task_id}/g, taskId);
   if (!ep.startsWith('/')) ep = '/' + ep;
@@ -276,15 +292,42 @@ async function callVideoApi(db, log, opts) {
   const ratio = aspect_ratio || '16:9';
   const promptText = prompt + `  --ratio ${ratio}  --dur ${dur}`;
 
+  const isVolc = ['volces', 'volcengine', 'volc'].includes((config.provider || '').toLowerCase());
+  const hasImage = !!(image_url && image_url.trim());
+  // 火山引擎：doubao-seedance-1-5-pro 不支持 r2v，必须显式传 task_type；单图用 i2v 且不用 reference_image 避免被识别为 r2v
+  const volcTaskType = isVolc ? (hasImage ? 'i2v' : 't2v') : null;
+
+  // 若图片为 localhost URL，火山服务器无法下载，转为 base64（与 DashScope 一致）
+  let imageUrlForApi = image_url && image_url.trim();
+  if (hasImage && imageUrlForApi && (opts.files_base_url || '').match(/localhost|127\.0\.0\.1/i) && opts.storage_local_path) {
+    const baseUrl = (opts.files_base_url || '').replace(/\/$/, '');
+    const afterStatic = imageUrlForApi.split('/static/')[1] || (baseUrl ? imageUrlForApi.replace(baseUrl + '/', '').replace(baseUrl, '') : null);
+    const relPath = afterStatic ? afterStatic.replace(/^\//, '') : null;
+    if (relPath) {
+      const filePath = path.join(opts.storage_local_path, relPath);
+      try {
+        if (fs.existsSync(filePath)) {
+          const buf = fs.readFileSync(filePath);
+          const ext = path.extname(filePath).toLowerCase();
+          const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.bmp': 'image/bmp' }[ext] || 'image/png';
+          imageUrlForApi = 'data:' + mime + ';base64,' + buf.toString('base64');
+        }
+      } catch (_) {}
+    }
+  }
+
   const body = {
     model,
     content: [{ type: 'text', text: promptText }],
   };
-  if (image_url && image_url.trim()) {
-    body.content.push({ type: 'image_url', image_url: { url: image_url }, role: 'reference_image' });
+  if (volcTaskType) body.task_type = volcTaskType;
+  if (hasImage && imageUrlForApi) {
+    const imagePart = { type: 'image_url', image_url: { url: imageUrlForApi } };
+    if (volcTaskType !== 'i2v') imagePart.role = 'reference_image';
+    body.content.push(imagePart);
   }
 
-  log.info('Video API request', { url: url.slice(0, 60), model, video_gen_id });
+  log.info('Video API request', { url: url.slice(0, 60), model, video_gen_id, task_type: body.task_type });
   const res = await fetch(url, {
     method: 'POST',
     headers: {

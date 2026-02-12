@@ -79,6 +79,11 @@ function createConfig(db, log, req) {
         endpoint = '/api/v1/services/aigc/image2video/video-synthesis';
         queryEndpoint = '/api/v1/tasks/{taskId}';
       }
+    } else if (p === 'volces' || p === 'volcengine' || p === 'volc') {
+      if (st === 'video') {
+        endpoint = '/contents/generations/tasks';
+        queryEndpoint = '/contents/generations/tasks/{taskId}';
+      }
     }
   }
   const defaultModel = req.default_model != null ? String(req.default_model).trim() || null : null;

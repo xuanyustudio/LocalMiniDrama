@@ -189,6 +189,32 @@ function ensureScenesImageColumns(database) {
   }
 }
 
+/** 若 video_generations 缺少 completed_at / error_msg 则补上（videoService 更新完成状态用） */
+function ensureVideoGenerationsColumns(database) {
+  const cols = ['completed_at', 'error_msg'];
+  try {
+    const rows = database.prepare("PRAGMA table_info(video_generations)").all();
+    const names = new Set(rows.map((r) => r.name));
+    for (const col of cols) {
+      if (names.has(col)) continue;
+      try {
+        database.exec(`ALTER TABLE video_generations ADD COLUMN ${col} TEXT`);
+        console.log('Ran ensureVideoGenerationsColumns: added', col);
+      } catch (e) {
+        if ((e.message || '').toLowerCase().includes('duplicate column')) {}
+        else throw e;
+      }
+    }
+  } catch (err) {
+    const msg = (err.message || '').toLowerCase();
+    if (msg.includes('no such table')) {
+      console.log('ensureVideoGenerationsColumns: table not found, skip');
+    } else {
+      throw err;
+    }
+  }
+}
+
 /** 对已打开的 database 执行迁移与兜底补列（供 app 启动时调用） */
 function runMigrationsAndEnsure(database) {
   runMigrations(database);
@@ -198,6 +224,7 @@ function runMigrationsAndEnsure(database) {
   ensureImageGenerationsColumns(database);
   ensureCharactersLocalPathColumn(database);
   ensureScenesImageColumns(database);
+  ensureVideoGenerationsColumns(database);
 }
 
 function main() {

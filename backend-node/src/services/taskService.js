@@ -37,10 +37,16 @@ function updateTaskStatus(db, taskId, status, progress, message) {
 
 function updateTaskError(db, taskId, errMsg) {
   const now = new Date().toISOString();
-  db.prepare(
-    `UPDATE async_tasks SET status = 'failed', error = ?, progress = 0, completed_at = ?, updated_at = ?
-     WHERE id = ?`
-  ).run(errMsg || '', now, now, taskId);
+  try {
+    db.prepare(
+      `UPDATE async_tasks SET status = 'failed', error = ?, progress = 0, completed_at = ?, updated_at = ?
+       WHERE id = ?`
+    ).run(errMsg || '', now, now, taskId);
+  } catch (e) {
+    if ((e.message || '').includes('error')) {
+      updateTaskStatus(db, taskId, 'failed', 0, errMsg || '任务失败');
+    } else throw e;
+  }
 }
 
 function updateTaskResult(db, taskId, result) {

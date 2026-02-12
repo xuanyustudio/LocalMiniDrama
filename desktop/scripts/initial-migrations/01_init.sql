@@ -201,6 +201,8 @@ CREATE TABLE IF NOT EXISTS video_generations (
   status TEXT,
   task_id TEXT,
   scene_id INTEGER,
+  completed_at TEXT,
+  error_msg TEXT,
   created_at TEXT,
   updated_at TEXT,
   deleted_at TEXT

@@ -2,14 +2,21 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-const BACKEND_MODULE_PATH = path.join(__dirname, 'backend-app');
+const BACKEND_APP_PATH = path.join(__dirname, 'backend-app');
+const BACKEND_NODE_PATH = path.join(__dirname, '..', 'backend-node');
 const DEFAULT_PORT = 5679;
+
+/** 开发模式用 backend-node（改代码即生效）；打包后用 backend-app */
+function getBackendModulePath() {
+  if (app.isPackaged) return BACKEND_APP_PATH;
+  return fs.existsSync(BACKEND_NODE_PATH) ? BACKEND_NODE_PATH : BACKEND_APP_PATH;
+}
 
 function getBackendCwd() {
   if (app.isPackaged) {
     return path.join(app.getPath('userData'), 'backend');
   }
-  return path.join(__dirname, 'backend-app');
+  return getBackendModulePath();
 }
 
 function ensureBackendCwd(backendCwd) {
@@ -26,7 +33,7 @@ function ensureBackendCwd(backendCwd) {
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
-  const sourceExample = path.join(BACKEND_MODULE_PATH, 'configs', 'config.example.yaml');
+  const sourceExample = path.join(getBackendModulePath(), 'configs', 'config.example.yaml');
 
   if (!fs.existsSync(configPath) && fs.existsSync(sourceExample)) {
     fs.copyFileSync(sourceExample, configPath);
@@ -96,13 +103,14 @@ function startBackend() {
   }
   process.chdir(backendCwd);
 
+  const backendModulePath = getBackendModulePath();
   try {
-    require(path.join(BACKEND_MODULE_PATH, 'src', 'db', 'migrate.js'));
+    require(path.join(backendModulePath, 'src', 'db', 'migrate.js'));
   } catch (err) {
     console.warn('Migration warning:', err.message);
   }
 
-  const { createApp } = require(path.join(BACKEND_MODULE_PATH, 'src', 'app.js'));
+  const { createApp } = require(path.join(backendModulePath, 'src', 'app.js'));
   const { createServer } = require('http');
   const { app: expressApp, config } = createApp();
   const port = config.server?.port || DEFAULT_PORT;

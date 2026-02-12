@@ -1,3 +1,16 @@
+/** 将 video_generations 标为失败；若无 error_msg 列则只更新 status/updated_at */
+function setVideoGenFailed(db, videoGenId, errorMsg, now) {
+  try {
+    db.prepare('UPDATE video_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?').run(
+      'failed', (errorMsg || '').slice(0, 500), now, videoGenId
+    );
+  } catch (e) {
+    if ((e.message || '').includes('error_msg')) {
+      db.prepare('UPDATE video_generations SET status = ?, updated_at = ? WHERE id = ?').run('failed', now, videoGenId);
+    } else throw e;
+  }
+}
+
 function list(db, query) {
   let sql = 'FROM video_generations WHERE deleted_at IS NULL';
   const params = [];
@@ -101,12 +114,7 @@ async function processVideoGeneration(db, log, videoGenId) {
       : path.join(process.cwd(), cfg.storage?.local_path || './data/storage');
     const config = videoClient.getDefaultVideoConfig(db, row.model);
     if (!config) {
-      db.prepare('UPDATE video_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?').run(
-        'failed',
-        '未配置视频模型',
-        new Date().toISOString(),
-        videoGenId
-      );
+      setVideoGenFailed(db, videoGenId, '未配置视频模型', now);
       if (row.task_id) taskService.updateTaskError(db, row.task_id, '未配置视频模型');
       return;
     }
@@ -133,12 +141,7 @@ async function processVideoGeneration(db, log, videoGenId) {
     });
     const now2 = new Date().toISOString();
     if (result.error) {
-      db.prepare('UPDATE video_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?').run(
-        'failed',
-        (result.error || '').slice(0, 500),
-        now2,
-        videoGenId
-      );
+      setVideoGenFailed(db, videoGenId, result.error, now2);
       if (row.task_id) taskService.updateTaskError(db, row.task_id, result.error);
       log.error('Video generation failed', { id: videoGenId, error: result.error });
       return;
@@ -153,9 +156,17 @@ async function processVideoGeneration(db, log, videoGenId) {
           : path.join(process.cwd(), cfg.storage?.local_path || './data/storage');
         localPath = await downloadVideoToLocal(storagePath, result.video_url, videoGenId, log);
       } catch (_) {}
-      db.prepare(
-        'UPDATE video_generations SET status = ?, video_url = ?, local_path = ?, completed_at = ?, updated_at = ? WHERE id = ?'
-      ).run('completed', result.video_url, localPath, now2, now2, videoGenId);
+      try {
+        db.prepare(
+          'UPDATE video_generations SET status = ?, video_url = ?, local_path = ?, completed_at = ?, updated_at = ? WHERE id = ?'
+        ).run('completed', result.video_url, localPath, now2, now2, videoGenId);
+      } catch (e) {
+        if ((e.message || '').includes('completed_at')) {
+          db.prepare(
+            'UPDATE video_generations SET status = ?, video_url = ?, local_path = ?, updated_at = ? WHERE id = ?'
+          ).run('completed', result.video_url, localPath, now2, videoGenId);
+        } else throw e;
+      }
       if (row.task_id) taskService.updateTaskResult(db, row.task_id, { video_generation_id: videoGenId, video_url: result.video_url, status: 'completed' });
       log.info('Video generation completed', { id: videoGenId, video_url: result.video_url, local_path: localPath });
       return;
@@ -178,37 +189,30 @@ async function processVideoGeneration(db, log, videoGenId) {
             : path.join(process.cwd(), cfg.storage?.local_path || './data/storage');
           localPath = await downloadVideoToLocal(storagePath, pollResult.video_url, videoGenId, log);
         } catch (_) {}
-        db.prepare(
-          'UPDATE video_generations SET status = ?, video_url = ?, local_path = ?, completed_at = ?, updated_at = ? WHERE id = ?'
-        ).run('completed', pollResult.video_url, localPath, now3, now3, videoGenId);
+        try {
+          db.prepare(
+            'UPDATE video_generations SET status = ?, video_url = ?, local_path = ?, completed_at = ?, updated_at = ? WHERE id = ?'
+          ).run('completed', pollResult.video_url, localPath, now3, now3, videoGenId);
+        } catch (e) {
+          if ((e.message || '').includes('completed_at')) {
+            db.prepare(
+              'UPDATE video_generations SET status = ?, video_url = ?, local_path = ?, updated_at = ? WHERE id = ?'
+            ).run('completed', pollResult.video_url, localPath, now3, videoGenId);
+          } else throw e;
+        }
         if (row.task_id) taskService.updateTaskResult(db, row.task_id, { video_generation_id: videoGenId, video_url: pollResult.video_url, status: 'completed' });
         log.info('Video generation completed (after poll)', { id: videoGenId, local_path: localPath });
       } else {
-        db.prepare('UPDATE video_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?').run(
-          'failed',
-          (pollResult.error || '超时或失败').slice(0, 500),
-          now3,
-          videoGenId
-        );
+        setVideoGenFailed(db, videoGenId, pollResult.error || '超时或失败', now3);
         if (row.task_id) taskService.updateTaskError(db, row.task_id, pollResult.error);
       }
       return;
     }
-    db.prepare('UPDATE video_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?').run(
-      'failed',
-      '未返回 task_id 或 video_url',
-      now2,
-      videoGenId
-    );
+    setVideoGenFailed(db, videoGenId, '未返回 task_id 或 video_url', now2);
     if (row.task_id) taskService.updateTaskError(db, row.task_id, '未返回 task_id 或 video_url');
   } catch (err) {
     const now2 = new Date().toISOString();
-    db.prepare('UPDATE video_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?').run(
-      'failed',
-      (err.message || '').slice(0, 500),
-      now2,
-      videoGenId
-    );
+    setVideoGenFailed(db, videoGenId, err.message, now2);
     if (row && row.task_id) taskService.updateTaskError(db, row.task_id, err.message);
     log.error('Video generation error', { id: videoGenId, error: err.message });
   }
