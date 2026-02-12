@@ -163,6 +163,32 @@ function ensureCharactersLocalPathColumn(database) {
   }
 }
 
+/** 若 scenes 缺少 image_url / local_path 则补上（场景上传/生成图用） */
+function ensureScenesImageColumns(database) {
+  const cols = ['image_url', 'local_path'];
+  try {
+    const rows = database.prepare("PRAGMA table_info(scenes)").all();
+    const names = new Set(rows.map((r) => r.name));
+    for (const col of cols) {
+      if (names.has(col)) continue;
+      try {
+        database.exec(`ALTER TABLE scenes ADD COLUMN ${col} TEXT`);
+        console.log('Ran ensureScenesImageColumns: added', col);
+      } catch (e) {
+        if ((e.message || '').toLowerCase().includes('duplicate column')) {}
+        else throw e;
+      }
+    }
+  } catch (err) {
+    const msg = (err.message || '').toLowerCase();
+    if (msg.includes('no such table')) {
+      console.log('ensureScenesImageColumns: table not found, skip');
+    } else {
+      throw err;
+    }
+  }
+}
+
 /** 对已打开的 database 执行迁移与兜底补列（供 app 启动时调用） */
 function runMigrationsAndEnsure(database) {
   runMigrations(database);
@@ -171,6 +197,7 @@ function runMigrationsAndEnsure(database) {
   ensureAsyncTasksColumns(database);
   ensureImageGenerationsColumns(database);
   ensureCharactersLocalPathColumn(database);
+  ensureScenesImageColumns(database);
 }
 
 function main() {

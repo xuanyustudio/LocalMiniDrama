@@ -117,6 +117,7 @@
                 <el-button type="primary" size="small" :loading="charactersGenerating" :disabled="!dramaId" @click="onGenerateCharacters">
                   AI 生成角色
                 </el-button>
+                <el-button size="small" :disabled="!dramaId" @click="openAddCharacter">添加角色</el-button>
               </div>
               <div class="asset-list asset-list-two">
                 <div v-for="char in characters" :key="char.id" class="asset-item asset-item-left-right">
@@ -204,6 +205,7 @@
                 <el-button type="primary" size="small" :loading="scenesExtracting" :disabled="!currentEpisodeId" @click="onExtractScenes">
                   从剧本提取场景
                 </el-button>
+                <el-button size="small" :disabled="!dramaId" @click="openAddScene">添加场景</el-button>
               </div>
               <div class="asset-list asset-list-two">
                 <div v-for="scene in scenes" :key="scene.id" class="asset-item asset-item-left-right">
@@ -528,14 +530,26 @@
         <div v-else-if="videoStatus === 'error'" class="video-error">
           <el-alert type="error" :title="videoErrorMsg" show-icon />
         </div>
+        <div v-if="currentEpisodeVideoUrl" class="video-preview-wrap">
+          <p class="video-preview-label">本集合成视频预览</p>
+          <video
+            :src="currentEpisodeVideoUrl"
+            controls
+            class="video-preview-player"
+            preload="metadata"
+          />
+        </div>
       </section>
     </main>
 
     <!-- 添加道具弹窗 -->
-    <el-dialog v-model="showAddProp" title="添加道具" width="400px" @close="addPropForm = { name: '', description: '', prompt: '' }">
-      <el-form label-width="80px">
+    <el-dialog v-model="showAddProp" title="添加道具" width="440px" @close="addPropForm = { name: '', type: '', description: '', prompt: '' }">
+      <el-form label-width="90px">
         <el-form-item label="名称" required>
           <el-input v-model="addPropForm.name" placeholder="道具名称" />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-input v-model="addPropForm.type" placeholder="如：物品、建筑" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input v-model="addPropForm.description" type="textarea" :rows="2" placeholder="描述" />
@@ -546,12 +560,12 @@
       </el-form>
       <template #footer>
         <el-button @click="showAddProp = false">取消</el-button>
-        <el-button type="primary" :disabled="!addPropForm.name.trim()" @click="submitAddProp">确定</el-button>
+        <el-button type="primary" :loading="addPropSaving" :disabled="!addPropForm.name.trim()" @click="submitAddProp">确定</el-button>
       </template>
     </el-dialog>
 
-    <!-- 编辑角色弹窗 -->
-    <el-dialog v-model="showEditCharacter" title="编辑角色" width="480px" @close="showEditCharacter = false">
+    <!-- 添加/编辑角色弹窗 -->
+    <el-dialog v-model="showEditCharacter" :title="editCharacterForm?.id ? '编辑角色' : '添加角色'" width="480px" @close="showEditCharacter = false">
       <el-form v-if="editCharacterForm" label-width="90px">
         <el-form-item label="名称" required>
           <el-input v-model="editCharacterForm.name" placeholder="角色名称" />
@@ -571,7 +585,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showEditCharacter = false">取消</el-button>
-        <el-button type="primary" :loading="editCharacterSaving" :disabled="!editCharacterForm?.name?.trim()" @click="submitEditCharacter">保存</el-button>
+        <el-button type="primary" :loading="editCharacterSaving" :disabled="!editCharacterForm?.name?.trim()" @click="submitEditCharacter">{{ editCharacterForm?.id ? '保存' : '添加' }}</el-button>
       </template>
     </el-dialog>
 
@@ -597,8 +611,8 @@
       </template>
     </el-dialog>
 
-    <!-- 编辑场景弹窗 -->
-    <el-dialog v-model="showEditScene" title="编辑场景" width="480px" @close="showEditScene = false">
+    <!-- 添加/编辑场景弹窗 -->
+    <el-dialog v-model="showEditScene" :title="editSceneForm?.id ? '编辑场景' : '添加场景'" width="480px" @close="showEditScene = false">
       <el-form v-if="editSceneForm" label-width="90px">
         <el-form-item label="地点" required>
           <el-input v-model="editSceneForm.location" placeholder="如：森林、教室" />
@@ -612,7 +626,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showEditScene = false">取消</el-button>
-        <el-button type="primary" :loading="editSceneSaving" :disabled="!editSceneForm?.location?.trim()" @click="submitEditScene">保存</el-button>
+        <el-button type="primary" :loading="editSceneSaving" :disabled="!editSceneForm?.location?.trim()" @click="submitEditScene">{{ editSceneForm?.id ? '保存' : '添加' }}</el-button>
       </template>
     </el-dialog>
 
@@ -694,6 +708,14 @@ const currentEpisode = computed(() => store.currentEpisode)
 const currentEpisodeId = computed(() => store.currentEpisode?.id ?? null)
 const videoProgress = computed(() => store.videoProgress)
 const videoStatus = computed(() => store.videoStatus)
+/** 当前集合成视频的播放地址（用于按钮下方预览） */
+const currentEpisodeVideoUrl = computed(() => {
+  const url = currentEpisode.value?.video_url
+  if (!url || !String(url).trim()) return ''
+  const s = String(url).trim()
+  if (s.startsWith('http://') || s.startsWith('https://')) return s
+  return '/static/' + s.replace(/^\//, '')
+})
 
 const charactersGenerating = ref(false)
 const generatingCharId = ref(null)
@@ -704,7 +726,8 @@ const scenesExtracting = ref(false)
 const storyboardGenerating = ref(false)
 const videoErrorMsg = ref('')
 const showAddProp = ref(false)
-const addPropForm = ref({ name: '', description: '', prompt: '' })
+const addPropSaving = ref(false)
+const addPropForm = ref({ name: '', type: '', description: '', prompt: '' })
 
 const showEditCharacter = ref(false)
 const editCharacterForm = ref(null)
@@ -1185,6 +1208,17 @@ async function onGenerateCharacters() {
   }
 }
 
+function openAddCharacter() {
+  editCharacterForm.value = {
+    name: '',
+    role: '',
+    appearance: '',
+    personality: '',
+    description: ''
+  }
+  showEditCharacter.value = true
+}
+
 function editCharacter(char) {
   editCharacterForm.value = {
     id: char.id,
@@ -1198,21 +1232,39 @@ function editCharacter(char) {
 }
 
 async function submitEditCharacter() {
-  if (!editCharacterForm.value?.id) return
+  const form = editCharacterForm.value
+  if (!form?.name?.trim() || !store.dramaId) return
   editCharacterSaving.value = true
   try {
-    await characterAPI.update(editCharacterForm.value.id, {
-      name: editCharacterForm.value.name?.trim(),
-      role: editCharacterForm.value.role || undefined,
-      appearance: editCharacterForm.value.appearance || undefined,
-      personality: editCharacterForm.value.personality || undefined,
-      description: editCharacterForm.value.description || undefined
-    })
+    if (form.id) {
+      await characterAPI.update(form.id, {
+        name: form.name.trim(),
+        role: form.role || undefined,
+        appearance: form.appearance || undefined,
+        personality: form.personality || undefined,
+        description: form.description || undefined
+      })
+      ElMessage.success('角色已保存')
+    } else {
+      const existing = (store.drama?.characters || []).map((c) => ({
+        id: c.id,
+        name: c.name || '',
+        role: c.role || undefined,
+        description: c.description || undefined,
+        personality: c.personality || undefined,
+        appearance: c.appearance || undefined,
+        image_url: c.image_url || undefined
+      }))
+      await dramaAPI.saveCharacters(store.dramaId, {
+        characters: [...existing, { name: form.name.trim(), role: form.role || undefined, appearance: form.appearance || undefined, personality: form.personality || undefined, description: form.description || undefined }],
+        episode_id: currentEpisodeId.value ?? undefined
+      })
+      ElMessage.success('角色已添加')
+    }
     await loadDrama()
     showEditCharacter.value = false
-    ElMessage.success('角色已保存')
   } catch (e) {
-    ElMessage.error(e.message || '保存失败')
+    ElMessage.error(e.message || (form.id ? '保存失败' : '添加失败'))
   } finally {
     editCharacterSaving.value = false
   }
@@ -1418,6 +1470,15 @@ async function onExtractScenes() {
   }
 }
 
+function openAddScene() {
+  editSceneForm.value = {
+    location: '',
+    time: '',
+    prompt: ''
+  }
+  showEditScene.value = true
+}
+
 function editScene(scene) {
   editSceneForm.value = {
     id: scene.id,
@@ -1429,19 +1490,30 @@ function editScene(scene) {
 }
 
 async function submitEditScene() {
-  if (!editSceneForm.value?.id) return
+  const form = editSceneForm.value
+  if (!form?.location?.trim() || !store.dramaId) return
   editSceneSaving.value = true
   try {
-    await sceneAPI.update(editSceneForm.value.id, {
-      location: editSceneForm.value.location?.trim(),
-      time: editSceneForm.value.time || undefined,
-      prompt: editSceneForm.value.prompt || undefined
-    })
+    if (form.id) {
+      await sceneAPI.update(form.id, {
+        location: form.location.trim(),
+        time: form.time || undefined,
+        prompt: form.prompt || undefined
+      })
+      ElMessage.success('场景已保存')
+    } else {
+      await sceneAPI.create({
+        drama_id: store.dramaId,
+        location: form.location.trim(),
+        time: form.time || undefined,
+        prompt: form.prompt || undefined
+      })
+      ElMessage.success('场景已添加')
+    }
     await loadDrama()
     showEditScene.value = false
-    ElMessage.success('场景已保存')
   } catch (e) {
-    ElMessage.error(e.message || '保存失败')
+    ElMessage.error(e.message || (form.id ? '保存失败' : '添加失败'))
   } finally {
     editSceneSaving.value = false
   }
@@ -1562,8 +1634,16 @@ async function onGenerateVideo() {
   try {
     const result = await dramaAPI.finalizeEpisode(currentEpisodeId.value)
     store.setVideoProgress(100)
-    store.setVideoStatus('done')
-    ElMessage.success('视频合成任务已提交，请稍后在下载处查看')
+    if (result?.task_id != null) {
+      store.setVideoStatus('done')
+      ElMessage.success(result?.message || '视频合成任务已提交，合成完成后将显示在下方预览')
+      await pollTask(result.task_id, () => loadDrama())
+    } else {
+      store.setVideoStatus('error')
+      const msg = result?.message || '本集没有可合成的视频片段'
+      videoErrorMsg.value = msg
+      ElMessage.warning(msg)
+    }
   } catch (e) {
     videoErrorMsg.value = e.message || '生成失败'
     store.setVideoStatus('error')
@@ -1607,18 +1687,23 @@ function pollTask(taskId, onDone) {
 async function submitAddProp() {
   const name = (addPropForm.value.name || '').trim()
   if (!name || !store.dramaId) return
+  addPropSaving.value = true
   try {
     await propAPI.create({
       drama_id: store.dramaId,
+      episode_id: currentEpisodeId.value ?? undefined,
       name,
-      description: addPropForm.value.description || undefined,
-      prompt: addPropForm.value.prompt || undefined
+      type: addPropForm.value.type?.trim() || undefined,
+      description: addPropForm.value.description?.trim() || undefined,
+      prompt: addPropForm.value.prompt?.trim() || undefined
     })
     showAddProp.value = false
     await loadDrama()
     ElMessage.success('道具已添加')
   } catch (e) {
     ElMessage.error(e.message || '添加失败')
+  } finally {
+    addPropSaving.value = false
   }
 }
 
@@ -2120,5 +2205,22 @@ onMounted(() => {
 }
 .video-progress, .video-done, .video-error {
   margin-top: 16px;
+}
+.video-preview-wrap {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #27272a;
+}
+.video-preview-label {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: #a1a1aa;
+}
+.video-preview-player {
+  display: block;
+  max-width: 100%;
+  max-height: 360px;
+  border-radius: 8px;
+  background: #18181b;
 }
 </style>

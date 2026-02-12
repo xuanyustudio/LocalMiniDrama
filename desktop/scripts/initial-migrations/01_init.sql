@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS scenes (
   location TEXT,
   time TEXT,
   prompt TEXT,
+  image_url TEXT,
+  local_path TEXT,
   storyboard_count INTEGER DEFAULT 0,
   status TEXT DEFAULT 'draft',
   created_at TEXT,

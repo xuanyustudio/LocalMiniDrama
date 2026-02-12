@@ -1,6 +1,9 @@
 import request from '@/utils/request'
 
 export const sceneAPI = {
+  create(data) {
+    return request.post('/scenes', data)
+  },
   generateImage(data) {
     return request.post('/scenes/generate-image', data)
   },
