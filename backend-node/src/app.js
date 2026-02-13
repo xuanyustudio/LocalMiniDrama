@@ -91,7 +91,10 @@ function createApp() {
   app.use((err, req, res, next) => {
     log.errorw('Unhandled error', { error: err.message, path: req.path });
     if (!res.headersSent) {
-      res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message || '服务器错误' }, timestamp: new Date().toISOString() });
+      const isFileTooLarge = err.code === 'LIMIT_FILE_SIZE' || (err.message && err.message.includes('File too large'));
+      const status = isFileTooLarge ? 413 : 500;
+      const message = isFileTooLarge ? '图片大小不能超过 16MB，请压缩后重试' : (err.message || '服务器错误');
+      res.status(status).json({ success: false, error: { code: isFileTooLarge ? 'FILE_TOO_LARGE' : 'INTERNAL_ERROR', message }, timestamp: new Date().toISOString() });
     }
   });
 

@@ -236,6 +236,37 @@ CREATE TABLE IF NOT EXISTS character_libraries (
   deleted_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS scene_libraries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  location TEXT NOT NULL DEFAULT '',
+  time TEXT,
+  prompt TEXT,
+  description TEXT,
+  image_url TEXT,
+  local_path TEXT,
+  category TEXT,
+  tags TEXT,
+  source_type TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  deleted_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS prop_libraries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL DEFAULT '',
+  description TEXT,
+  prompt TEXT,
+  image_url TEXT,
+  local_path TEXT,
+  category TEXT,
+  tags TEXT,
+  source_type TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  deleted_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS assets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   drama_id INTEGER,

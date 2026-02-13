@@ -18,5 +18,8 @@ export const characterAPI = {
   },
   delete(characterId) {
     return request.delete(`/characters/${characterId}`)
+  },
+  addToLibrary(characterId, body) {
+    return request.post(`/characters/${characterId}/add-to-library`, body || {})
   }
 }

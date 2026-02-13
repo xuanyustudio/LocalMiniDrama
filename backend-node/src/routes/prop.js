@@ -1,4 +1,5 @@
 const propService = require('../services/propService');
+const propLibraryService = require('../services/propLibraryService');
 const response = require('../response');
 
 function listProps(db) {
@@ -87,6 +88,21 @@ function associateProps(db, log) {
   };
 }
 
+function addToLibrary(db, log) {
+  return (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return response.badRequest(res, '无效的ID');
+    const category = (req.body || {}).category;
+    const out = propLibraryService.addPropToLibrary(db, log, id, category);
+    if (!out.ok) {
+      if (out.error === 'prop not found') return response.notFound(res, '道具不存在');
+      if (out.error === 'unauthorized') return response.forbidden(res, '无权限');
+      return response.badRequest(res, out.error);
+    }
+    response.success(res, { message: '已加入道具库', item: out.item });
+  };
+}
+
 module.exports = function propRoutes(db, log) {
   return {
     listProps: listProps(db),
@@ -96,5 +112,6 @@ module.exports = function propRoutes(db, log) {
     generateImage: generateImage(db, log),
     extractProps: extractProps(db, log),
     associateProps: associateProps(db, log),
+    addToLibrary: addToLibrary(db, log),
   };
 };

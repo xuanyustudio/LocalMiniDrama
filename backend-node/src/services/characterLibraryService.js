@@ -84,6 +84,25 @@ function getLibraryItem(db, id) {
   return row ? rowToItem(row) : null;
 }
 
+function updateLibraryItem(db, log, id, req) {
+  const row = db.prepare('SELECT id FROM character_libraries WHERE id = ? AND deleted_at IS NULL').get(Number(id));
+  if (!row) return null;
+  const updates = [];
+  const params = [];
+  if (req.name != null) { updates.push('name = ?'); params.push(req.name); }
+  if (req.category != null) { updates.push('category = ?'); params.push(req.category); }
+  if (req.description != null) { updates.push('description = ?'); params.push(req.description); }
+  if (req.tags != null) { updates.push('tags = ?'); params.push(req.tags); }
+  if (req.image_url != null) { updates.push('image_url = ?'); params.push(req.image_url); }
+  if (req.local_path != null) { updates.push('local_path = ?'); params.push(req.local_path); }
+  if (req.source_type != null) { updates.push('source_type = ?'); params.push(req.source_type); }
+  if (updates.length === 0) return getLibraryItem(db, id);
+  params.push(new Date().toISOString(), Number(id));
+  db.prepare('UPDATE character_libraries SET ' + updates.join(', ') + ', updated_at = ? WHERE id = ?').run(...params);
+  log.info('Library item updated', { item_id: id });
+  return getLibraryItem(db, id);
+}
+
 function deleteLibraryItem(db, log, id) {
   const now = new Date().toISOString();
   const result = db.prepare('UPDATE character_libraries SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL').run(now, Number(id));
@@ -215,6 +234,7 @@ module.exports = {
   listLibraryItems,
   createLibraryItem,
   getLibraryItem,
+  updateLibraryItem,
   deleteLibraryItem,
   applyLibraryItemToCharacter,
   uploadCharacterImage,

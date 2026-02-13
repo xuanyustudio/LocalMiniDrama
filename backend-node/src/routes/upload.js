@@ -3,7 +3,8 @@ const response = require('../response');
 const uploadService = require('../services/uploadService');
 
 const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-const maxSize = 10 * 1024 * 1024; // 10MB
+const maxSize = 16 * 1024 * 1024; // 16MB，单张图片上限
+const MAX_SIZE_MB = 16;
 
 const memoryStorage = multer.memoryStorage();
 const upload = multer({
@@ -53,5 +54,4 @@ function routes(cfg, log) {
   };
 }
 
-module.exports = { routes, upload };
-module.exports.multerSingle = upload.single('file');
+module.exports = { routes, upload, multerSingle: upload.single('file'), MAX_IMAGE_SIZE_MB: MAX_SIZE_MB };

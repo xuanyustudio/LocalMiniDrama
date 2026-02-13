@@ -7,6 +7,8 @@ const aiConfigRoutes = require('./aiConfig');
 const propRoutes = require('./prop');
 const stubRoutes = require('./stub');
 const characterLibraryRoutes = require('./characterLibrary');
+const sceneLibraryRoutes = require('./sceneLibrary');
+const propLibraryRoutes = require('./propLibrary');
 const characterRoutes = require('./characters');
 const uploadModule = require('./upload');
 const sceneRoutes = require('./scenes');
@@ -28,6 +30,8 @@ function setupRouter(cfg, db, log) {
 
   const uploadService = require('../services/uploadService');
   const charLibrary = characterLibraryRoutes(db, cfg, log);
+  const sceneLibrary = sceneLibraryRoutes(db, cfg, log);
+  const propLibrary = propLibraryRoutes(db, cfg, log);
   const characters = characterRoutes(db, cfg, log, uploadService);
   const uploadHandlers = uploadModule.routes(cfg, log);
   const scenes = sceneRoutes(db, log);
@@ -96,7 +100,22 @@ function setupRouter(cfg, db, log) {
   r.get('/character-library', charLibrary.list);
   r.post('/character-library', charLibrary.create);
   r.get('/character-library/:id', charLibrary.get);
+  r.put('/character-library/:id', charLibrary.update);
   r.delete('/character-library/:id', charLibrary.delete);
+
+  // ---------- scene-library ----------
+  r.get('/scene-library', sceneLibrary.list);
+  r.post('/scene-library', sceneLibrary.create);
+  r.get('/scene-library/:id', sceneLibrary.get);
+  r.put('/scene-library/:id', sceneLibrary.update);
+  r.delete('/scene-library/:id', sceneLibrary.delete);
+
+  // ---------- prop-library ----------
+  r.get('/prop-library', propLibrary.list);
+  r.post('/prop-library', propLibrary.create);
+  r.get('/prop-library/:id', propLibrary.get);
+  r.put('/prop-library/:id', propLibrary.update);
+  r.delete('/prop-library/:id', propLibrary.delete);
 
   // ---------- characters ----------
   r.put('/characters/:id', characters.update);
@@ -113,6 +132,7 @@ function setupRouter(cfg, db, log) {
   r.put('/props/:id', prop.updateProp);
   r.delete('/props/:id', prop.deleteProp);
   r.post('/props/:id/generate', prop.generateImage);
+  r.post('/props/:id/add-to-library', prop.addToLibrary);
 
   // ---------- upload ----------
   r.post('/upload/image', uploadModule.multerSingle, uploadHandlers.uploadImage);
@@ -135,6 +155,7 @@ function setupRouter(cfg, db, log) {
   r.delete('/scenes/:scene_id', scenes.delete);
   r.post('/scenes/generate-image', scenes.generateImage);
   r.post('/scenes', scenes.create);
+  r.post('/scenes/:scene_id/add-to-library', scenes.addToLibrary);
 
   // ---------- images ----------
   r.get('/images', images.list);

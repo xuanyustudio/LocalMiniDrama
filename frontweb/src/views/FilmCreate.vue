@@ -16,6 +16,31 @@
       </div>
     </header>
 
+    <!-- 左侧快捷目录 -->
+    <nav class="quick-nav" aria-label="快捷导航">
+      <el-tooltip content="顶部" placement="right">
+        <el-button class="quick-nav-btn" size="small" @click="scrollToTop">顶部</el-button>
+      </el-tooltip>
+      <el-tooltip content="剧本" placement="right">
+        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-script')">剧本</el-button>
+      </el-tooltip>
+      <el-tooltip content="角色" placement="right">
+        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-characters')">角色</el-button>
+      </el-tooltip>
+      <el-tooltip content="道具" placement="right">
+        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-props')">道具</el-button>
+      </el-tooltip>
+      <el-tooltip content="场景" placement="right">
+        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-scenes')">场景</el-button>
+      </el-tooltip>
+      <el-tooltip content="分镜" placement="right">
+        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-storyboard')">分镜</el-button>
+      </el-tooltip>
+      <el-tooltip content="生成视频" placement="right">
+        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-video')">视频</el-button>
+      </el-tooltip>
+    </nav>
+
     <main class="main">
       <!-- 角色/道具/场景上传图片用，单例放在外层避免 v-for 导致 ref 为数组 -->
       <input
@@ -53,7 +78,7 @@
       </section>
 
       <!-- 2. 剧本生成 -->
-      <section class="section card">
+      <section id="anchor-script" class="section card">
         <h2 class="section-title">剧本生成</h2>
         <div class="row gap" style="margin-bottom: 12px; flex-wrap: wrap;">
           <el-select
@@ -107,7 +132,7 @@
         </div>
         <div v-show="!resourcePanelCollapsed" class="resource-panel-body">
           <!-- 角色生成 -->
-          <div class="resource-block card">
+          <div id="anchor-characters" class="resource-block card">
             <div class="collapse-header resource-block-header" @click="charactersBlockCollapsed = !charactersBlockCollapsed">
               <h3 class="resource-block-title">角色生成</h3>
               <el-icon class="collapse-icon"><ArrowUp v-if="!charactersBlockCollapsed" /><ArrowDown v-else /></el-icon>
@@ -118,6 +143,7 @@
                   AI 生成角色
                 </el-button>
                 <el-button size="small" :disabled="!dramaId" @click="openAddCharacter">添加角色</el-button>
+                <el-button size="small" @click="showCharLibrary = true">公共角色</el-button>
               </div>
               <div class="asset-list asset-list-two">
                 <div v-for="char in characters" :key="char.id" class="asset-item asset-item-left-right">
@@ -132,18 +158,25 @@
                       <el-button size="small" :loading="uploadingResourceId === 'char-' + char.id" @click="onUploadResourceClick('character', char.id)">
                         上传
                       </el-button>
+                      <el-button size="small" :loading="addingCharToLibraryId === char.id" :disabled="!hasAssetImage(char)" @click="onAddCharacterToLibrary(char)">
+                        加入公共库
+                      </el-button>
                       <el-button size="small" type="danger" plain @click="onDeleteCharacter(char)">删除</el-button>
                     </div>
                   </div>
                   <div
                     class="asset-cover"
-                    :class="{ 'asset-cover--clickable': hasAssetImage(char) }"
+                    :class="{ 'asset-cover--clickable': hasAssetImage(char), 'asset-cover--dragover': dragOverResourceKey === 'char-' + char.id }"
                     role="button"
                     tabindex="0"
                     @click="hasAssetImage(char) && openImagePreview(assetImageUrl(char))"
+                    @dragover="onResourceDragOver($event, 'character', char.id)"
+                    @dragleave="onResourceDragLeave($event, 'char-' + char.id)"
+                    @drop="onResourceDrop($event, 'character', char.id)"
                   >
                     <img v-if="hasAssetImage(char)" :src="assetImageUrl(char)" class="cover-img" alt="" />
                     <div v-else class="cover-placeholder">暂无图</div>
+                    <div v-if="dragOverResourceKey === 'char-' + char.id" class="asset-cover-drop-hint">松开上传</div>
                   </div>
                 </div>
                 <div v-if="characters.length === 0" class="empty-tip">暂无角色，请先「AI 生成角色」或在上一步保存剧本后提取</div>
@@ -152,7 +185,7 @@
           </div>
 
           <!-- 道具生成 -->
-          <div class="resource-block card">
+          <div id="anchor-props" class="resource-block card">
             <div class="collapse-header resource-block-header" @click="propsBlockCollapsed = !propsBlockCollapsed">
               <h3 class="resource-block-title">道具生成</h3>
               <el-icon class="collapse-icon"><ArrowUp v-if="!propsBlockCollapsed" /><ArrowDown v-else /></el-icon>
@@ -161,6 +194,7 @@
               <div class="asset-actions">
                 <el-button size="small" :loading="propsExtracting" :disabled="!currentEpisodeId" @click="onExtractProps">从剧本提取道具</el-button>
                 <el-button type="primary" size="small" :disabled="!dramaId" @click="showAddProp = true">添加道具</el-button>
+                <el-button size="small" @click="showPropLibrary = true">公共道具</el-button>
               </div>
               <div class="asset-list asset-list-two">
                 <div v-for="prop in props" :key="prop.id" class="asset-item asset-item-left-right">
@@ -175,18 +209,25 @@
                       <el-button size="small" :loading="uploadingResourceId === 'prop-' + prop.id" @click="onUploadResourceClick('prop', prop.id)">
                         上传
                       </el-button>
+                      <el-button size="small" :loading="addingPropToLibraryId === prop.id" :disabled="!hasAssetImage(prop)" @click="onAddPropToLibrary(prop)">
+                        加入公共库
+                      </el-button>
                       <el-button size="small" type="danger" plain @click="onDeleteProp(prop)">删除</el-button>
                     </div>
                   </div>
                   <div
                     class="asset-cover"
-                    :class="{ 'asset-cover--clickable': hasAssetImage(prop) }"
+                    :class="{ 'asset-cover--clickable': hasAssetImage(prop), 'asset-cover--dragover': dragOverResourceKey === 'prop-' + prop.id }"
                     role="button"
                     tabindex="0"
                     @click="hasAssetImage(prop) && openImagePreview(assetImageUrl(prop))"
+                    @dragover="onResourceDragOver($event, 'prop', prop.id)"
+                    @dragleave="onResourceDragLeave($event, 'prop-' + prop.id)"
+                    @drop="onResourceDrop($event, 'prop', prop.id)"
                   >
                     <img v-if="hasAssetImage(prop)" :src="assetImageUrl(prop)" class="cover-img" alt="" />
                     <div v-else class="cover-placeholder">暂无图</div>
+                    <div v-if="dragOverResourceKey === 'prop-' + prop.id" class="asset-cover-drop-hint">松开上传</div>
                   </div>
                 </div>
                 <div v-if="props.length === 0" class="empty-tip">暂无道具，可从剧本提取或添加</div>
@@ -195,7 +236,7 @@
           </div>
 
           <!-- 场景生成 -->
-          <div class="resource-block card">
+          <div id="anchor-scenes" class="resource-block card">
             <div class="collapse-header resource-block-header" @click="scenesBlockCollapsed = !scenesBlockCollapsed">
               <h3 class="resource-block-title">场景生成</h3>
               <el-icon class="collapse-icon"><ArrowUp v-if="!scenesBlockCollapsed" /><ArrowDown v-else /></el-icon>
@@ -206,6 +247,7 @@
                   从剧本提取场景
                 </el-button>
                 <el-button size="small" :disabled="!dramaId" @click="openAddScene">添加场景</el-button>
+                <el-button size="small" @click="showSceneLibrary = true">公共场景</el-button>
               </div>
               <div class="asset-list asset-list-two">
                 <div v-for="scene in scenes" :key="scene.id" class="asset-item asset-item-left-right">
@@ -220,18 +262,25 @@
                       <el-button size="small" :loading="uploadingResourceId === 'scene-' + scene.id" @click="onUploadResourceClick('scene', scene.id)">
                         上传
                       </el-button>
+                      <el-button size="small" :loading="addingSceneToLibraryId === scene.id" :disabled="!hasAssetImage(scene)" @click="onAddSceneToLibrary(scene)">
+                        加入公共库
+                      </el-button>
                       <el-button size="small" type="danger" plain @click="onDeleteScene(scene)">删除</el-button>
                     </div>
                   </div>
                   <div
                     class="asset-cover"
-                    :class="{ 'asset-cover--clickable': hasAssetImage(scene) }"
+                    :class="{ 'asset-cover--clickable': hasAssetImage(scene), 'asset-cover--dragover': dragOverResourceKey === 'scene-' + scene.id }"
                     role="button"
                     tabindex="0"
                     @click="hasAssetImage(scene) && openImagePreview(assetImageUrl(scene))"
+                    @dragover="onResourceDragOver($event, 'scene', scene.id)"
+                    @dragleave="onResourceDragLeave($event, 'scene-' + scene.id)"
+                    @drop="onResourceDrop($event, 'scene', scene.id)"
                   >
                     <img v-if="hasAssetImage(scene)" :src="assetImageUrl(scene)" class="cover-img" alt="" />
                     <div v-else class="cover-placeholder">暂无图</div>
+                    <div v-if="dragOverResourceKey === 'scene-' + scene.id" class="asset-cover-drop-hint">松开上传</div>
                   </div>
                 </div>
                 <div v-if="scenes.length === 0" class="empty-tip">暂无场景，请从剧本提取</div>
@@ -242,7 +291,7 @@
       </section>
 
       <!-- 6. 分镜生成 -->
-      <section class="section card">
+      <section id="anchor-storyboard" class="section card">
         <h2 class="section-title">分镜生成</h2>
         <div class="asset-actions">
           <el-button type="primary" :loading="storyboardGenerating" :disabled="!currentEpisodeId" @click="onGenerateStoryboard">
@@ -405,7 +454,13 @@
                 class="sb-image-file-input"
                 @change="onSbImageFileChange"
               />
-              <div class="sb-image-area">
+              <div
+                class="sb-image-area"
+                :class="{ 'sb-image-area--dragover': dragOverSbId === sb.id }"
+                @dragover="onSbImageDragOver($event, sb.id)"
+                @dragleave="onSbImageDragLeave($event, sb.id)"
+                @drop="onSbImageDrop($event, sb)"
+              >
                 <template v-if="getSbImage(sb.id)">
                   <img
                     :src="assetImageUrl(getSbImage(sb.id))"
@@ -429,6 +484,7 @@
                   </el-button>
                   <el-button size="small" :loading="uploadingSbImageId === sb.id" @click="onUploadSbImageClick(sb)">上传</el-button>
                 </template>
+                <div v-if="dragOverSbId === sb.id" class="sb-image-area-drop-hint">松开上传</div>
               </div>
               <div v-if="hasSbImage(sb)" class="sb-image-actions">
                 <el-button size="small" :loading="generatingSbImageId === sb.id" @click="onGenerateSbImage(sb)">重新生成</el-button>
@@ -515,7 +571,7 @@
       </section>
 
       <!-- 8. 生成视频 -->
-      <section class="section card">
+      <section id="anchor-video" class="section card">
         <h2 class="section-title">生成视频</h2>
         <el-button type="primary" size="large" :loading="videoStatus === 'generating'" :disabled="!currentEpisodeId || storyboards.length === 0" @click="onGenerateVideo">
           生成视频
@@ -630,6 +686,186 @@
       </template>
     </el-dialog>
 
+    <!-- 公共角色库 -->
+    <el-dialog v-model="showCharLibrary" title="公共角色" width="720px" destroy-on-close class="library-dialog" @open="loadCharLibraryList">
+      <div class="library-toolbar">
+        <el-input v-model="charLibraryKeyword" placeholder="搜索名称或描述" clearable style="width: 200px" @input="debouncedLoadCharLibrary()" />
+      </div>
+      <div v-loading="charLibraryLoading" class="library-list">
+        <div v-for="item in charLibraryList" :key="item.id" class="library-item">
+          <div class="library-item-cover" @click="openImagePreview(assetImageUrl(item))">
+            <img v-if="item.image_url || item.local_path" :src="assetImageUrl(item)" alt="" />
+            <span v-else class="library-item-placeholder">暂无图</span>
+          </div>
+          <div class="library-item-info">
+            <div class="library-item-name">{{ item.name || '未命名' }}</div>
+            <div class="library-item-desc">{{ (item.description || '').slice(0, 60) }}{{ (item.description || '').length > 60 ? '…' : '' }}</div>
+            <div class="library-item-actions">
+              <el-button size="small" @click="openEditCharLibrary(item)">编辑</el-button>
+              <el-button size="small" type="danger" plain @click="onDeleteCharLibrary(item)">删除</el-button>
+            </div>
+          </div>
+        </div>
+        <div v-if="!charLibraryLoading && charLibraryList.length === 0" class="library-empty">暂无公共角色，可将本剧角色「加入公共库」后在此查看</div>
+      </div>
+      <div class="library-pagination">
+        <el-pagination
+          v-model:current-page="charLibraryPage"
+          v-model:page-size="charLibraryPageSize"
+          :total="charLibraryTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @current-change="loadCharLibraryList"
+          @size-change="loadCharLibraryList"
+        />
+      </div>
+      <template #footer>
+        <el-button @click="showCharLibrary = false">关闭</el-button>
+      </template>
+    </el-dialog>
+    <!-- 编辑公共角色 -->
+    <el-dialog v-model="showEditCharLibrary" title="编辑公共角色" width="440px" @close="editCharLibraryForm = null">
+      <el-form v-if="editCharLibraryForm" label-width="80px">
+        <el-form-item label="名称">
+          <el-input v-model="editCharLibraryForm.name" placeholder="角色名称" />
+        </el-form-item>
+        <el-form-item label="分类">
+          <el-input v-model="editCharLibraryForm.category" placeholder="可选" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="editCharLibraryForm.description" type="textarea" :rows="3" placeholder="可选" />
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-input v-model="editCharLibraryForm.tags" placeholder="可选，逗号分隔" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditCharLibrary = false">取消</el-button>
+        <el-button type="primary" :loading="editCharLibrarySaving" @click="submitEditCharLibrary">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 公共道具库 -->
+    <el-dialog v-model="showPropLibrary" title="公共道具" width="720px" destroy-on-close class="library-dialog" @open="loadPropLibraryList">
+      <div class="library-toolbar">
+        <el-input v-model="propLibraryKeyword" placeholder="搜索名称或描述" clearable style="width: 200px" @input="debouncedLoadPropLibrary()" />
+      </div>
+      <div v-loading="propLibraryLoading" class="library-list">
+        <div v-for="item in propLibraryList" :key="item.id" class="library-item">
+          <div class="library-item-cover" @click="openImagePreview(assetImageUrl(item))">
+            <img v-if="item.image_url || item.local_path" :src="assetImageUrl(item)" alt="" />
+            <span v-else class="library-item-placeholder">暂无图</span>
+          </div>
+          <div class="library-item-info">
+            <div class="library-item-name">{{ item.name || '未命名' }}</div>
+            <div class="library-item-desc">{{ (item.description || item.prompt || '').slice(0, 60) }}{{ (item.description || item.prompt || '').length > 60 ? '…' : '' }}</div>
+            <div class="library-item-actions">
+              <el-button size="small" @click="openEditPropLibrary(item)">编辑</el-button>
+              <el-button size="small" type="danger" plain @click="onDeletePropLibrary(item)">删除</el-button>
+            </div>
+          </div>
+        </div>
+        <div v-if="!propLibraryLoading && propLibraryList.length === 0" class="library-empty">暂无公共道具，可将本剧道具「加入公共库」后在此查看</div>
+      </div>
+      <div class="library-pagination">
+        <el-pagination
+          v-model:current-page="propLibraryPage"
+          v-model:page-size="propLibraryPageSize"
+          :total="propLibraryTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @current-change="loadPropLibraryList"
+          @size-change="loadPropLibraryList"
+        />
+      </div>
+      <template #footer>
+        <el-button @click="showPropLibrary = false">关闭</el-button>
+      </template>
+    </el-dialog>
+    <!-- 编辑公共道具 -->
+    <el-dialog v-model="showEditPropLibrary" title="编辑公共道具" width="440px" @close="editPropLibraryForm = null">
+      <el-form v-if="editPropLibraryForm" label-width="80px">
+        <el-form-item label="名称">
+          <el-input v-model="editPropLibraryForm.name" placeholder="道具名称" />
+        </el-form-item>
+        <el-form-item label="分类">
+          <el-input v-model="editPropLibraryForm.category" placeholder="可选" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="editPropLibraryForm.description" type="textarea" :rows="3" placeholder="可选" />
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-input v-model="editPropLibraryForm.tags" placeholder="可选，逗号分隔" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditPropLibrary = false">取消</el-button>
+        <el-button type="primary" :loading="editPropLibrarySaving" @click="submitEditPropLibrary">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 公共场景库 -->
+    <el-dialog v-model="showSceneLibrary" title="公共场景" width="720px" destroy-on-close class="library-dialog" @open="loadSceneLibraryList">
+      <div class="library-toolbar">
+        <el-input v-model="sceneLibraryKeyword" placeholder="搜索地点或描述" clearable style="width: 200px" @input="debouncedLoadSceneLibrary()" />
+      </div>
+      <div v-loading="sceneLibraryLoading" class="library-list">
+        <div v-for="item in sceneLibraryList" :key="item.id" class="library-item">
+          <div class="library-item-cover" @click="openImagePreview(assetImageUrl(item))">
+            <img v-if="item.image_url || item.local_path" :src="assetImageUrl(item)" alt="" />
+            <span v-else class="library-item-placeholder">暂无图</span>
+          </div>
+          <div class="library-item-info">
+            <div class="library-item-name">{{ item.location || item.time || '未命名' }}</div>
+            <div class="library-item-desc">{{ (item.description || item.prompt || '').slice(0, 60) }}{{ (item.description || item.prompt || '').length > 60 ? '…' : '' }}</div>
+            <div class="library-item-actions">
+              <el-button size="small" @click="openEditSceneLibrary(item)">编辑</el-button>
+              <el-button size="small" type="danger" plain @click="onDeleteSceneLibrary(item)">删除</el-button>
+            </div>
+          </div>
+        </div>
+        <div v-if="!sceneLibraryLoading && sceneLibraryList.length === 0" class="library-empty">暂无公共场景，可将本剧场景「加入公共库」后在此查看</div>
+      </div>
+      <div class="library-pagination">
+        <el-pagination
+          v-model:current-page="sceneLibraryPage"
+          v-model:page-size="sceneLibraryPageSize"
+          :total="sceneLibraryTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @current-change="loadSceneLibraryList"
+          @size-change="loadSceneLibraryList"
+        />
+      </div>
+      <template #footer>
+        <el-button @click="showSceneLibrary = false">关闭</el-button>
+      </template>
+    </el-dialog>
+    <!-- 编辑公共场景 -->
+    <el-dialog v-model="showEditSceneLibrary" title="编辑公共场景" width="440px" @close="editSceneLibraryForm = null">
+      <el-form v-if="editSceneLibraryForm" label-width="80px">
+        <el-form-item label="地点">
+          <el-input v-model="editSceneLibraryForm.location" placeholder="场景地点" />
+        </el-form-item>
+        <el-form-item label="时间">
+          <el-input v-model="editSceneLibraryForm.time" placeholder="如：白天/夜晚" />
+        </el-form-item>
+        <el-form-item label="分类">
+          <el-input v-model="editSceneLibraryForm.category" placeholder="可选" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="editSceneLibraryForm.description" type="textarea" :rows="3" placeholder="可选" />
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-input v-model="editSceneLibraryForm.tags" placeholder="可选，逗号分隔" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditSceneLibrary = false">取消</el-button>
+        <el-button type="primary" :loading="editSceneLibrarySaving" @click="submitEditSceneLibrary">保存</el-button>
+      </template>
+    </el-dialog>
+
     <!-- AI 配置弹窗（不跳转，避免本页内容丢失） -->
     <el-dialog v-model="showAiConfigDialog" title="AI 配置" width="90%" destroy-on-close class="ai-config-dialog">
       <AIConfigContent v-if="showAiConfigDialog" />
@@ -665,6 +901,9 @@ import { taskAPI } from '@/api/task'
 import { imagesAPI } from '@/api/images'
 import { videosAPI } from '@/api/videos'
 import { uploadAPI } from '@/api/upload'
+import { characterLibraryAPI } from '@/api/characterLibrary'
+import { sceneLibraryAPI } from '@/api/sceneLibrary'
+import { propLibraryAPI } from '@/api/propLibrary'
 import AIConfigContent from '@/components/AIConfigContent.vue'
 
 const route = useRoute()
@@ -674,6 +913,14 @@ const { videoResolution: storeVideoResolution } = storeToRefs(store)
 
 function goList() {
   router.push('/')
+}
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+function scrollToAnchor(id) {
+  const el = document.getElementById(id)
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 const showAiConfigDialog = ref(false)
@@ -766,6 +1013,92 @@ const resourceImageFileInput = ref(null)
 const resourceUploadType = ref(null) // 'character' | 'prop' | 'scene'
 const resourceUploadId = ref(null)
 const uploadingResourceId = ref(null) // 'char-1' | 'prop-2' | 'scene-3'
+const dragOverResourceKey = ref(null) // 'char-1' | 'prop-2' | 'scene-3'
+const dragOverSbId = ref(null)
+// 公共库弹窗
+const showCharLibrary = ref(false)
+const showPropLibrary = ref(false)
+const showSceneLibrary = ref(false)
+const charLibraryList = ref([])
+const charLibraryLoading = ref(false)
+const charLibraryPage = ref(1)
+const charLibraryPageSize = ref(20)
+const charLibraryTotal = ref(0)
+const charLibraryKeyword = ref('')
+const showEditCharLibrary = ref(false)
+const editCharLibraryForm = ref(null)
+const editCharLibrarySaving = ref(false)
+const addingCharToLibraryId = ref(null)
+const addingPropToLibraryId = ref(null)
+const addingSceneToLibraryId = ref(null)
+// 公共道具库
+const propLibraryList = ref([])
+const propLibraryLoading = ref(false)
+const propLibraryPage = ref(1)
+const propLibraryPageSize = ref(20)
+const propLibraryTotal = ref(0)
+const propLibraryKeyword = ref('')
+const showEditPropLibrary = ref(false)
+const editPropLibraryForm = ref(null)
+const editPropLibrarySaving = ref(false)
+let propLibraryKeywordTimer = null
+// 公共场景库
+const sceneLibraryList = ref([])
+const sceneLibraryLoading = ref(false)
+const sceneLibraryPage = ref(1)
+const sceneLibraryPageSize = ref(20)
+const sceneLibraryTotal = ref(0)
+const sceneLibraryKeyword = ref('')
+const showEditSceneLibrary = ref(false)
+const editSceneLibraryForm = ref(null)
+const editSceneLibrarySaving = ref(false)
+let sceneLibraryKeywordTimer = null
+let charLibraryKeywordTimer = null
+
+function getFirstImageFile(dataTransfer) {
+  if (!dataTransfer?.files?.length) return null
+  const file = Array.from(dataTransfer.files).find((f) => f.type.startsWith('image/'))
+  return file || null
+}
+function onResourceDragOver(e, type, id) {
+  e.preventDefault()
+  e.stopPropagation()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+  const key = type === 'character' ? 'char-' : type === 'prop' ? 'prop-' : 'scene-'
+  dragOverResourceKey.value = key + id
+}
+function onResourceDragLeave(e, key) {
+  e.preventDefault()
+  if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return
+  if (key && dragOverResourceKey.value !== key) return
+  dragOverResourceKey.value = null
+}
+function onResourceDrop(e, type, id) {
+  e.preventDefault()
+  e.stopPropagation()
+  dragOverResourceKey.value = null
+  const file = getFirstImageFile(e.dataTransfer)
+  if (file) doUploadResourceImage(type, id, file)
+}
+function onSbImageDragOver(e, sbId) {
+  e.preventDefault()
+  e.stopPropagation()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+  dragOverSbId.value = sbId
+}
+function onSbImageDragLeave(e, sbId) {
+  e.preventDefault()
+  if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return
+  if (sbId != null && dragOverSbId.value !== sbId) return
+  dragOverSbId.value = null
+}
+function onSbImageDrop(e, sb) {
+  e.preventDefault()
+  e.stopPropagation()
+  dragOverSbId.value = null
+  const file = getFirstImageFile(e.dataTransfer)
+  if (file && sb?.id) doUploadSbImage(sb.id, file)
+}
 
 const baseUrl = ref('')
 const previewImageUrl = ref(null)
@@ -887,14 +1220,9 @@ function onUploadSbImageClick(sb) {
   sbImageFileInput.value?.click()
 }
 
-async function onSbImageFileChange(ev) {
-  const file = ev.target?.files?.[0]
-  const sid = sbImageUploadForId.value
-  if (!file || !sid || !dramaId.value) {
-    ev.target.value = ''
-    return
-  }
-  uploadingSbImageId.value = sid
+async function doUploadSbImage(sbId, file) {
+  if (!file || !sbId || !dramaId.value) return
+  uploadingSbImageId.value = sbId
   try {
     const res = await uploadAPI.uploadImage(file)
     const url = res?.url || res?.path
@@ -904,7 +1232,7 @@ async function onSbImageFileChange(ev) {
       return
     }
     await imagesAPI.upload({
-      storyboard_id: sid,
+      storyboard_id: sbId,
       drama_id: dramaId.value,
       image_url: url || '',
       local_path: localPath || undefined
@@ -915,9 +1243,20 @@ async function onSbImageFileChange(ev) {
     ElMessage.error(e.message || '上传失败')
   } finally {
     uploadingSbImageId.value = null
+  }
+}
+
+function onSbImageFileChange(ev) {
+  const file = ev.target?.files?.[0]
+  const sid = sbImageUploadForId.value
+  if (!file || !sid) {
+    ev.target.value = ''
+    return
+  }
+  doUploadSbImage(sid, file).finally(() => {
     sbImageUploadForId.value = null
     ev.target.value = ''
-  }
+  })
 }
 
 function syncStoryboardStateFromEpisode(ep) {
@@ -1276,14 +1615,8 @@ function onUploadResourceClick(type, id) {
   resourceImageFileInput.value?.click()
 }
 
-async function onResourceImageFileChange(ev) {
-  const file = ev.target?.files?.[0]
-  const type = resourceUploadType.value
-  const id = resourceUploadId.value
-  if (!file || !type || id == null) {
-    ev.target.value = ''
-    return
-  }
+async function doUploadResourceImage(type, id, file) {
+  if (!file || !type || id == null) return
   const key = type === 'character' ? 'char-' : type === 'prop' ? 'prop-' : 'scene-'
   uploadingResourceId.value = key + id
   try {
@@ -1307,10 +1640,22 @@ async function onResourceImageFileChange(ev) {
     ElMessage.error(e.message || '上传失败')
   } finally {
     uploadingResourceId.value = null
+  }
+}
+
+function onResourceImageFileChange(ev) {
+  const file = ev.target?.files?.[0]
+  const type = resourceUploadType.value
+  const id = resourceUploadId.value
+  if (!file || !type || id == null) {
+    ev.target.value = ''
+    return
+  }
+  doUploadResourceImage(type, id, file).finally(() => {
     resourceUploadType.value = null
     resourceUploadId.value = null
     ev.target.value = ''
-  }
+  })
 }
 
 async function onDeleteCharacter(char) {
@@ -1326,6 +1671,271 @@ async function onDeleteCharacter(char) {
   } catch (e) {
     if (e === 'cancel') return
     ElMessage.error(e.message || '删除失败')
+  }
+}
+
+async function loadCharLibraryList() {
+  charLibraryLoading.value = true
+  try {
+    const res = await characterLibraryAPI.list({
+      page: charLibraryPage.value,
+      page_size: charLibraryPageSize.value,
+      keyword: charLibraryKeyword.value || undefined
+    })
+    charLibraryList.value = res?.items ?? []
+    const pagination = res?.pagination ?? {}
+    charLibraryTotal.value = pagination.total ?? 0
+    if (pagination.page != null) charLibraryPage.value = pagination.page
+    if (pagination.page_size != null) charLibraryPageSize.value = pagination.page_size
+  } catch (e) {
+    charLibraryList.value = []
+  } finally {
+    charLibraryLoading.value = false
+  }
+}
+function debouncedLoadCharLibrary() {
+  if (charLibraryKeywordTimer) clearTimeout(charLibraryKeywordTimer)
+  charLibraryKeywordTimer = setTimeout(() => {
+    charLibraryPage.value = 1
+    loadCharLibraryList()
+  }, 300)
+}
+function openEditCharLibrary(item) {
+  editCharLibraryForm.value = {
+    id: item.id,
+    name: item.name ?? '',
+    category: item.category ?? '',
+    description: item.description ?? '',
+    tags: item.tags ?? ''
+  }
+  showEditCharLibrary.value = true
+}
+async function submitEditCharLibrary() {
+  if (!editCharLibraryForm.value?.id) return
+  editCharLibrarySaving.value = true
+  try {
+    await characterLibraryAPI.update(editCharLibraryForm.value.id, {
+      name: editCharLibraryForm.value.name,
+      category: editCharLibraryForm.value.category || null,
+      description: editCharLibraryForm.value.description || null,
+      tags: editCharLibraryForm.value.tags || null
+    })
+    ElMessage.success('已保存')
+    showEditCharLibrary.value = false
+    loadCharLibraryList()
+  } catch (e) {
+    ElMessage.error(e.message || '保存失败')
+  } finally {
+    editCharLibrarySaving.value = false
+  }
+}
+async function onDeleteCharLibrary(item) {
+  try {
+    await ElMessageBox.confirm(`确定删除公共角色「${(item.name || '未命名').slice(0, 20)}」吗？`, '删除确认', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    })
+    await characterLibraryAPI.delete(item.id)
+    ElMessage.success('已删除')
+    loadCharLibraryList()
+  } catch (e) {
+    if (e === 'cancel') return
+    ElMessage.error(e.message || '删除失败')
+  }
+}
+
+async function onAddCharacterToLibrary(char) {
+  if (!hasAssetImage(char)) {
+    ElMessage.warning('请先为该角色生成或上传图片')
+    return
+  }
+  addingCharToLibraryId.value = char.id
+  try {
+    await characterAPI.addToLibrary(char.id, {})
+    ElMessage.success('已加入公共角色库')
+    if (showCharLibrary.value) loadCharLibraryList()
+  } catch (e) {
+    ElMessage.error(e.message || '加入失败')
+  } finally {
+    addingCharToLibraryId.value = null
+  }
+}
+
+async function loadPropLibraryList() {
+  propLibraryLoading.value = true
+  try {
+    const res = await propLibraryAPI.list({
+      page: propLibraryPage.value,
+      page_size: propLibraryPageSize.value,
+      keyword: propLibraryKeyword.value || undefined
+    })
+    propLibraryList.value = res?.items ?? []
+    const pagination = res?.pagination ?? {}
+    propLibraryTotal.value = pagination.total ?? 0
+    if (pagination.page != null) propLibraryPage.value = pagination.page
+    if (pagination.page_size != null) propLibraryPageSize.value = pagination.page_size
+  } catch (e) {
+    propLibraryList.value = []
+  } finally {
+    propLibraryLoading.value = false
+  }
+}
+function debouncedLoadPropLibrary() {
+  if (propLibraryKeywordTimer) clearTimeout(propLibraryKeywordTimer)
+  propLibraryKeywordTimer = setTimeout(() => {
+    propLibraryPage.value = 1
+    loadPropLibraryList()
+  }, 300)
+}
+function openEditPropLibrary(item) {
+  editPropLibraryForm.value = {
+    id: item.id,
+    name: item.name ?? '',
+    category: item.category ?? '',
+    description: item.description ?? '',
+    tags: item.tags ?? ''
+  }
+  showEditPropLibrary.value = true
+}
+async function submitEditPropLibrary() {
+  if (!editPropLibraryForm.value?.id) return
+  editPropLibrarySaving.value = true
+  try {
+    await propLibraryAPI.update(editPropLibraryForm.value.id, {
+      name: editPropLibraryForm.value.name,
+      category: editPropLibraryForm.value.category || null,
+      description: editPropLibraryForm.value.description || null,
+      tags: editPropLibraryForm.value.tags || null
+    })
+    ElMessage.success('已保存')
+    showEditPropLibrary.value = false
+    loadPropLibraryList()
+  } catch (e) {
+    ElMessage.error(e.message || '保存失败')
+  } finally {
+    editPropLibrarySaving.value = false
+  }
+}
+async function onDeletePropLibrary(item) {
+  try {
+    await ElMessageBox.confirm(`确定删除公共道具「${(item.name || '未命名').slice(0, 20)}」吗？`, '删除确认', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    })
+    await propLibraryAPI.delete(item.id)
+    ElMessage.success('已删除')
+    loadPropLibraryList()
+  } catch (e) {
+    if (e === 'cancel') return
+    ElMessage.error(e.message || '删除失败')
+  }
+}
+async function onAddPropToLibrary(prop) {
+  if (!hasAssetImage(prop)) {
+    ElMessage.warning('请先为该道具生成或上传图片')
+    return
+  }
+  addingPropToLibraryId.value = prop.id
+  try {
+    await propAPI.addToLibrary(prop.id, {})
+    ElMessage.success('已加入公共道具库')
+    if (showPropLibrary.value) loadPropLibraryList()
+  } catch (e) {
+    ElMessage.error(e.message || '加入失败')
+  } finally {
+    addingPropToLibraryId.value = null
+  }
+}
+
+async function loadSceneLibraryList() {
+  sceneLibraryLoading.value = true
+  try {
+    const res = await sceneLibraryAPI.list({
+      page: sceneLibraryPage.value,
+      page_size: sceneLibraryPageSize.value,
+      keyword: sceneLibraryKeyword.value || undefined
+    })
+    sceneLibraryList.value = res?.items ?? []
+    const pagination = res?.pagination ?? {}
+    sceneLibraryTotal.value = pagination.total ?? 0
+    if (pagination.page != null) sceneLibraryPage.value = pagination.page
+    if (pagination.page_size != null) sceneLibraryPageSize.value = pagination.page_size
+  } catch (e) {
+    sceneLibraryList.value = []
+  } finally {
+    sceneLibraryLoading.value = false
+  }
+}
+function debouncedLoadSceneLibrary() {
+  if (sceneLibraryKeywordTimer) clearTimeout(sceneLibraryKeywordTimer)
+  sceneLibraryKeywordTimer = setTimeout(() => {
+    sceneLibraryPage.value = 1
+    loadSceneLibraryList()
+  }, 300)
+}
+function openEditSceneLibrary(item) {
+  editSceneLibraryForm.value = {
+    id: item.id,
+    location: item.location ?? '',
+    time: item.time ?? '',
+    category: item.category ?? '',
+    description: item.description ?? '',
+    tags: item.tags ?? ''
+  }
+  showEditSceneLibrary.value = true
+}
+async function submitEditSceneLibrary() {
+  if (!editSceneLibraryForm.value?.id) return
+  editSceneLibrarySaving.value = true
+  try {
+    await sceneLibraryAPI.update(editSceneLibraryForm.value.id, {
+      location: editSceneLibraryForm.value.location,
+      time: editSceneLibraryForm.value.time || null,
+      category: editSceneLibraryForm.value.category || null,
+      description: editSceneLibraryForm.value.description || null,
+      tags: editSceneLibraryForm.value.tags || null
+    })
+    ElMessage.success('已保存')
+    showEditSceneLibrary.value = false
+    loadSceneLibraryList()
+  } catch (e) {
+    ElMessage.error(e.message || '保存失败')
+  } finally {
+    editSceneLibrarySaving.value = false
+  }
+}
+async function onDeleteSceneLibrary(item) {
+  try {
+    const name = (item.location || item.time || '未命名').slice(0, 20)
+    await ElMessageBox.confirm(`确定删除公共场景「${name}」吗？`, '删除确认', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    })
+    await sceneLibraryAPI.delete(item.id)
+    ElMessage.success('已删除')
+    loadSceneLibraryList()
+  } catch (e) {
+    if (e === 'cancel') return
+    ElMessage.error(e.message || '删除失败')
+  }
+}
+async function onAddSceneToLibrary(scene) {
+  if (!hasAssetImage(scene)) {
+    ElMessage.warning('请先为该场景生成或上传图片')
+    return
+  }
+  addingSceneToLibraryId.value = scene.id
+  try {
+    await sceneAPI.addToLibrary(scene.id, {})
+    ElMessage.success('已加入公共场景库')
+    if (showSceneLibrary.value) loadSceneLibraryList()
+  } catch (e) {
+    ElMessage.error(e.message || '加入失败')
+  } finally {
+    addingSceneToLibraryId.value = null
   }
 }
 
@@ -1660,7 +2270,7 @@ async function pollUntilResourceHasImage(checker, maxAttempts = 20, intervalMs =
 }
 
 function pollTask(taskId, onDone) {
-  const maxAttempts = 60
+  const maxAttempts = 180
   const interval = 2000
   let attempts = 0
   return new Promise((resolve) => {
@@ -1678,7 +2288,10 @@ function pollTask(taskId, onDone) {
         }
       } catch (_) {}
       if (attempts < maxAttempts) setTimeout(tick, interval)
-      else resolve()
+      else {
+        ElMessage.warning('任务查询超时，请刷新页面查看最新状态')
+        resolve()
+      }
     }
     setTimeout(tick, interval)
   })
@@ -1754,6 +2367,31 @@ onMounted(() => {
   color: #a1a1aa;
   font-size: 0.95rem;
 }
+/* 左侧快捷目录 */
+.quick-nav {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 8px;
+  background: rgba(24, 24, 27, 0.95);
+  border-radius: 0 10px 10px 0;
+  border: 1px solid #27272a;
+  border-left: 0;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
+}
+.quick-nav-btn {
+  min-width: 56px;
+  white-space: nowrap;
+}
+.quick-nav-btn:hover {
+  color: var(--el-button-text-color);
+}
+
 .main {
   max-width: min(1400px, 96vw);
   margin: 0 auto;
@@ -1922,6 +2560,22 @@ onMounted(() => {
   justify-content: center;
   color: #71717a;
   font-size: 0.85rem;
+}
+.asset-cover--dragover {
+  outline: 2px dashed var(--el-color-primary);
+  outline-offset: -2px;
+  background: rgba(64, 158, 255, 0.08);
+}
+.asset-cover-drop-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.9rem;
+  pointer-events: none;
 }
 .image-preview-overlay {
   position: fixed;
@@ -2130,6 +2784,24 @@ onMounted(() => {
   justify-content: center;
   gap: 8px;
   overflow: hidden;
+  position: relative;
+}
+.sb-image-area--dragover {
+  outline: 2px dashed var(--el-color-primary);
+  outline-offset: -2px;
+  background: rgba(64, 158, 255, 0.1);
+}
+.sb-image-area-drop-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  pointer-events: none;
 }
 .sb-generated-img {
   max-width: 100%;
@@ -2222,5 +2894,65 @@ onMounted(() => {
   max-height: 360px;
   border-radius: 8px;
   background: #18181b;
+}
+
+/* 公共库弹窗 */
+.library-dialog .el-dialog__body { padding-top: 8px; }
+.library-toolbar { margin-bottom: 12px; }
+.library-list {
+  min-height: 200px;
+  max-height: 420px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.library-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  background: #27272a;
+  border-radius: 8px;
+}
+.library-item-cover {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  background: #3f3f46;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.library-item-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.library-item-placeholder {
+  font-size: 0.8rem;
+  color: #71717a;
+}
+.library-item-info { flex: 1; min-width: 0; }
+.library-item-name { font-weight: 500; margin-bottom: 4px; }
+.library-item-desc { font-size: 0.85rem; color: #a1a1aa; margin-bottom: 8px; }
+.library-item-actions { display: flex; gap: 8px; }
+.library-empty {
+  text-align: center;
+  color: #71717a;
+  padding: 40px 20px;
+}
+.library-pagination {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+.library-placeholder {
+  padding: 40px 20px;
+  text-align: center;
+  color: #71717a;
 }
 </style>

@@ -18,5 +18,8 @@ export const propAPI = {
   },
   delete(id) {
     return request.delete(`/props/${id}`)
+  },
+  addToLibrary(id, body = {}) {
+    return request.post(`/props/${id}/add-to-library`, body)
   }
 }

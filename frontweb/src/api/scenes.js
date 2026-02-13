@@ -12,5 +12,8 @@ export const sceneAPI = {
   },
   delete(sceneId) {
     return request.delete(`/scenes/${sceneId}`)
+  },
+  addToLibrary(sceneId, body = {}) {
+    return request.post(`/scenes/${sceneId}/add-to-library`, body)
   }
 }

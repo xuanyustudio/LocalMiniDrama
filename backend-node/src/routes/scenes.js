@@ -1,5 +1,6 @@
 const response = require('../response');
 const sceneService = require('../services/sceneService');
+const sceneLibraryService = require('../services/sceneLibraryService');
 const imageService = require('../services/imageService');
 
 function routes(db, log) {
@@ -71,6 +72,21 @@ function routes(db, log) {
       } catch (err) {
         log.error('scenes generateImage', { error: err.message });
         if (err.message && err.message.includes('insert failed')) return response.internalError(res, '创建记录失败，请确认已执行迁移 08（scene_id 列）');
+        response.internalError(res, err.message);
+      }
+    },
+    addToLibrary: (req, res) => {
+      try {
+        const category = (req.body || {}).category;
+        const out = sceneLibraryService.addSceneToLibrary(db, log, req.params.scene_id, category);
+        if (!out.ok) {
+          if (out.error === 'scene not found') return response.notFound(res, '场景不存在');
+          if (out.error === 'unauthorized') return response.forbidden(res, '无权限');
+          return response.badRequest(res, out.error);
+        }
+        response.success(res, { message: '已加入场景库', item: out.item });
+      } catch (err) {
+        log.error('scenes add-to-library', { error: err.message });
         response.internalError(res, err.message);
       }
     },
