@@ -116,7 +116,8 @@ async function processImageGeneration(db, log, imageGenId) {
   const now = new Date().toISOString();
   try {
     db.prepare('UPDATE image_generations SET status = ?, updated_at = ? WHERE id = ?').run('processing', now, imageGenId);
-    const config = imageClient.getDefaultImageConfig(db, row.model);
+    const imageServiceType = row.storyboard_id ? 'storyboard_image' : 'image';
+    const config = imageClient.getDefaultImageConfig(db, row.model, null, imageServiceType);
     if (!config) {
       db.prepare('UPDATE image_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?').run(
         'failed',

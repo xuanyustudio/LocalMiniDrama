@@ -14,7 +14,7 @@
         一键配置火山
       </el-button>
     </div>
-    <p class="default-tip">文本、图片、视频每种类型仅有一个默认配置；生成故事 / 角色图 / 分镜图 / 视频时会使用对应类型的默认配置。</p>
+    <p class="default-tip">每种服务类型仅有一个默认配置：文本用于生成故事；文本生成图片用于角色/场景/道具图；分镜图片生成用于分镜图（支持参考图）；视频用于生成视频。</p>
     <el-table v-loading="loading" :data="list" stripe style="width: 100%">
       <el-table-column prop="name" label="名称" min-width="120" />
       <el-table-column prop="service_type" label="类型" width="100">
@@ -57,7 +57,8 @@
         <el-form-item label="服务类型" prop="service_type">
           <el-select v-model="form.service_type" placeholder="选择类型" style="width: 100%" @change="onServiceTypeChange">
             <el-option label="文本/对话" value="text" />
-            <el-option label="图片生成" value="image" />
+            <el-option label="文本生成图片" value="image" />
+            <el-option label="分镜图片生成" value="storyboard_image" />
             <el-option label="视频生成" value="video" />
           </el-select>
         </el-form-item>
@@ -292,7 +293,14 @@ const providerConfigs = {
     { id: 'chatfire', name: 'Chatfire', models: ['nano-banana-pro', 'doubao-seedream-4-5-251128', 'qwen-image'] },
     { id: 'gemini', name: 'Google Gemini', models: ['gemini-3-pro-image-preview'] },
     { id: 'openai', name: 'OpenAI', models: ['dall-e-3', 'dall-e-2'] },
-    { id: 'dashscope', name: '通义万象', models: ['wan2.6-image', 'qwen-image-edit-plus-2026-01-09', 'qwen-image-edit-plus', 'qwen-image-edit-max'] }
+    { id: 'dashscope', name: '通义万象', models: ['wan2.6-image', 'qwen-image-edit-plus-2026-01-09', 'qwen-image-edit-plus', 'qwen-image-edit-max'] },
+    { id: 'qwen_image', name: '通义千问', models: ['qwen-image-max', 'qwen-image-plus', 'qwen-image'] }
+  ],
+  storyboard_image: [
+    { id: 'dashscope', name: '通义万象', models: ['wan2.6-image', 'qwen-image-edit-plus-2026-01-09', 'qwen-image-edit-plus', 'qwen-image-edit-max'] },
+    { id: 'volcengine', name: '火山引擎', models: ['doubao-seedream-4-5-251128', 'doubao-seedream-4-0-250828'] },
+    { id: 'chatfire', name: 'Chatfire', models: ['nano-banana-pro', 'doubao-seedream-4-5-251128', 'qwen-image'] },
+    { id: 'openai', name: 'OpenAI', models: ['dall-e-3', 'dall-e-2'] }
   ],
   video: [
     { id: 'volces', name: '火山引擎', models: ['doubao-seedance-1-5-pro-251215', 'doubao-seedance-1-0-lite-i2v-250428', 'doubao-seedance-1-0-lite-t2v-250428', 'doubao-seedance-1-0-pro-250528', 'doubao-seedance-1-0-pro-fast-251015'] },
@@ -313,6 +321,7 @@ function getBaseUrlForProvider(provider) {
   if (p === 'openai') return 'https://api.openai.com/v1'
   if (p === 'deepseek') return 'https://api.deepseek.com'
   if (p === 'dashscope') return 'https://dashscope.aliyuncs.com'
+  if (p === 'qwen_image') return 'https://dashscope.aliyuncs.com'
   if (p === 'qwen') return 'https://dashscope.aliyuncs.com/compatible-mode/v1'
   return 'https://api.chatfire.site/v1'
 }
@@ -357,19 +366,22 @@ function onProviderChange(providerId) {
 /** 通义一键配置用 */
 const TONGYI_CONFIGS = [
   { service_type: 'text', name: '通义千问', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', provider: 'qwen', model: ['qwen-plus'] },
-  { service_type: 'image', name: '通义万象', base_url: 'https://dashscope.aliyuncs.com', provider: 'dashscope', model: ['wan2.6-image'] },
+  { service_type: 'image', name: '通义万象 文本生图', base_url: 'https://dashscope.aliyuncs.com', provider: 'dashscope', model: ['wan2.6-image'] },
+  { service_type: 'image', name: '通义千问 文本生图', base_url: 'https://dashscope.aliyuncs.com', provider: 'qwen_image', model: ['qwen-image-max', 'qwen-image-plus', 'qwen-image'] },
+  { service_type: 'storyboard_image', name: '通义万象 分镜图', base_url: 'https://dashscope.aliyuncs.com', provider: 'dashscope', model: ['wan2.6-image'] },
   { service_type: 'video', name: '通义万相', base_url: 'https://dashscope.aliyuncs.com', provider: 'dashscope', model: ['wan2.2-kf2v-flash'] }
 ]
 
 /** 火山引擎一键配置用 */
 const VOLCENGINE_CONFIGS = [
   { service_type: 'text', name: '火山引擎 文本', base_url: 'https://ark.cn-beijing.volces.com/api/v3', provider: 'volcengine', model: ['doubao-1-5-pro-32k-250115', 'kimi-k2-thinking-251104'] },
-  { service_type: 'image', name: '火山引擎 即梦', base_url: 'https://ark.cn-beijing.volces.com/api/v3', provider: 'volcengine', model: ['doubao-seedream-4-5-251128'] },
+  { service_type: 'image', name: '火山引擎 即梦 文本生图', base_url: 'https://ark.cn-beijing.volces.com/api/v3', provider: 'volcengine', model: ['doubao-seedream-4-5-251128'] },
+  { service_type: 'storyboard_image', name: '火山引擎 即梦 分镜图', base_url: 'https://ark.cn-beijing.volces.com/api/v3', provider: 'volcengine', model: ['doubao-seedream-4-5-251128'] },
   { service_type: 'video', name: '火山引擎 即梦 视频', base_url: 'https://ark.cn-beijing.volces.com/api/v3', provider: 'volces', model: ['doubao-seedance-1-5-pro-251215'] }
 ]
 
 function serviceTypeLabel(t) {
-  const map = { text: '文本', image: '图片', video: '视频' }
+  const map = { text: '文本', image: '文本生成图片', storyboard_image: '分镜图片生成', video: '视频' }
   return map[t] || t
 }
 
@@ -522,7 +534,7 @@ async function submitOneKeyTongyi() {
         is_default: true
       })
     }
-    ElMessage.success('已创建通义文本、图片、视频三条配置')
+    ElMessage.success('已创建通义文本、文本生图、分镜图、视频配置')
     oneKeyTongyiVisible.value = false
     await loadList()
   } catch (_) {
@@ -556,7 +568,7 @@ async function submitOneKeyVolc() {
         is_default: true
       })
     }
-    ElMessage.success('已创建火山引擎文本、图片、视频三条配置')
+    ElMessage.success('已创建火山引擎文本、文本生图、分镜图、视频配置')
     oneKeyVolcVisible.value = false
     await loadList()
   } catch (_) {

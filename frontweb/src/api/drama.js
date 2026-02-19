@@ -22,6 +22,10 @@ export const dramaAPI = {
   saveCharacters(id, data) {
     return request.put(`/dramas/${id}/characters`, data)
   },
+  /** 保存梗概/故事摘要到项目（outline），body: { summary, title?, genre?, tags? } */
+  saveOutline(id, data) {
+    return request.put(`/dramas/${id}/outline`, data)
+  },
   saveProgress(id, data) {
     return request.put(`/dramas/${id}/progress`, data)
   },

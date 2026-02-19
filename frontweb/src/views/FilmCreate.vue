@@ -122,6 +122,35 @@
           placeholder="剧本内容将显示在这里，可编辑..."
           class="story-textarea"
         />
+        <div class="one-click-actions">
+          <el-button
+            type="primary"
+            :loading="pipelineRunning && !pipelinePaused"
+            :disabled="!currentEpisodeId || pipelineRunning"
+            @click="startOneClickPipeline"
+          >
+            一键生成视频
+          </el-button>
+          <el-button
+            type="success"
+            plain
+            :loading="pipelineRunning && !pipelinePaused"
+            :disabled="!currentEpisodeId || pipelineRunning"
+            @click="startRepairPipeline"
+          >
+            修复缺失的元素和生成
+          </el-button>
+          <template v-if="pipelineRunning">
+            <el-button v-if="!pipelinePaused" type="warning" @click="pipelinePaused = true">暂停</el-button>
+            <el-button v-else type="success" @click="onPipelineResume">继续</el-button>
+          </template>
+        </div>
+        <div v-if="pipelineErrorLog.length > 0" class="pipeline-error-log">
+          <div class="pipeline-error-title">执行过程中的错误：</div>
+          <div v-for="(entry, idx) in pipelineErrorLog" :key="idx" class="pipeline-error-line">
+            [{{ entry.step }}] {{ entry.message }}
+          </div>
+        </div>
       </section>
 
       <!-- 资源管理：角色 / 道具 / 场景 -->
@@ -140,7 +169,7 @@
             <div v-show="!charactersBlockCollapsed" class="resource-block-body">
               <div class="asset-actions">
                 <el-button type="primary" size="small" :loading="charactersGenerating" :disabled="!dramaId" @click="onGenerateCharacters">
-                  AI 生成角色
+                  剧本自动提取角色
                 </el-button>
                 <el-button size="small" :disabled="!dramaId" @click="openAddCharacter">添加角色</el-button>
                 <el-button size="small" @click="showCharLibrary = true">公共角色</el-button>
@@ -972,6 +1001,11 @@ const propsExtracting = ref(false)
 const scenesExtracting = ref(false)
 const storyboardGenerating = ref(false)
 const videoErrorMsg = ref('')
+// 一键生成视频流水线
+const pipelineRunning = ref(false)
+const pipelinePaused = ref(false)
+const pipelineErrorLog = ref([])
+let pipelineResolveResume = null
 const showAddProp = ref(false)
 const addPropSaving = ref(false)
 const addPropForm = ref({ name: '', type: '', description: '', prompt: '' })
@@ -1189,28 +1223,23 @@ async function onGenerateSbImage(sb) {
   if (!dramaId.value || !sb?.id) return
   generatingSbImageId.value = sb.id
   try {
-    await imagesAPI.create({
+    const res = await imagesAPI.create({
       storyboard_id: sb.id,
       drama_id: dramaId.value,
       prompt: sb.image_prompt || sb.description || '',
       model: undefined
     })
     ElMessage.success('分镜图生成任务已提交')
-    await pollSbImageThenRefetch(sb.id)
+    if (res?.task_id) {
+      await pollTask(res.task_id, () => loadStoryboardMedia())
+      ElMessage.success('分镜图生成完成')
+    } else {
+      await loadStoryboardMedia()
+    }
   } catch (e) {
     ElMessage.error(e.message || '生成失败')
   } finally {
     generatingSbImageId.value = null
-  }
-}
-
-async function pollSbImageThenRefetch(storyboardId) {
-  for (let i = 0; i < 30; i++) {
-    await new Promise((r) => setTimeout(r, 2000))
-    await loadStoryboardMedia()
-    const list = sbImages.value[storyboardId]
-    const done = list && list.some((x) => x.status === 'completed' && (x.image_url || x.local_path))
-    if (done) return
   }
 }
 
@@ -1304,6 +1333,8 @@ async function loadDrama() {
   try {
     const d = await dramaAPI.get(store.dramaId)
     store.setDrama(d)
+    // 恢复「故事生成」框的梗概（项目 description 存的是故事梗概）
+    storyInput.value = (d.description || '').toString().trim()
     const list = d.episodes || []
     // 优先保持当前选中的集（按 id 在最新列表中查找），避免 AI 生成角色等操作后误切到其他集
     const currentId = selectedEpisodeId.value
@@ -1428,6 +1459,9 @@ async function saveScriptToBackend(content) {
     updated.push({ episode_number: 1, title: scriptTitle.value || '第1集', script_content: trimmed })
   }
   await dramaAPI.saveEpisodes(dramaId, updated)
+  if (storyInput.value?.trim()) {
+    await dramaAPI.saveOutline(dramaId, { summary: storyInput.value.trim() }).catch(() => {})
+  }
   await loadDrama()
   return { created: false }
 }
@@ -1457,6 +1491,10 @@ async function onGenerateStory() {
         ElMessage.success('剧本已生成，项目已创建并保存第1集')
       } else {
         ElMessage.success('剧本已生成并已保存当前集')
+      }
+      // 把当前故事梗概保存到项目，下次打开可恢复
+      if (store.dramaId && text) {
+        await dramaAPI.saveOutline(store.dramaId, { summary: text }).catch(() => {})
       }
     } catch (e) {
       ElMessage.error(e.message || '保存剧本失败')
@@ -2297,6 +2335,461 @@ function pollTask(taskId, onDone) {
   })
 }
 
+/** 一键生成视频：暂停时等待，返回 { paused: true } 表示被暂停中断 */
+function pollTaskWithPause(taskId, onDone) {
+  const maxAttempts = 180
+  const interval = 2000
+  let attempts = 0
+  return new Promise((resolve) => {
+    const tick = async () => {
+      if (pipelinePaused.value) {
+        resolve({ paused: true })
+        return
+      }
+      attempts++
+      try {
+        const t = await taskAPI.get(taskId)
+        if (t.status === 'completed') {
+          if (onDone) await onDone()
+          resolve()
+          return
+        }
+        if (t.status === 'failed') {
+          resolve({ error: t.error || '任务失败' })
+          return
+        }
+      } catch (_) {}
+      if (attempts < maxAttempts) setTimeout(tick, interval)
+      else {
+        resolve({ error: '任务查询超时' })
+      }
+    }
+    setTimeout(tick, interval)
+  })
+}
+
+function waitForResume() {
+  return new Promise((resolve) => {
+    pipelineResolveResume = resolve
+  })
+}
+
+function onPipelineResume() {
+  pipelinePaused.value = false
+  if (pipelineResolveResume) {
+    pipelineResolveResume()
+    pipelineResolveResume = null
+  }
+}
+
+function addPipelineError(step, message) {
+  const time = new Date().toLocaleTimeString('zh-CN')
+  pipelineErrorLog.value = [...pipelineErrorLog.value, { time, step, message }]
+}
+
+async function checkPause() {
+  while (pipelinePaused.value) {
+    await waitForResume()
+  }
+}
+
+/** 每生成好一个图片或内容后休息，防止任务队列过紧 */
+function pipelineRest() {
+  return new Promise((r) => setTimeout(r, 1000))
+}
+
+/** 执行可失败步骤，失败时重试最多 maxRetries 次；fn 返回 { paused: true } 表示暂停不重试；返回 true 表示成功；抛错会触发重试 */
+async function pipelineWithRetry(stepName, fn, maxRetries = 3) {
+  let lastErr
+  for (let r = 0; r < maxRetries; r++) {
+    try {
+      const result = await fn()
+      if (result && result.paused === true) return result
+      return true
+    } catch (e) {
+      lastErr = e
+      if (r < maxRetries - 1) await pipelineRest()
+    }
+  }
+  addPipelineError(stepName, '重试3次均失败: ' + (lastErr?.message || String(lastErr)))
+  return false
+}
+
+async function startOneClickPipeline() {
+  if (!currentEpisodeId.value || pipelineRunning.value) return
+  pipelineErrorLog.value = []
+  pipelineRunning.value = true
+  pipelinePaused.value = false
+  try {
+    await runOneClickPipeline()
+  } finally {
+    pipelineRunning.value = false
+  }
+}
+
+async function runOneClickPipeline() {
+  const episodeId = currentEpisodeId.value
+  const dramaIdVal = dramaId.value
+  if (!episodeId || !dramaIdVal) return
+
+  try {
+    // 1. 剧本生成角色
+    await checkPause()
+    try {
+      const outline = (store.scriptContent || '').toString().trim() || (storyInput.value || '').toString().trim() || undefined
+      const res = await generationAPI.generateCharacters(dramaIdVal, { episode_id: store.currentEpisode?.id ?? undefined, outline: outline || undefined })
+      const taskId = res?.task_id
+      if (taskId) {
+        const result = await pollTaskWithPause(taskId, () => loadDrama())
+        if (result?.paused) { await waitForResume(); return }
+        if (result?.error) { addPipelineError('生成角色', result.error); return }
+      } else {
+        await loadDrama()
+      }
+      await pipelineRest()
+    } catch (e) {
+      addPipelineError('生成角色', e.message || String(e))
+      return
+    }
+
+    // 2. 为每个角色生成图片
+    await checkPause()
+    let chars = store.drama?.characters ?? store.currentEpisode?.characters ?? []
+    const charsWithoutImage = chars.filter((c) => !hasAssetImage(c))
+    for (const char of charsWithoutImage) {
+      await checkPause()
+      const stepName = '角色图 ' + (char.name || char.id)
+      const ok = await pipelineWithRetry(stepName, async () => {
+        const res = await characterAPI.generateImage(char.id, undefined)
+        const taskId = res?.image_generation?.task_id ?? res?.task_id
+        if (taskId) {
+          const result = await pollTaskWithPause(taskId, () => loadDrama())
+          if (result?.paused) return { paused: true }
+          if (result?.error) throw new Error(result.error)
+        } else {
+          await loadDrama()
+          await pollUntilResourceHasImage(() => {
+            const list = store.drama?.characters ?? store.currentEpisode?.characters ?? []
+            const c = list.find((x) => Number(x.id) === Number(char.id))
+            return !!(c && (c.image_url || c.local_path))
+          })
+        }
+      })
+      if (ok && typeof ok === 'object' && ok.paused) { await waitForResume(); continue }
+      if (ok) await pipelineRest()
+    }
+
+    // 3. 从剧本提取场景
+    await checkPause()
+    try {
+      const res = await dramaAPI.extractBackgrounds(episodeId, { model: undefined })
+      const taskId = res?.task_id
+      if (taskId) {
+        const result = await pollTaskWithPause(taskId, () => loadDrama())
+        if (result?.paused) { await waitForResume(); return }
+        if (result?.error) { addPipelineError('提取场景', result.error); return }
+      } else {
+        await loadDrama()
+      }
+      await pipelineRest()
+    } catch (e) {
+      addPipelineError('提取场景', e.message || String(e))
+      return
+    }
+
+    // 4. 为每个场景生成图片
+    await checkPause()
+    let sceneList = store.drama?.scenes ?? store.currentEpisode?.scenes ?? []
+    const scenesWithoutImage = sceneList.filter((s) => !hasAssetImage(s))
+    for (const scene of scenesWithoutImage) {
+      await checkPause()
+      const stepName = '场景图 ' + (scene.location || scene.id)
+      const ok = await pipelineWithRetry(stepName, async () => {
+        const res = await sceneAPI.generateImage({ scene_id: scene.id, model: undefined })
+        const taskId = res?.image_generation?.task_id ?? res?.task_id
+        if (taskId) {
+          const result = await pollTaskWithPause(taskId, () => loadDrama())
+          if (result?.paused) return { paused: true }
+          if (result?.error) throw new Error(result.error)
+        } else {
+          await loadDrama()
+          await pollUntilResourceHasImage(() => {
+            const list = store.drama?.scenes ?? store.currentEpisode?.scenes ?? []
+            const s = list.find((x) => Number(x.id) === Number(scene.id))
+            return !!(s && (s.image_url || s.local_path))
+          })
+        }
+      })
+      if (ok && typeof ok === 'object' && ok.paused) { await waitForResume(); continue }
+      if (ok) await pipelineRest()
+    }
+
+    // 5. 分镜生成
+    await checkPause()
+    try {
+      const res = await dramaAPI.generateStoryboard(episodeId, undefined)
+      const taskId = res?.task_id
+      if (taskId) {
+        const result = await pollTaskWithPause(taskId, () => loadDrama())
+        if (result?.paused) { await waitForResume(); return }
+        if (result?.error) { addPipelineError('分镜生成', result.error); return }
+      }
+      await loadDrama()
+      await pipelineRest()
+    } catch (e) {
+      addPipelineError('分镜生成', e.message || String(e))
+      return
+    }
+
+    // 6. 逐个生成分镜图（先拉取分镜图/视频列表再判断是否有图）
+    await checkPause()
+    await loadStoryboardMedia()
+    const boards = store.storyboards || []
+    for (const sb of boards) {
+      await checkPause()
+      const hasImg = hasSbImage(sb)
+      if (hasImg) continue
+      const stepName = '分镜图 #' + (sb.storyboard_number ?? sb.id)
+      const ok = await pipelineWithRetry(stepName, async () => {
+        const res = await imagesAPI.create({
+          storyboard_id: sb.id,
+          drama_id: dramaIdVal,
+          prompt: sb.image_prompt || sb.description || '',
+          model: undefined
+        })
+        if (res?.task_id) {
+          const result = await pollTaskWithPause(res.task_id, () => loadStoryboardMedia())
+          if (result?.paused) return { paused: true }
+          if (result?.error) throw new Error(result.error)
+        } else await loadStoryboardMedia()
+      })
+      if (ok && typeof ok === 'object' && ok.paused) { await waitForResume(); continue }
+      if (ok) await pipelineRest()
+    }
+
+    // 7. 逐个生成分镜视频
+    await checkPause()
+    await loadStoryboardMedia()
+    const boards2 = store.storyboards || []
+    for (const sb of boards2) {
+      await checkPause()
+      const firstFrameUrl = getSbFirstFrameUrl(sb)
+      if (!firstFrameUrl) continue
+      const vidList = sbVideos.value[sb.id] || []
+      const hasVideo = vidList.some((v) => v.status === 'completed' && (v.video_url || v.local_path))
+      if (hasVideo) continue
+      const stepName = '分镜视频 #' + (sb.storyboard_number ?? sb.id)
+      const ok = await pipelineWithRetry(stepName, async () => {
+        const absoluteUrl = toAbsoluteImageUrl(firstFrameUrl)
+        const res = await videosAPI.create({
+          drama_id: dramaIdVal,
+          storyboard_id: sb.id,
+          prompt: sb.video_prompt,
+          image_url: absoluteUrl || undefined,
+          reference_image_urls: absoluteUrl ? [absoluteUrl] : undefined,
+          model: undefined
+        })
+        if (res?.task_id) {
+          const result = await pollTaskWithPause(res.task_id, () => loadStoryboardMedia())
+          if (result?.paused) return { paused: true }
+          if (result?.error) throw new Error(result.error)
+        } else await loadStoryboardMedia()
+      })
+      if (ok && typeof ok === 'object' && ok.paused) { await waitForResume(); continue }
+      if (ok) await pipelineRest()
+    }
+
+    ElMessage.success('一键生成视频流程已执行完成')
+  } catch (e) {
+    addPipelineError('流程', e.message || String(e))
+  }
+}
+
+async function startRepairPipeline() {
+  if (!currentEpisodeId.value || pipelineRunning.value) return
+  pipelineErrorLog.value = []
+  pipelineRunning.value = true
+  pipelinePaused.value = false
+  try {
+    await runRepairPipeline()
+  } finally {
+    pipelineRunning.value = false
+  }
+}
+
+/** 修复缺失：哪一步没有就生成哪一步，有图/有内容就跳过 */
+async function runRepairPipeline() {
+  const episodeId = currentEpisodeId.value
+  const dramaIdVal = dramaId.value
+  if (!episodeId || !dramaIdVal) return
+
+  try {
+    await loadDrama()
+
+    // 1. 角色：没有则生成角色；再为每个无图角色生成图
+    let chars = store.drama?.characters ?? store.currentEpisode?.characters ?? []
+    if (chars.length === 0) {
+      await checkPause()
+      try {
+        const outline = (store.scriptContent || '').toString().trim() || (storyInput.value || '').toString().trim() || undefined
+        const res = await generationAPI.generateCharacters(dramaIdVal, { episode_id: store.currentEpisode?.id ?? undefined, outline: outline || undefined })
+        const taskId = res?.task_id
+        if (taskId) {
+          const result = await pollTaskWithPause(taskId, () => loadDrama())
+          if (result?.paused) { await waitForResume(); return }
+          if (result?.error) { addPipelineError('生成角色', result.error); return }
+        } else await loadDrama()
+        await pipelineRest()
+      } catch (e) {
+        addPipelineError('生成角色', e.message || String(e))
+        return
+      }
+      chars = store.drama?.characters ?? store.currentEpisode?.characters ?? []
+    }
+    const charsWithoutImage = chars.filter((c) => !hasAssetImage(c))
+    for (const char of charsWithoutImage) {
+      await checkPause()
+      const stepName = '角色图 ' + (char.name || char.id)
+      const ok = await pipelineWithRetry(stepName, async () => {
+        const res = await characterAPI.generateImage(char.id, undefined)
+        const taskId = res?.image_generation?.task_id ?? res?.task_id
+        if (taskId) {
+          const result = await pollTaskWithPause(taskId, () => loadDrama())
+          if (result?.paused) return { paused: true }
+          if (result?.error) throw new Error(result.error)
+        } else {
+          await loadDrama()
+          await pollUntilResourceHasImage(() => {
+            const list = store.drama?.characters ?? store.currentEpisode?.characters ?? []
+            const c = list.find((x) => Number(x.id) === Number(char.id))
+            return !!(c && (c.image_url || c.local_path))
+          })
+        }
+      })
+      if (ok && typeof ok === 'object' && ok.paused) { await waitForResume(); continue }
+      if (ok) await pipelineRest()
+    }
+
+    // 2. 场景：没有则提取；再为每个无图场景生成图
+    let sceneList = store.drama?.scenes ?? store.currentEpisode?.scenes ?? []
+    if (sceneList.length === 0) {
+      await checkPause()
+      try {
+        const res = await dramaAPI.extractBackgrounds(episodeId, { model: undefined })
+        const taskId = res?.task_id
+        if (taskId) {
+          const result = await pollTaskWithPause(taskId, () => loadDrama())
+          if (result?.paused) { await waitForResume(); return }
+          if (result?.error) { addPipelineError('提取场景', result.error); return }
+        } else await loadDrama()
+        await pipelineRest()
+      } catch (e) {
+        addPipelineError('提取场景', e.message || String(e))
+        return
+      }
+      sceneList = store.drama?.scenes ?? store.currentEpisode?.scenes ?? []
+    }
+    const scenesWithoutImage = sceneList.filter((s) => !hasAssetImage(s))
+    for (const scene of scenesWithoutImage) {
+      await checkPause()
+      const stepName = '场景图 ' + (scene.location || scene.id)
+      const ok = await pipelineWithRetry(stepName, async () => {
+        const res = await sceneAPI.generateImage({ scene_id: scene.id, model: undefined })
+        const taskId = res?.image_generation?.task_id ?? res?.task_id
+        if (taskId) {
+          const result = await pollTaskWithPause(taskId, () => loadDrama())
+          if (result?.paused) return { paused: true }
+          if (result?.error) throw new Error(result.error)
+        } else {
+          await loadDrama()
+          await pollUntilResourceHasImage(() => {
+            const list = store.drama?.scenes ?? store.currentEpisode?.scenes ?? []
+            const s = list.find((x) => Number(x.id) === Number(scene.id))
+            return !!(s && (s.image_url || s.local_path))
+          })
+        }
+      })
+      if (ok && typeof ok === 'object' && ok.paused) { await waitForResume(); continue }
+      if (ok) await pipelineRest()
+    }
+
+    // 3. 分镜：没有则生成分镜；再逐个检查分镜图，没有则生成；再逐个检查分镜视频，没有则生成
+    let boards = store.storyboards || []
+    if (boards.length === 0) {
+      await checkPause()
+      try {
+        const res = await dramaAPI.generateStoryboard(episodeId, undefined)
+        const taskId = res?.task_id
+        if (taskId) {
+          const result = await pollTaskWithPause(taskId, () => loadDrama())
+          if (result?.paused) { await waitForResume(); return }
+          if (result?.error) { addPipelineError('分镜生成', result.error); return }
+        }
+        await loadDrama()
+        await pipelineRest()
+      } catch (e) {
+        addPipelineError('分镜生成', e.message || String(e))
+        return
+      }
+      boards = store.storyboards || []
+    }
+    // 先拉取分镜图片/视频列表，再先生成分镜图、再生成视频
+    await loadStoryboardMedia()
+    for (const sb of boards) {
+      await checkPause()
+      if (hasSbImage(sb)) continue
+      const stepName = '分镜图 #' + (sb.storyboard_number ?? sb.id)
+      const ok = await pipelineWithRetry(stepName, async () => {
+        const res = await imagesAPI.create({
+          storyboard_id: sb.id,
+          drama_id: dramaIdVal,
+          prompt: sb.image_prompt || sb.description || '',
+          model: undefined
+        })
+        if (res?.task_id) {
+          const result = await pollTaskWithPause(res.task_id, () => loadStoryboardMedia())
+          if (result?.paused) return { paused: true }
+          if (result?.error) throw new Error(result.error)
+        } else await loadStoryboardMedia()
+      })
+      if (ok && typeof ok === 'object' && ok.paused) { await waitForResume(); continue }
+      if (ok) await pipelineRest()
+    }
+    await loadStoryboardMedia()
+    const boards2 = store.storyboards || []
+    for (const sb of boards2) {
+      await checkPause()
+      const firstFrameUrl = getSbFirstFrameUrl(sb)
+      if (!firstFrameUrl) continue
+      const vidList = sbVideos.value[sb.id] || []
+      if (vidList.some((v) => v.status === 'completed' && (v.video_url || v.local_path))) continue
+      const stepName = '分镜视频 #' + (sb.storyboard_number ?? sb.id)
+      const ok = await pipelineWithRetry(stepName, async () => {
+        const absoluteUrl = toAbsoluteImageUrl(firstFrameUrl)
+        const res = await videosAPI.create({
+          drama_id: dramaIdVal,
+          storyboard_id: sb.id,
+          prompt: sb.video_prompt,
+          image_url: absoluteUrl || undefined,
+          reference_image_urls: absoluteUrl ? [absoluteUrl] : undefined,
+          model: undefined
+        })
+        if (res?.task_id) {
+          const result = await pollTaskWithPause(res.task_id, () => loadStoryboardMedia())
+          if (result?.paused) return { paused: true }
+          if (result?.error) throw new Error(result.error)
+        } else await loadStoryboardMedia()
+      })
+      if (ok && typeof ok === 'object' && ok.paused) { await waitForResume(); continue }
+      if (ok) await pipelineRest()
+    }
+
+    ElMessage.success('修复缺失流程已执行完成')
+  } catch (e) {
+    addPipelineError('流程', e.message || String(e))
+  }
+}
+
 async function submitAddProp() {
   const name = (addPropForm.value.name || '').trim()
   if (!name || !store.dramaId) return
@@ -2410,6 +2903,32 @@ onMounted(() => {
   font-size: 1.1rem;
   margin: 0 0 4px;
   color: #fafafa;
+}
+.one-click-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.pipeline-error-log {
+  margin-top: 12px;
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #fca5a5;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.pipeline-error-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.pipeline-error-line {
+  margin-bottom: 4px;
+  word-break: break-all;
 }
 /* 资源管理大面板 + 可折叠标题 */
 .resource-panel {

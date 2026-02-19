@@ -64,7 +64,7 @@
       </template>
     </el-dialog>
 
-    <!-- 编辑项目：修改标题和描述 -->
+    <!-- 编辑项目：修改标题和故事 -->
     <el-dialog
       v-model="showEditDialog"
       title="编辑项目"
@@ -76,8 +76,8 @@
         <el-form-item label="标题" required>
           <el-input v-model="editForm.title" placeholder="输入项目标题" maxlength="100" show-word-limit />
         </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="editForm.description" type="textarea" :rows="3" placeholder="输入项目描述（选填）" />
+        <el-form-item label="故事">
+          <el-input v-model="editForm.description" type="textarea" :rows="3" placeholder="输入故事梗概（选填）" />
         </el-form-item>
       </el-form>
       <template #footer>

@@ -18,7 +18,7 @@ function modelFromDb(val) {
 
 /** 每种服务类型只保留一个默认：若有多个 is_default=1，只保留优先级最高（同优先级取 id 最小）的那条 */
 function ensureSingleDefaultPerType(db) {
-  const types = ['text', 'image', 'video'];
+  const types = ['text', 'image', 'storyboard_image', 'video'];
   for (const st of types) {
     const rows = db.prepare(
       'SELECT id, priority FROM ai_service_configs WHERE deleted_at IS NULL AND service_type = ? AND is_default = 1 ORDER BY priority DESC, id ASC'
@@ -73,9 +73,9 @@ function createConfig(db, log, req) {
       }
     } else if (p === 'gemini' || p === 'google') {
       endpoint = '/v1beta/models/{model}:generateContent';
-    } else if (p === 'dashscope') {
-      if (st === 'image') endpoint = '/api/v1/services/aigc/multimodal-generation/generation';
-      else if (st === 'video') {
+    } else if (p === 'dashscope' || p === 'qwen_image') {
+      if (st === 'image' || st === 'storyboard_image') endpoint = '/api/v1/services/aigc/multimodal-generation/generation';
+      else if (st === 'video' && p === 'dashscope') {
         endpoint = '/api/v1/services/aigc/image2video/video-synthesis';
         queryEndpoint = '/api/v1/tasks/{taskId}';
       }

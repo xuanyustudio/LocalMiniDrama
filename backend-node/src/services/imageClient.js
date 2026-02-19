@@ -11,9 +11,14 @@ const taskService = require('./taskService');
  * @param {object} db
  * @param {string} [preferredModel] - 指定模型名时，在匹配到的配置中选含该模型的
  * @param {string} [preferredProvider] - 指定供应商（如 openai / dashscope），只在该 provider 的配置中选
+ * @param {string} [imageServiceType] - 'image' 文本生成图片（角色/场景/道具），'storyboard_image' 分镜图片生成（支持参考图）；缺省为 'image'
  */
-function getDefaultImageConfig(db, preferredModel, preferredProvider) {
-  const configs = aiConfigService.listConfigs(db, 'image');
+function getDefaultImageConfig(db, preferredModel, preferredProvider, imageServiceType) {
+  const serviceType = imageServiceType || 'image';
+  let configs = aiConfigService.listConfigs(db, serviceType);
+  if (configs.length === 0 && serviceType === 'storyboard_image') {
+    configs = aiConfigService.listConfigs(db, 'image');
+  }
   let active = configs.filter((c) => c.is_active);
   if (active.length === 0) return null;
   if (preferredProvider && String(preferredProvider).trim()) {
@@ -94,14 +99,99 @@ function parseDashScopeImageUrl(data) {
   return null;
 }
 
+// 通义千问 qwen-image 同步接口：仅支持单条 text，不支持参考图；parameters 仅 size/negative_prompt/prompt_extend/watermark
+function isQwenImageProvider(config, model) {
+  const p = (config.provider || '').toLowerCase();
+  const m = (model || '').toLowerCase();
+  return p === 'qwen_image' || /^qwen-image/.test(m);
+}
+
+// qwen-image 仅支持以下 size：1664*928(16:9), 1472*1104(4:3), 1328*1328(1:1), 1104*1472(3:4), 928*1664(9:16)
+function qwenImageSize(size) {
+  const allowed = ['1664*928', '1472*1104', '1328*1328', '1104*1472', '928*1664'];
+  if (!size || typeof size !== 'string') return '1664*928';
+  const s = String(size).trim().toLowerCase().replace(/x/g, '*');
+  const match = s.match(/^(\d+)\s*\*\s*(\d+)$/);
+  if (!match) return '1664*928';
+  const w = parseInt(match[1], 10);
+  const h = parseInt(match[2], 10);
+  if (!w || !h) return '1664*928';
+  const ratio = w / h;
+  if (ratio >= 1.7) return '1664*928';   // 16:9
+  if (ratio >= 1.2) return '1472*1104';   // 4:3
+  if (ratio >= 0.85) return '1328*1328';  // 1:1
+  if (ratio >= 0.65) return '1104*1472';  // 3:4
+  return '928*1664';                      // 9:16
+}
+
 // 通义万象：支持参考图（角色/场景），content 为 [text, image, image, ...]；本地调试时参考图可转 base64
+// 通义千问 qwen-image：仅支持 content 中一个 text，用同步接口，parameters 不含 stream/enable_interleave
 async function callDashScopeImageApi(config, log, opts) {
-  const { prompt, model, size, image_gen_id, reference_image_urls, files_base_url, storage_local_path } = opts;
+  const { prompt, model, size, image_gen_id, reference_image_urls, files_base_url, storage_local_path, negative_prompt } = opts;
   const base = (config.base_url || '').replace(/\/$/, '');
   const url = base + (config.endpoint || '/api/v1/services/aigc/multimodal-generation/generation');
   if (!url.includes('dashscope')) {
     return { error: '通义万象 base_url 需为 https://dashscope.aliyuncs.com' };
   }
+  const isQwenImage = isQwenImageProvider(config, model);
+
+  if (isQwenImage) {
+    // 千问文生图：仅支持单条 text，长度不超过 800 字符；同步接口，无 stream/enable_interleave
+    const text = (prompt || '').toString().trim().slice(0, 800);
+    const body = {
+      model: model || 'qwen-image-max',
+      input: {
+        messages: [{ role: 'user', content: [{ text }] }],
+      },
+      parameters: {
+        prompt_extend: true,
+        watermark: false,
+        size: qwenImageSize(size),
+      },
+    };
+    if (negative_prompt && String(negative_prompt).trim()) {
+      body.parameters.negative_prompt = String(negative_prompt).trim().slice(0, 500);
+    }
+    log.info('Image API request (Qwen-Image sync)', { url: url.slice(0, 70), model: body.model, image_gen_id });
+    const createRes = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + (config.api_key || ''),
+      },
+      body: JSON.stringify(body),
+    });
+    const raw = await createRes.text();
+    if (!createRes.ok) {
+      let errMsg = '图片生成请求失败: ' + createRes.status;
+      try {
+        const errJson = JSON.parse(raw);
+        if (errJson.message) errMsg += ' - ' + errJson.message;
+        else if (errJson.code) errMsg += ' - ' + errJson.code;
+      } catch (_) {
+        if (raw && raw.length) errMsg += ' - ' + raw.slice(0, 200);
+      }
+      log.error('Qwen-Image create failed', { status: createRes.status, body: raw.slice(0, 300), image_gen_id });
+      return { error: errMsg };
+    }
+    try {
+      const data = JSON.parse(raw);
+      if (data.code) {
+        log.warn('Qwen-Image response error', { code: data.code, message: data.message, image_gen_id });
+        return { error: data.message || data.code || '通义千问接口错误' };
+      }
+      const imageUrl = parseDashScopeImageUrl(data);
+      if (imageUrl) {
+        log.info('Qwen-Image image (sync)', { image_gen_id, has_image_url: true });
+        return { image_url: imageUrl };
+      }
+      return { error: '未返回图片地址' };
+    } catch (e) {
+      log.warn('Qwen-Image parse error', { image_gen_id, error: e.message, raw_preview: raw.slice(0, 300) });
+      return { error: '通义千问返回格式异常' };
+    }
+  }
+
   const baseUrl = (files_base_url || '').replace(/\/$/, '');
   const isLocalhost = baseUrl && /localhost|127\.0\.0\.1/i.test(baseUrl);
 
@@ -309,7 +399,7 @@ async function callImageApi(db, log, opts) {
   const model = getModelFromConfig(config, preferredModel);
   const provider = (config.provider || '').toLowerCase();
 
-  if (provider === 'dashscope') {
+  if (provider === 'dashscope' || provider === 'qwen_image') {
     return callDashScopeImageApi(config, log, {
       prompt,
       model,
