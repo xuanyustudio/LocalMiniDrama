@@ -138,17 +138,22 @@
             :disabled="!currentEpisodeId || pipelineRunning"
             @click="startRepairPipeline"
           >
-            修复缺失的元素和生成
+            补全并生成
           </el-button>
           <template v-if="pipelineRunning">
             <el-button v-if="!pipelinePaused" type="warning" @click="pipelinePaused = true">暂停</el-button>
             <el-button v-else type="success" @click="onPipelineResume">继续</el-button>
           </template>
         </div>
-        <div v-if="pipelineErrorLog.length > 0" class="pipeline-error-log">
-          <div class="pipeline-error-title">执行过程中的错误：</div>
-          <div v-for="(entry, idx) in pipelineErrorLog" :key="idx" class="pipeline-error-line">
-            [{{ entry.step }}] {{ entry.message }}
+        <div v-if="pipelineRunning || pipelineErrorLog.length > 0" class="pipeline-status">
+          <div v-if="pipelineCurrentStep" class="pipeline-current-step">
+            当前进度：{{ pipelineCurrentStep }}
+          </div>
+          <div v-if="pipelineErrorLog.length > 0" class="pipeline-error-log">
+            <div class="pipeline-error-title">执行过程中的错误：</div>
+            <div v-for="(entry, idx) in pipelineErrorLog" :key="idx" class="pipeline-error-line">
+              [{{ entry.step }}] {{ entry.message }}
+            </div>
           </div>
         </div>
       </section>
@@ -519,8 +524,23 @@
                 <el-button size="small" :loading="generatingSbImageId === sb.id" @click="onGenerateSbImage(sb)">重新生成</el-button>
                 <el-button size="small" :loading="uploadingSbImageId === sb.id" @click="onUploadSbImageClick(sb)">上传</el-button>
               </div>
+              <div class="sb-prompt-label">
+                <span class="sb-dot"></span>
+                <span>图片提示词</span>
+              </div>
+              <div v-if="editingSbImagePromptId === sb.id" class="sb-image-prompt-edit">
+                <el-input v-model="editingSbImagePromptText" type="textarea" :rows="3" placeholder="图片提示词（用于生成分镜图）" />
+                <div class="sb-prompt-edit-actions">
+                  <el-button size="small" type="primary" @click="onSaveSbImagePrompt(sb)">保存</el-button>
+                  <el-button size="small" @click="editingSbImagePromptId = null">取消</el-button>
+                </div>
+              </div>
+              <div v-else class="sb-prompt-row">
+                <span class="sb-prompt-text">{{ sb.image_prompt || '暂无图片提示词' }}</span>
+                <el-button size="small" link type="primary" @click="onEditSbImagePrompt(sb)">编辑</el-button>
+              </div>
             </div>
-            <!-- 右：分镜视频（由 /videos?storyboard_id 拉取） -->
+            <!-- 右：分镜视频（由 /videos?storyboard_id 拉取）；有视频时仍显示提示词与生成按钮便于调整后重新生成 -->
             <div class="sb-panel sb-video">
               <div class="sb-panel-title">
                 <el-icon><VideoCamera /></el-icon>
@@ -535,28 +555,89 @@
                   preload="metadata"
                 />
               </div>
-              <template v-else>
-                <div class="sb-video-prompt-label">
-                  <span class="sb-dot"></span>
-                  <span>视频提示词</span>
-                  <el-select v-model="sbShotType[sb.id]" placeholder="固定镜头" size="small" class="sb-camera-select">
-                    <el-option label="固定镜头" value="fixed" />
-                    <el-option label="推镜头" value="push" />
-                    <el-option label="拉镜头" value="pull" />
-                  </el-select>
+              <div class="sb-video-prompt-label">
+                <span class="sb-dot"></span>
+                <span>视频提示词</span>
+              </div>
+              <el-collapse class="sb-video-fields-collapse">
+                <el-collapse-item :name="'fields-' + sb.id">
+                  <template #title>
+                    <span class="sb-collapse-title">视频提示词组成（可编辑）</span>
+                  </template>
+                  <div class="sb-video-fields">
+                    <div class="sb-field">
+                      <span class="sb-field-label">标题</span>
+                      <el-input v-model="sbTitle[sb.id]" size="small" placeholder="镜头标题" />
+                    </div>
+                    <div class="sb-field">
+                      <span class="sb-field-label">地点</span>
+                      <el-input v-model="sbLocation[sb.id]" size="small" placeholder="场景地点" />
+                    </div>
+                    <div class="sb-field">
+                      <span class="sb-field-label">时间</span>
+                      <el-input v-model="sbTime[sb.id]" size="small" placeholder="如：清晨/午后" />
+                    </div>
+                    <div class="sb-field">
+                      <span class="sb-field-label">时长(秒)</span>
+                      <el-input-number v-model="sbDuration[sb.id]" :min="1" :max="30" size="small" />
+                    </div>
+                    <div class="sb-field sb-field-full">
+                      <span class="sb-field-label">动作</span>
+                      <el-input v-model="sbAction[sb.id]" type="textarea" :rows="2" placeholder="动作描述" />
+                    </div>
+                    <div class="sb-field sb-field-full">
+                      <span class="sb-field-label">对白</span>
+                      <el-input v-model="sbDialogue[sb.id]" type="textarea" :rows="2" placeholder="角色对白" />
+                    </div>
+                    <div class="sb-field sb-field-full">
+                      <span class="sb-field-label">氛围</span>
+                      <el-input v-model="sbAtmosphere[sb.id]" size="small" placeholder="氛围/情绪" />
+                    </div>
+                    <div class="sb-field">
+                      <span class="sb-field-label">景别</span>
+                      <el-select v-model="sbShotType[sb.id]" placeholder="景别" size="small" class="sb-field-select">
+                        <el-option label="大远景" value="大远景" />
+                        <el-option label="远景" value="远景" />
+                        <el-option label="中景" value="中景" />
+                        <el-option label="近景" value="近景" />
+                        <el-option label="特写" value="特写" />
+                      </el-select>
+                    </div>
+                    <div class="sb-field">
+                      <span class="sb-field-label">镜头角度</span>
+                      <el-input v-model="sbAngle[sb.id]" size="small" placeholder="如：平视/仰视" />
+                    </div>
+                    <div class="sb-field">
+                      <span class="sb-field-label">运镜</span>
+                      <el-input v-model="sbMovement[sb.id]" size="small" placeholder="如：固定/推镜/跟镜" />
+                    </div>
+                    <div class="sb-video-fields-actions">
+                      <el-button size="small" type="primary" @click="onSaveSbVideoFields(sb)">保存并更新视频提示词</el-button>
+                    </div>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+              <div v-if="editingSbVideoPromptId === sb.id" class="sb-video-prompt-edit">
+                <el-input v-model="editingSbVideoPromptText" type="textarea" :rows="6" placeholder="视频提示词（手工编辑）" />
+                <div class="sb-video-prompt-edit-actions">
+                  <el-button size="small" type="primary" @click="onSaveSbVideoPrompt(sb)">保存</el-button>
+                  <el-button size="small" @click="editingSbVideoPromptId = null">取消</el-button>
                 </div>
-                <div class="sb-video-prompt-text">{{ sb.video_prompt || '暂无视频提示词' }}</div>
-                <el-button
-                  type="primary"
-                  size="small"
-                  class="sb-generate-video-btn"
-                  :loading="generatingSbVideoId === sb.id"
-                  :disabled="!sb.video_prompt"
-                  @click="onGenerateSbVideo(sb)"
-                >
-                  生成视频
-                </el-button>
-              </template>
+              </div>
+              <div v-else class="sb-video-prompt-row">
+                <span class="sb-video-prompt-text sb-video-prompt-text--preview">{{ sb.video_prompt || '暂无视频提示词' }}</span>
+                <el-button size="small" link type="primary" @click="onEditSbVideoPrompt(sb)">手工编辑</el-button>
+              </div>
+              <el-button
+                type="primary"
+                size="small"
+                class="sb-generate-video-btn"
+                :loading="generatingSbVideoId === sb.id"
+                :disabled="!sb.video_prompt"
+                @click="onGenerateSbVideo(sb)"
+              >
+                生成视频
+              </el-button>
             </div>
           </div>
         </template>
@@ -599,11 +680,11 @@
         <p class="config-tip">文本/图片/视频使用的模型以「<el-link type="primary" :underline="false" @click="showAiConfigDialog = true">AI 配置</el-link>」中设为默认的为准。</p>
       </section>
 
-      <!-- 8. 生成视频 -->
+      <!-- 8. 合成视频 -->
       <section id="anchor-video" class="section card">
-        <h2 class="section-title">生成视频</h2>
+        <h2 class="section-title">合成视频</h2>
         <el-button type="primary" size="large" :loading="videoStatus === 'generating'" :disabled="!currentEpisodeId || storyboards.length === 0" @click="onGenerateVideo">
-          生成视频
+          合成视频
         </el-button>
         <div v-if="videoStatus === 'generating'" class="video-progress">
           <el-progress :percentage="videoProgress" :status="videoProgress >= 100 ? 'success' : undefined" />
@@ -929,6 +1010,7 @@ import { sceneAPI } from '@/api/scenes'
 import { taskAPI } from '@/api/task'
 import { imagesAPI } from '@/api/images'
 import { videosAPI } from '@/api/videos'
+import { storyboardsAPI } from '@/api/storyboards'
 import { uploadAPI } from '@/api/upload'
 import { characterLibraryAPI } from '@/api/characterLibrary'
 import { sceneLibraryAPI } from '@/api/sceneLibrary'
@@ -1005,6 +1087,7 @@ const videoErrorMsg = ref('')
 const pipelineRunning = ref(false)
 const pipelinePaused = ref(false)
 const pipelineErrorLog = ref([])
+const pipelineCurrentStep = ref('')
 let pipelineResolveResume = null
 const showAddProp = ref(false)
 const addPropSaving = ref(false)
@@ -1034,11 +1117,26 @@ const sbPropIds = ref({})       // sbId -> number[] 多选物品
 const sbSceneId = ref({})
 const sbDialogue = ref({})
 const sbShotType = ref({})
+/** 视频提示词组成（可编辑），key 为分镜 id */
+const sbTitle = ref({})
+const sbLocation = ref({})
+const sbTime = ref({})
+const sbDuration = ref({})
+const sbAction = ref({})
+const sbAtmosphere = ref({})
+const sbAngle = ref({})
+const sbMovement = ref({})
 // 分镜图片/视频列表（由 /images?storyboard_id=xx 和 /videos?storyboard_id=xx 拉取）
 const sbImages = ref({})
 const sbVideos = ref({})
 const generatingSbImageId = ref(null)
 const generatingSbVideoId = ref(null)
+/** 正在编辑视频提示词的分镜 id；编辑中显示文本框与保存/取消 */
+const editingSbVideoPromptId = ref(null)
+const editingSbVideoPromptText = ref('')
+/** 正在编辑图片提示词的分镜 id */
+const editingSbImagePromptId = ref(null)
+const editingSbImagePromptText = ref('')
 const uploadingSbImageId = ref(null)
 const sbImageFileInput = ref(null)
 const sbImageUploadForId = ref(null)
@@ -1295,10 +1393,26 @@ function syncStoryboardStateFromEpisode(ep) {
   const nextScene = {}
   const nextDialogue = {}
   const nextShot = {}
+  const nextTitle = {}
+  const nextLocation = {}
+  const nextTime = {}
+  const nextDuration = {}
+  const nextAction = {}
+  const nextAtmosphere = {}
+  const nextAngle = {}
+  const nextMovement = {}
   for (const sb of boards) {
     nextScene[sb.id] = sb.scene_id ?? null
     nextDialogue[sb.id] = sb.dialogue ?? ''
-    nextShot[sb.id] = sb.shot_type || 'fixed'
+    nextShot[sb.id] = (sb.shot_type ?? '').toString() || ''
+    nextTitle[sb.id] = (sb.title ?? '').toString()
+    nextLocation[sb.id] = (sb.location ?? '').toString()
+    nextTime[sb.id] = (sb.time ?? '').toString()
+    nextDuration[sb.id] = sb.duration != null ? Number(sb.duration) : 5
+    nextAction[sb.id] = (sb.action ?? '').toString()
+    nextAtmosphere[sb.id] = (sb.atmosphere ?? '').toString()
+    nextAngle[sb.id] = (sb.angle ?? '').toString()
+    nextMovement[sb.id] = (sb.movement ?? '').toString()
     const charList = Array.isArray(sb.characters) ? sb.characters : (sb.characters != null ? [sb.characters] : [])
     nextCharIds[sb.id] = charList.map((c) => (typeof c === 'object' && c != null ? Number(c.id) : Number(c))).filter((n) => Number.isFinite(n))
     nextPropIds[sb.id] = Array.isArray(sb.prop_ids) ? sb.prop_ids : []
@@ -1308,6 +1422,14 @@ function syncStoryboardStateFromEpisode(ep) {
   sbSceneId.value = nextScene
   sbDialogue.value = nextDialogue
   sbShotType.value = nextShot
+  sbTitle.value = nextTitle
+  sbLocation.value = nextLocation
+  sbTime.value = nextTime
+  sbDuration.value = nextDuration
+  sbAction.value = nextAction
+  sbAtmosphere.value = nextAtmosphere
+  sbAngle.value = nextAngle
+  sbMovement.value = nextMovement
 }
 
 function onEpisodeSelect(epId) {
@@ -2227,6 +2349,92 @@ function toAbsoluteImageUrl(url) {
   return base ? base + (s.startsWith('/') ? s : '/' + s) : s
 }
 
+function onEditSbImagePrompt(sb) {
+  if (!sb?.id) return
+  editingSbImagePromptId.value = sb.id
+  editingSbImagePromptText.value = (sb.image_prompt || '').toString()
+}
+
+async function onSaveSbImagePrompt(sb) {
+  if (!sb?.id) return
+  try {
+    await storyboardsAPI.update(sb.id, { image_prompt: (editingSbImagePromptText.value || '').toString().trim() || null })
+    await loadDrama()
+    editingSbImagePromptId.value = null
+    ElMessage.success('图片提示词已保存')
+  } catch (e) {
+    ElMessage.error(e.message || '保存失败')
+  }
+}
+
+function onEditSbVideoPrompt(sb) {
+  if (!sb?.id) return
+  editingSbVideoPromptId.value = sb.id
+  editingSbVideoPromptText.value = (sb.video_prompt || '').toString()
+}
+
+/** 根据当前分镜的「视频提示词组成」字段拼出完整 video_prompt 文案（与后端 generateVideoPrompt 顺序一致） */
+function buildVideoPromptFromFields(sbId) {
+  const parts = []
+  const loc = (sbLocation.value[sbId] || '').toString().trim()
+  const time = (sbTime.value[sbId] || '').toString().trim()
+  if (loc) parts.push('Scene: ' + (time ? loc + ', ' + time : loc))
+  const title = (sbTitle.value[sbId] || '').toString().trim()
+  if (title) parts.push('Title: ' + title)
+  const action = (sbAction.value[sbId] || '').toString().trim()
+  if (action) parts.push('Action: ' + action)
+  const dialogue = (sbDialogue.value[sbId] || '').toString().trim()
+  if (dialogue) parts.push('Dialogue: ' + dialogue)
+  const shotType = (sbShotType.value[sbId] || '').toString().trim()
+  if (shotType) parts.push('Shot type: ' + shotType)
+  const angle = (sbAngle.value[sbId] || '').toString().trim()
+  if (angle) parts.push('Camera angle: ' + angle)
+  const movement = (sbMovement.value[sbId] || '').toString().trim()
+  if (movement) parts.push('Camera movement: ' + movement)
+  const atmosphere = (sbAtmosphere.value[sbId] || '').toString().trim()
+  if (atmosphere) parts.push('Atmosphere: ' + atmosphere)
+  const duration = Number(sbDuration.value[sbId])
+  const sec = Number.isFinite(duration) && duration > 0 ? duration : 5
+  parts.push('Duration: ' + sec + ' seconds')
+  return parts.length ? parts.join('. ') : 'Anime style video scene'
+}
+
+async function onSaveSbVideoFields(sb) {
+  if (!sb?.id) return
+  try {
+    const video_prompt = buildVideoPromptFromFields(sb.id)
+    await storyboardsAPI.update(sb.id, {
+      title: (sbTitle.value[sb.id] || '').toString().trim() || null,
+      location: (sbLocation.value[sb.id] || '').toString().trim() || null,
+      time: (sbTime.value[sb.id] || '').toString().trim() || null,
+      duration: Number(sbDuration.value[sb.id]) || 5,
+      action: (sbAction.value[sb.id] || '').toString().trim() || null,
+      dialogue: (sbDialogue.value[sb.id] || '').toString().trim() || null,
+      atmosphere: (sbAtmosphere.value[sb.id] || '').toString().trim() || null,
+      angle: (sbAngle.value[sb.id] || '').toString().trim() || null,
+      movement: (sbMovement.value[sb.id] || '').toString().trim() || null,
+      shot_type: (sbShotType.value[sb.id] || '').toString().trim() || null,
+      video_prompt
+    })
+    await loadDrama()
+    ElMessage.success('已保存并更新视频提示词')
+  } catch (e) {
+    ElMessage.error(e.message || '保存失败')
+  }
+}
+
+async function onSaveSbVideoPrompt(sb) {
+  if (!sb?.id) return
+  try {
+    await storyboardsAPI.update(sb.id, { video_prompt: (editingSbVideoPromptText.value || '').toString().trim() || null })
+    await loadDrama()
+    editingSbVideoPromptId.value = null
+    ElMessage.success('视频提示词已保存')
+  } catch (e) {
+    ElMessage.error(e.message || '保存失败')
+  }
+}
+
 async function onGenerateSbVideo(sb) {
   if (!dramaId.value || !sb?.id || !sb.video_prompt) return
   const firstFrameUrl = getSbFirstFrameUrl(sb)
@@ -2418,6 +2626,7 @@ async function pipelineWithRetry(stepName, fn, maxRetries = 3) {
 async function startOneClickPipeline() {
   if (!currentEpisodeId.value || pipelineRunning.value) return
   pipelineErrorLog.value = []
+  pipelineCurrentStep.value = ''
   pipelineRunning.value = true
   pipelinePaused.value = false
   try {
@@ -2435,6 +2644,7 @@ async function runOneClickPipeline() {
   try {
     // 1. 剧本生成角色
     await checkPause()
+    pipelineCurrentStep.value = '正在生成角色列表...'
     try {
       const outline = (store.scriptContent || '').toString().trim() || (storyInput.value || '').toString().trim() || undefined
       const res = await generationAPI.generateCharacters(dramaIdVal, { episode_id: store.currentEpisode?.id ?? undefined, outline: outline || undefined })
@@ -2458,6 +2668,7 @@ async function runOneClickPipeline() {
     const charsWithoutImage = chars.filter((c) => !hasAssetImage(c))
     for (const char of charsWithoutImage) {
       await checkPause()
+      pipelineCurrentStep.value = '正在生成角色图：' + (char.name || char.id)
       const stepName = '角色图 ' + (char.name || char.id)
       const ok = await pipelineWithRetry(stepName, async () => {
         const res = await characterAPI.generateImage(char.id, undefined)
@@ -2481,6 +2692,7 @@ async function runOneClickPipeline() {
 
     // 3. 从剧本提取场景
     await checkPause()
+    pipelineCurrentStep.value = '正在从剧本提取场景...'
     try {
       const res = await dramaAPI.extractBackgrounds(episodeId, { model: undefined })
       const taskId = res?.task_id
@@ -2503,6 +2715,7 @@ async function runOneClickPipeline() {
     const scenesWithoutImage = sceneList.filter((s) => !hasAssetImage(s))
     for (const scene of scenesWithoutImage) {
       await checkPause()
+      pipelineCurrentStep.value = '正在生成场景图：' + (scene.location || scene.id)
       const stepName = '场景图 ' + (scene.location || scene.id)
       const ok = await pipelineWithRetry(stepName, async () => {
         const res = await sceneAPI.generateImage({ scene_id: scene.id, model: undefined })
@@ -2526,6 +2739,7 @@ async function runOneClickPipeline() {
 
     // 5. 分镜生成
     await checkPause()
+    pipelineCurrentStep.value = '正在生成分镜...'
     try {
       const res = await dramaAPI.generateStoryboard(episodeId, undefined)
       const taskId = res?.task_id
@@ -2549,6 +2763,7 @@ async function runOneClickPipeline() {
       await checkPause()
       const hasImg = hasSbImage(sb)
       if (hasImg) continue
+      pipelineCurrentStep.value = '正在生成分镜图 #' + (sb.storyboard_number ?? sb.id)
       const stepName = '分镜图 #' + (sb.storyboard_number ?? sb.id)
       const ok = await pipelineWithRetry(stepName, async () => {
         const res = await imagesAPI.create({
@@ -2578,6 +2793,7 @@ async function runOneClickPipeline() {
       const vidList = sbVideos.value[sb.id] || []
       const hasVideo = vidList.some((v) => v.status === 'completed' && (v.video_url || v.local_path))
       if (hasVideo) continue
+      pipelineCurrentStep.value = '正在生成分镜视频 #' + (sb.storyboard_number ?? sb.id)
       const stepName = '分镜视频 #' + (sb.storyboard_number ?? sb.id)
       const ok = await pipelineWithRetry(stepName, async () => {
         const absoluteUrl = toAbsoluteImageUrl(firstFrameUrl)
@@ -2599,6 +2815,24 @@ async function runOneClickPipeline() {
       if (ok) await pipelineRest()
     }
 
+    // 8. 生成整集视频（合成整个视频）
+    await checkPause()
+    pipelineCurrentStep.value = '正在生成整集视频...'
+    try {
+      const result = await dramaAPI.finalizeEpisode(episodeId)
+      if (result?.task_id != null) {
+        const pollResult = await pollTaskWithPause(result.task_id, () => loadDrama())
+        if (pollResult?.paused) { await waitForResume(); return }
+        if (pollResult?.error) addPipelineError('生成整集视频', pollResult.error)
+        else await pipelineRest()
+      } else {
+        addPipelineError('生成整集视频', result?.message || '本集没有可合成的视频片段')
+      }
+    } catch (e) {
+      addPipelineError('生成整集视频', e.message || String(e))
+    }
+
+    pipelineCurrentStep.value = '一键生成视频流程已执行完成'
     ElMessage.success('一键生成视频流程已执行完成')
   } catch (e) {
     addPipelineError('流程', e.message || String(e))
@@ -2608,6 +2842,7 @@ async function runOneClickPipeline() {
 async function startRepairPipeline() {
   if (!currentEpisodeId.value || pipelineRunning.value) return
   pipelineErrorLog.value = []
+  pipelineCurrentStep.value = ''
   pipelineRunning.value = true
   pipelinePaused.value = false
   try {
@@ -2624,12 +2859,14 @@ async function runRepairPipeline() {
   if (!episodeId || !dramaIdVal) return
 
   try {
+    pipelineCurrentStep.value = '正在加载数据...'
     await loadDrama()
 
     // 1. 角色：没有则生成角色；再为每个无图角色生成图
     let chars = store.drama?.characters ?? store.currentEpisode?.characters ?? []
     if (chars.length === 0) {
       await checkPause()
+      pipelineCurrentStep.value = '正在生成角色列表...'
       try {
         const outline = (store.scriptContent || '').toString().trim() || (storyInput.value || '').toString().trim() || undefined
         const res = await generationAPI.generateCharacters(dramaIdVal, { episode_id: store.currentEpisode?.id ?? undefined, outline: outline || undefined })
@@ -2649,6 +2886,7 @@ async function runRepairPipeline() {
     const charsWithoutImage = chars.filter((c) => !hasAssetImage(c))
     for (const char of charsWithoutImage) {
       await checkPause()
+      pipelineCurrentStep.value = '正在生成角色图：' + (char.name || char.id)
       const stepName = '角色图 ' + (char.name || char.id)
       const ok = await pipelineWithRetry(stepName, async () => {
         const res = await characterAPI.generateImage(char.id, undefined)
@@ -2674,6 +2912,7 @@ async function runRepairPipeline() {
     let sceneList = store.drama?.scenes ?? store.currentEpisode?.scenes ?? []
     if (sceneList.length === 0) {
       await checkPause()
+      pipelineCurrentStep.value = '正在提取场景...'
       try {
         const res = await dramaAPI.extractBackgrounds(episodeId, { model: undefined })
         const taskId = res?.task_id
@@ -2692,6 +2931,7 @@ async function runRepairPipeline() {
     const scenesWithoutImage = sceneList.filter((s) => !hasAssetImage(s))
     for (const scene of scenesWithoutImage) {
       await checkPause()
+      pipelineCurrentStep.value = '正在生成场景图：' + (scene.location || scene.id)
       const stepName = '场景图 ' + (scene.location || scene.id)
       const ok = await pipelineWithRetry(stepName, async () => {
         const res = await sceneAPI.generateImage({ scene_id: scene.id, model: undefined })
@@ -2717,6 +2957,7 @@ async function runRepairPipeline() {
     let boards = store.storyboards || []
     if (boards.length === 0) {
       await checkPause()
+      pipelineCurrentStep.value = '正在生成分镜...'
       try {
         const res = await dramaAPI.generateStoryboard(episodeId, undefined)
         const taskId = res?.task_id
@@ -2738,6 +2979,7 @@ async function runRepairPipeline() {
     for (const sb of boards) {
       await checkPause()
       if (hasSbImage(sb)) continue
+      pipelineCurrentStep.value = '正在生成分镜图 #' + (sb.storyboard_number ?? sb.id)
       const stepName = '分镜图 #' + (sb.storyboard_number ?? sb.id)
       const ok = await pipelineWithRetry(stepName, async () => {
         const res = await imagesAPI.create({
@@ -2763,6 +3005,7 @@ async function runRepairPipeline() {
       if (!firstFrameUrl) continue
       const vidList = sbVideos.value[sb.id] || []
       if (vidList.some((v) => v.status === 'completed' && (v.video_url || v.local_path))) continue
+      pipelineCurrentStep.value = '正在生成分镜视频 #' + (sb.storyboard_number ?? sb.id)
       const stepName = '分镜视频 #' + (sb.storyboard_number ?? sb.id)
       const ok = await pipelineWithRetry(stepName, async () => {
         const absoluteUrl = toAbsoluteImageUrl(firstFrameUrl)
@@ -2784,6 +3027,24 @@ async function runRepairPipeline() {
       if (ok) await pipelineRest()
     }
 
+    // 4. 生成整集视频（合成整个视频）
+    await checkPause()
+    pipelineCurrentStep.value = '正在生成整集视频...'
+    try {
+      const result = await dramaAPI.finalizeEpisode(episodeId)
+      if (result?.task_id != null) {
+        const pollResult = await pollTaskWithPause(result.task_id, () => loadDrama())
+        if (pollResult?.paused) { await waitForResume(); return }
+        if (pollResult?.error) addPipelineError('生成整集视频', pollResult.error)
+        else await pipelineRest()
+      } else {
+        addPipelineError('生成整集视频', result?.message || '本集没有可合成的视频片段')
+      }
+    } catch (e) {
+      addPipelineError('生成整集视频', e.message || String(e))
+    }
+
+    pipelineCurrentStep.value = '补全并生成流程已执行完成'
     ElMessage.success('修复缺失流程已执行完成')
   } catch (e) {
     addPipelineError('流程', e.message || String(e))
@@ -2911,8 +3172,20 @@ onMounted(() => {
   margin-top: 16px;
   flex-wrap: wrap;
 }
-.pipeline-error-log {
+.pipeline-status {
   margin-top: 12px;
+  padding: 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.pipeline-current-step {
+  margin-bottom: 8px;
+  color: var(--el-text-color-primary);
+  font-weight: 500;
+}
+.pipeline-error-log {
+  margin-top: 0;
   padding: 12px;
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
@@ -2921,6 +3194,9 @@ onMounted(() => {
   color: #fca5a5;
   max-height: 200px;
   overflow-y: auto;
+}
+.pipeline-status .pipeline-error-log {
+  margin-top: 8px;
 }
 .pipeline-error-title {
   font-weight: 600;
@@ -3369,14 +3645,51 @@ onMounted(() => {
   flex-shrink: 0;
 }
 .sb-video-prompt-label > span:not(.sb-dot) { font-size: 0.85rem; color: #e4e4e7; }
-.sb-camera-select { width: 100px; }
+.sb-video-prompt-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.sb-video-prompt-row .sb-video-prompt-text {
+  flex: 1;
+  min-width: 0;
+}
 .sb-video-prompt-text {
   font-size: 0.85rem;
   color: #a1a1aa;
   line-height: 1.5;
   padding: 8px 0;
 }
+.sb-video-prompt-text--preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-all;
+}
+.sb-video-prompt-edit {
+  margin-bottom: 8px;
+}
+.sb-video-prompt-edit .el-textarea { margin-bottom: 8px; }
+.sb-video-prompt-edit-actions { display: flex; gap: 8px; }
 .sb-generate-video-btn { margin-top: 8px; }
+.sb-prompt-label { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; }
+.sb-prompt-label .sb-dot { flex-shrink: 0; }
+.sb-prompt-label > span:not(.sb-dot) { font-size: 0.85rem; color: #e4e4e7; }
+.sb-prompt-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+.sb-prompt-row .sb-prompt-text { flex: 1; min-width: 0; font-size: 0.85rem; color: #a1a1aa; line-height: 1.4; }
+.sb-image-prompt-edit .el-textarea { margin-bottom: 6px; }
+.sb-prompt-edit-actions { display: flex; gap: 8px; }
+.sb-video-fields-collapse { margin: 8px 0; }
+.sb-video-fields-collapse .el-collapse-item__header { font-size: 0.9rem; }
+.sb-collapse-title { color: #a1a1aa; }
+.sb-video-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; padding: 8px 0; }
+.sb-field { display: flex; flex-direction: column; gap: 4px; }
+.sb-field-full { grid-column: 1 / -1; }
+.sb-field-label { font-size: 0.8rem; color: #a1a1aa; }
+.sb-field-select { width: 100%; }
+.sb-video-fields-actions { grid-column: 1 / -1; margin-top: 8px; }
 .config-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

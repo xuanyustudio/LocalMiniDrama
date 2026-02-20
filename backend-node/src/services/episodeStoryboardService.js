@@ -110,20 +110,38 @@ function generateImagePrompt(sb) {
 
 function generateVideoPrompt(sb, style, videoRatio) {
   const parts = [];
-  if (sb.action) parts.push('Action: ' + sb.action);
-  if (sb.dialogue) parts.push('Dialogue: ' + sb.dialogue);
-  if (sb.movement) parts.push('Camera movement: ' + sb.movement);
-  if (sb.shot_type) parts.push('Shot type: ' + sb.shot_type);
-  if (sb.angle) parts.push('Camera angle: ' + sb.angle);
-  if (sb.location) {
+  // 场景与标题（便于视频模型理解画面环境）
+  if (sb.scene_description) {
+    parts.push('Scene: ' + sb.scene_description);
+  } else if (sb.location) {
     const scene = sb.time ? sb.location + ', ' + sb.time : sb.location;
     parts.push('Scene: ' + scene);
   }
+  if (sb.title) parts.push('Title: ' + sb.title);
+  // 动作与对白（核心叙事）
+  if (sb.action) parts.push('Action: ' + sb.action);
+  if (sb.dialogue) parts.push('Dialogue: ' + sb.dialogue);
+  if (sb.result) parts.push('Result: ' + sb.result);
+  // 镜头与运镜
+  const shotType = sb.shot_type || sb.camera_shot_type;
+  if (shotType) parts.push('Shot type: ' + shotType);
+  const angle = sb.angle ?? sb.camera_angle;
+  if (angle) parts.push('Camera angle: ' + angle);
+  const movement = sb.movement ?? sb.camera_movement;
+  if (movement) parts.push('Camera movement: ' + movement);
+  // 氛围与情绪
   if (sb.atmosphere) parts.push('Atmosphere: ' + sb.atmosphere);
   if (sb.emotion) parts.push('Mood: ' + sb.emotion);
-  if (sb.result) parts.push('Result: ' + sb.result);
+  if (sb.emotion_intensity != null && sb.emotion_intensity !== '') {
+    parts.push('Emotion intensity: ' + String(sb.emotion_intensity));
+  }
+  // 声音
   if (sb.bgm_prompt) parts.push('BGM: ' + sb.bgm_prompt);
   if (sb.sound_effect) parts.push('Sound effects: ' + sb.sound_effect);
+  // 时长（便于视频模型控制片段长度）
+  const durationSec = normalizeDuration(sb.duration) || 5;
+  parts.push('Duration: ' + durationSec + ' seconds');
+  // 风格与比例
   if (style) parts.push('Style: ' + style);
   if (videoRatio) parts.push('=VideoRatio: ' + videoRatio);
   return parts.length ? parts.join('. ') : 'Anime style video scene';
