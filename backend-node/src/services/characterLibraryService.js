@@ -1,6 +1,17 @@
 // 角色库：与 Go character_library_service 对齐
 const imageClient = require('./imageClient');
 
+function appendPrompt(base, extra) {
+  const add = (extra || '').toString().trim();
+  if (!add) return base;
+  const current = (base || '').toString().trim();
+  if (!current) return add;
+  const lowerCurrent = current.toLowerCase();
+  const lowerAdd = add.toLowerCase();
+  if (lowerCurrent.includes(lowerAdd)) return current;
+  return current + ', ' + add;
+}
+
 function generateCharacterImage(db, log, cfg, characterId, modelName, style) {
   const charRow = db.prepare(
     'SELECT id, drama_id, name, appearance, description FROM characters WHERE id = ? AND deleted_at IS NULL'
@@ -17,9 +28,16 @@ function generateCharacterImage(db, log, cfg, characterId, modelName, style) {
   } else {
     prompt = charRow.name || '';
   }
-  prompt += (cfg?.style?.default_style || '');
-  prompt += (cfg?.style?.default_role_style || '');
-  prompt += (cfg?.style?.default_role_ratio || '') || (cfg?.style?.default_image_ratio ? ', image ratio: ' + cfg.style.default_image_ratio : '');
+  const styleOverride = (style && String(style).trim()) || '';
+  const styleText = styleOverride || (cfg?.style?.default_style || '');
+  prompt = appendPrompt(prompt, styleText);
+  if (!styleOverride) {
+    prompt = appendPrompt(prompt, cfg?.style?.default_role_style || '');
+  }
+  const ratioText = cfg?.style?.default_role_ratio
+    ? String(cfg.style.default_role_ratio)
+    : (cfg?.style?.default_image_ratio ? 'image ratio: ' + cfg.style.default_image_ratio : '');
+  prompt = appendPrompt(prompt, ratioText);
   console.log('characters generateCharacterImage prompt', prompt);
   const imageGen = imageClient.createAndGenerateImage(db, log, {
     drama_id: charRow.drama_id,
@@ -190,7 +208,7 @@ function deleteCharacter(db, log, characterId) {
 /**
  * 批量生成角色图片（与 Go BatchGenerateCharacterImages 对齐：为每个角色单独起一个异步任务并发生成）
  */
-function batchGenerateCharacterImages(db, log, cfg, characterIds, modelName) {
+function batchGenerateCharacterImages(db, log, cfg, characterIds, modelName, style) {
   const ids = Array.isArray(characterIds) ? characterIds.map((id) => String(id)) : [];
   if (ids.length === 0) return { ok: false, error: 'character_ids 不能为空' };
   if (ids.length > 10) return { ok: false, error: '单次最多生成10个角色' };
@@ -200,7 +218,7 @@ function batchGenerateCharacterImages(db, log, cfg, characterIds, modelName) {
     const charId = characterId;
     setImmediate(() => {
       try {
-        const out = generateCharacterImage(db, log, cfg, charId, modelName, undefined);
+        const out = generateCharacterImage(db, log, cfg, charId, modelName, style);
         if (!out.ok) {
           log.warn('Batch character image skip', { character_id: charId, error: out.error });
           return;

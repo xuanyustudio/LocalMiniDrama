@@ -49,7 +49,13 @@ module.exports = function stubRoutes(db, cfg, log) {
 
     // episodes (部分在 drama 里已实现 finalize, download)
     episodeStoryboardsGenerate: (req, res) => {
-      const taskId = episodeStoryboardService.generateStoryboard(db, log, req.params.episode_id, req.query.model);
+      const taskId = episodeStoryboardService.generateStoryboard(
+        db,
+        log,
+        req.params.episode_id,
+        req.query.model,
+        req.query.style
+      );
       response.success(res, { task_id: taskId, status: 'pending', message: '分镜头生成任务已创建，正在后台处理...' });
     },
     episodeStoryboardsGet: (req, res) => {

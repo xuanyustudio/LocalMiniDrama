@@ -32,8 +32,11 @@ export const dramaAPI = {
   getStoryboards(episodeId) {
     return request.get(`/episodes/${episodeId}/storyboards`)
   },
-  generateStoryboard(episodeId, model) {
-    return request.post(`/episodes/${episodeId}/storyboards`, {}, { params: model ? { model } : {} })
+  generateStoryboard(episodeId, model, style) {
+    const params = {}
+    if (model) params.model = model
+    if (style) params.style = style
+    return request.post(`/episodes/${episodeId}/storyboards`, {}, { params })
   },
   finalizeEpisode(episodeId, data) {
     return request.post(`/episodes/${episodeId}/finalize`, data || {})

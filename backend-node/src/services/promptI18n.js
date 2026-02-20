@@ -426,8 +426,9 @@ JSON数组，每个对象包含：
 }
 
 function getSceneExtractionPrompt(cfg, style) {
-  const defaultScene = cfg?.style?.default_scene_style || 'Modern Japanese anime style';
-  const s = style ? defaultScene + ', ' + style : defaultScene;
+  const defaultScene = cfg?.style?.default_style || '';
+  const styleText = (style || '').toString().trim();
+  const s = styleText || defaultScene;
   const imageRatio = cfg?.style?.default_image_ratio || '16:9';
   if (isEnglish(cfg)) {
     return `[Task] Extract all unique scene backgrounds from the script
@@ -453,7 +454,8 @@ Each element: location, time, prompt (English image generation prompt for pure b
 1. 识别剧本中所有不同的场景（地点+时间组合）
 2. 为每个场景生成详细的**中文**图片生成提示词（Prompt）
 3. **重要**：场景描述必须是**纯背景**，不能包含人物、角色、动作等元素
-4. **风格要求**：${s}
+4. **重要**：prompt 字段必须为中文，不得使用英文（风格词如 realistic 可保留）
+5. **风格要求**：${s}
    - **图片比例**：${imageRatio}
 
 【输出格式】

@@ -92,7 +92,7 @@ function extractInitialPose(action) {
   return result.replace(/[，。,.]\s*$/, '').trim();
 }
 
-function generateImagePrompt(sb) {
+function generateImagePrompt(sb, style) {
   const parts = [];
   if (sb.location) {
     let locationDesc = sb.location;
@@ -104,8 +104,10 @@ function generateImagePrompt(sb) {
     if (initialPose) parts.push(initialPose);
   }
   if (sb.emotion) parts.push(sb.emotion);
-  parts.push('anime style, first frame');
-  return parts.length ? parts.join(', ') : 'anime scene';
+  const styleText = style && String(style).trim();
+  if (styleText) parts.push(styleText + ', first frame');
+  else parts.push('first frame');
+  return parts.length ? parts.join(', ') : (styleText ? styleText + ', first frame' : 'first frame');
 }
 
 function generateVideoPrompt(sb, style, videoRatio) {
@@ -144,15 +146,15 @@ function generateVideoPrompt(sb, style, videoRatio) {
   // 风格与比例
   if (style) parts.push('Style: ' + style);
   if (videoRatio) parts.push('=VideoRatio: ' + videoRatio);
-  return parts.length ? parts.join('. ') : 'Anime style video scene';
+  return parts.length ? parts.join('. ') : 'Video scene';
 }
 
-function saveStoryboards(db, log, episodeId, storyboards, cfg) {
+function saveStoryboards(db, log, episodeId, storyboards, cfg, styleOverride) {
   const episodeIdNum = Number(episodeId);
   if (storyboards.length === 0) {
     throw new Error('AI生成分镜失败：返回的分镜数量为0');
   }
-  const style = cfg?.style?.default_style || '';
+  const style = (styleOverride && String(styleOverride).trim()) || cfg?.style?.default_style || '';
   const videoRatio = cfg?.style?.default_video_ratio || '16:9';
   const now = new Date().toISOString();
 
@@ -174,7 +176,7 @@ function saveStoryboards(db, log, episodeId, storyboards, cfg) {
     const result = sb.result ?? '';
     const emotion = sb.emotion ?? '';
     const description = `【镜头类型】${shotType}\n【运镜】${movement}\n【动作】${action}\n【对话】${dialogue}\n【结果】${result}\n【情绪】${emotion}`;
-    const imagePrompt = generateImagePrompt(sb);
+    const imagePrompt = generateImagePrompt(sb, style);
     const videoPrompt = generateVideoPrompt(sb, style, videoRatio);
     const sceneId = sb.scene_id != null ? Number(sb.scene_id) : null;
     const charactersJson = Array.isArray(sb.characters) ? JSON.stringify(sb.characters) : (sb.characters ? JSON.stringify([].concat(sb.characters)) : '[]');
@@ -262,7 +264,7 @@ function saveStoryboards(db, log, episodeId, storyboards, cfg) {
   return saved;
 }
 
-async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, model, userPrompt, systemPrompt) {
+async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, model, style, userPrompt, systemPrompt) {
   try {
     taskService.updateTaskStatus(db, taskId, 'processing', 10, '开始生成分镜头...');
     log.info('Processing storyboard generation', { task_id: taskId, episode_id: episodeId });
@@ -305,7 +307,7 @@ async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, mode
 
     taskService.updateTaskStatus(db, taskId, 'processing', 70, '正在保存分镜头...');
 
-    const saved = saveStoryboards(db, log, episodeId, storyboards, cfg);
+    const saved = saveStoryboards(db, log, episodeId, storyboards, cfg, style);
 
     taskService.updateTaskStatus(db, taskId, 'processing', 90, '正在更新剧集时长...');
 
@@ -327,7 +329,7 @@ async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, mode
   }
 }
 
-function generateStoryboard(db, log, episodeId, model) {
+function generateStoryboard(db, log, episodeId, model, style) {
   const cfg = loadConfig();
   const episode = db.prepare(
     'SELECT id, script_content, description, drama_id FROM episodes WHERE id = ? AND deleted_at IS NULL'
@@ -386,7 +388,7 @@ console.log("==c 用户提示词：",userPrompt);
   });
 
   setImmediate(() => {
-    processStoryboardGeneration(db, log, cfg, task.id, String(episodeId), model || undefined, userPrompt, systemPrompt);
+    processStoryboardGeneration(db, log, cfg, task.id, String(episodeId), model || undefined, style, userPrompt, systemPrompt);
   });
 
   return task.id;

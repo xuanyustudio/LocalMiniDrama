@@ -33,7 +33,7 @@ function routes(db, cfg, log, uploadService) {
       try {
         const body = req.body || {};
         const characterIds = body.character_ids;
-        log.info('batch-generate-images request', { character_ids: characterIds, model: body.model });
+        log.info('batch-generate-images request', { character_ids: characterIds, model: body.model, style: body.style });
         if (!Array.isArray(characterIds) || characterIds.length === 0) {
           return response.badRequest(res, 'character_ids 不能为空');
         }
@@ -45,7 +45,8 @@ function routes(db, cfg, log, uploadService) {
           log,
           cfg,
           characterIds,
-          body.model
+          body.model,
+          body.style
         );
         if (!out.ok) {
           return response.badRequest(res, out.error);

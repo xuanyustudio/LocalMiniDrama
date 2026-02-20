@@ -2,14 +2,17 @@
 
 function createDrama(db, log, req) {
   const now = new Date().toISOString();
+  const metadataStr = req.metadata ? (typeof req.metadata === 'string' ? req.metadata : JSON.stringify(req.metadata)) : null;
   const stmt = db.prepare(`
-    INSERT INTO dramas (title, description, genre, style, status, created_at, updated_at)
-    VALUES (?, ?, ?, 'realistic', 'draft', ?, ?)
+    INSERT INTO dramas (title, description, genre, style, metadata, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, 'draft', ?, ?)
   `);
   const info = stmt.run(
     req.title || '',
     req.description || null,
     req.genre || null,
+    req.style || 'realistic',
+    metadataStr,
     now,
     now
   );
@@ -196,6 +199,14 @@ function getDramaStats(db) {
 }
 
 function rowToDrama(r) {
+  let metadata = r.metadata;
+  if (typeof metadata === 'string') {
+    try {
+      metadata = JSON.parse(metadata);
+    } catch (e) {
+      metadata = {};
+    }
+  }
   return {
     id: r.id,
     title: r.title,
@@ -207,7 +218,7 @@ function rowToDrama(r) {
     status: r.status || 'draft',
     thumbnail: r.thumbnail,
     tags: r.tags,
-    metadata: r.metadata,
+    metadata: metadata || {},
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -325,10 +336,39 @@ function saveOutline(db, log, dramaId, req) {
   if (!drama) return false;
   const now = new Date().toISOString();
   const tagsStr = Array.isArray(req.tags) ? JSON.stringify(req.tags) : null;
+  // Merge new metadata with existing metadata
+  let existingMetadata = {};
+  if (drama.metadata) {
+    try {
+      existingMetadata = typeof drama.metadata === 'string' ? JSON.parse(drama.metadata) : drama.metadata;
+    } catch (e) {
+      existingMetadata = {};
+    }
+  }
+  let newMetadata = {};
+  if (req.metadata) {
+    try {
+      newMetadata = typeof req.metadata === 'string' ? JSON.parse(req.metadata) : req.metadata;
+    } catch (e) {
+      newMetadata = {};
+    }
+  }
+  const mergedMetadata = { ...existingMetadata, ...newMetadata };
+  const metadataStr = JSON.stringify(mergedMetadata);
+  
   db.prepare(
-    `UPDATE dramas SET title = ?, description = ?, genre = ?, tags = ?, updated_at = ? WHERE id = ?`
-  ).run(req.title || drama.title, req.summary ?? drama.description, req.genre || drama.genre, tagsStr, now, dramaId);
-  log.info('Outline saved', { drama_id: dramaId });
+    `UPDATE dramas SET title = ?, description = ?, genre = ?, tags = ?, style = ?, metadata = ?, updated_at = ? WHERE id = ?`
+  ).run(
+    req.title || drama.title, 
+    req.summary ?? drama.description, 
+    req.genre !== undefined ? req.genre : drama.genre, 
+    tagsStr, 
+    req.style !== undefined ? req.style : drama.style, 
+    metadataStr, 
+    now, 
+    dramaId
+  );
+  log.info('Outline saved', { drama_id: dramaId, style: req.style, genre: req.genre, metadata: mergedMetadata });
   return true;
 }
 

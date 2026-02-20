@@ -58,6 +58,17 @@ const imageClient = require('./imageClient');
 const taskService = require('./taskService');
 const uploadService = require('./uploadService');
 
+function mergePromptWithStyle(prompt, style) {
+  const base = (prompt || '').toString().trim();
+  const styleText = (style || '').toString().trim();
+  if (!styleText) return base;
+  if (!base) return styleText;
+  const lowerBase = base.toLowerCase();
+  const lowerStyle = styleText.toLowerCase();
+  if (lowerBase.includes(lowerStyle)) return base;
+  return base + ', ' + styleText;
+}
+
 function create(db, log, req) {
   const now = new Date().toISOString();
   const task = taskService.createTask(db, log, 'image_generation', String(req.drama_id || ''));
@@ -75,6 +86,7 @@ function create(db, log, req) {
       reference_images: req.reference_images,
     });
   }
+  const mergedPrompt = mergePromptWithStyle(req.prompt || '', req.style);
   const info = db.prepare(
     `INSERT INTO image_generations (storyboard_id, drama_id, scene_id, provider, prompt, negative_prompt, model, frame_type, reference_images, status, task_id, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`
@@ -83,7 +95,7 @@ function create(db, log, req) {
     Number(req.drama_id) || 0,
     sceneId,
     req.provider || 'openai',
-    req.prompt || '',
+    mergedPrompt,
     req.negative_prompt ?? null,
     req.model ?? null,
     frameType,

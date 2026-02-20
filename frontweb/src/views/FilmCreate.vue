@@ -18,27 +18,45 @@
 
     <!-- 左侧快捷目录 -->
     <nav class="quick-nav" aria-label="快捷导航">
-      <el-tooltip content="顶部" placement="right">
-        <el-button class="quick-nav-btn" size="small" @click="scrollToTop">顶部</el-button>
-      </el-tooltip>
-      <el-tooltip content="剧本" placement="right">
-        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-script')">剧本</el-button>
-      </el-tooltip>
-      <el-tooltip content="角色" placement="right">
-        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-characters')">角色</el-button>
-      </el-tooltip>
-      <el-tooltip content="道具" placement="right">
-        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-props')">道具</el-button>
-      </el-tooltip>
-      <el-tooltip content="场景" placement="right">
-        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-scenes')">场景</el-button>
-      </el-tooltip>
-      <el-tooltip content="分镜" placement="right">
-        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-storyboard')">分镜</el-button>
-      </el-tooltip>
-      <el-tooltip content="生成视频" placement="right">
-        <el-button class="quick-nav-btn" size="small" @click="scrollToAnchor('anchor-video')">视频</el-button>
-      </el-tooltip>
+      <div class="nav-item" @click="scrollToTop">
+        <span class="nav-label">顶部</span>
+      </div>
+      <div class="nav-item" @click="scrollToAnchor('anchor-script')">
+        <span class="nav-label">剧本</span>
+      </div>
+      <div class="nav-item" @click="scrollToAnchor('anchor-characters')">
+        <span class="nav-label">角色</span>
+      </div>
+      <div class="nav-item" @click="scrollToAnchor('anchor-props')">
+        <span class="nav-label">道具</span>
+      </div>
+      <div class="nav-item" @click="scrollToAnchor('anchor-scenes')">
+        <span class="nav-label">场景</span>
+      </div>
+      
+      <div class="nav-group">
+        <div class="nav-item" @click="scrollToAnchor('anchor-storyboard')">
+          <span class="nav-expand-icon" @click.stop="storyboardMenuExpanded = !storyboardMenuExpanded">
+            <el-icon><Minus v-if="storyboardMenuExpanded" /><Plus v-else /></el-icon>
+          </span>
+          <span class="nav-label">分镜</span>
+        </div>
+        <div v-show="storyboardMenuExpanded" class="nav-sub-list">
+          <div 
+            v-for="(sb, i) in storyboards" 
+            :key="sb.id" 
+            class="nav-sub-item"
+            :title="sb.title || '分镜 ' + (i + 1)"
+            @click="scrollToAnchor('sb-' + sb.id)"
+          >
+            {{ i + 1 }}. {{ sb.title || '分镜' }}
+          </div>
+        </div>
+      </div>
+      
+      <div class="nav-item" @click="scrollToAnchor('anchor-video')">
+        <span class="nav-label">视频</span>
+      </div>
     </nav>
 
     <main class="main">
@@ -62,13 +80,13 @@
           class="story-textarea"
         />
         <div class="row gap">
-          <el-select v-model="storyStyle" placeholder="风格" clearable style="width: 140px">
+          <el-select v-model="storyStyle" placeholder="风格" clearable style="width: 140px" @change="saveProjectSettings">
             <el-option label="现代" value="modern" />
             <el-option label="古风" value="ancient" />
             <el-option label="奇幻" value="fantasy" />
             <el-option label="日常" value="daily" />
           </el-select>
-          <el-select v-model="storyType" placeholder="类型" clearable style="width: 140px">
+          <el-select v-model="storyType" placeholder="类型" clearable style="width: 140px" @change="saveProjectSettings">
             <el-option label="剧情" value="drama" />
             <el-option label="喜剧" value="comedy" />
             <el-option label="冒险" value="adventure" />
@@ -123,6 +141,9 @@
           class="story-textarea"
         />
         <div class="one-click-actions">
+          <el-select v-model="generationStyle" placeholder="图片/视频风格" clearable style="width: 160px" @change="saveProjectSettings">
+            <el-option v-for="opt in generationStyleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
           <el-button
             type="primary"
             :loading="pipelineRunning && !pipelinePaused"
@@ -333,7 +354,7 @@
           </el-button>
         </div>
         <template v-if="storyboards.length > 0">
-          <div v-for="(sb, i) in storyboards" :key="sb.id" class="storyboard-row">
+          <div v-for="(sb, i) in storyboards" :key="sb.id" :id="'sb-' + sb.id" class="storyboard-row">
             <div class="sb-num-badge">{{ i + 1 }}</div>
             <!-- 左：分镜脚本 -->
             <div class="sb-panel sb-script">
@@ -458,21 +479,20 @@
                 <span>构图参考</span>
                 <el-icon class="sb-upload-icon"><Upload /></el-icon>
               </div>
-              <div class="sb-narration">
-                <span class="sb-narration-type">旁白</span>
-                <el-button size="small" text type="primary">选择声音</el-button>
+              <div class="sb-prompt-label">
+                <span class="sb-dot"></span>
+                <span>图片提示词</span>
               </div>
-              <el-input
-                v-model="sbDialogue[sb.id]"
-                type="textarea"
-                :rows="3"
-                placeholder="输入旁白内容, 描述场景、情感或角色对话..."
-                class="sb-dialogue-input"
-                @input="() => updateStoryboardDialogue(sb.id)"
-              />
-              <div class="sb-meta">
-                <span>字数: {{ (sbDialogue[sb.id] || '').length }}</span>
-                <span>预计时长: {{ sb.duration || 0 }}s / 3s</span>
+              <div v-if="editingSbImagePromptId === sb.id" class="sb-image-prompt-edit">
+                <el-input v-model="editingSbImagePromptText" type="textarea" :rows="3" placeholder="图片提示词（用于生成分镜图）" />
+                <div class="sb-prompt-edit-actions">
+                  <el-button size="small" type="primary" @click="onSaveSbImagePrompt(sb)">保存</el-button>
+                  <el-button size="small" @click="editingSbImagePromptId = null">取消</el-button>
+                </div>
+              </div>
+              <div v-else class="sb-prompt-row">
+                <span class="sb-prompt-text">{{ sb.image_prompt || '暂无图片提示词' }}</span>
+                <el-button size="small" link type="primary" @click="onEditSbImagePrompt(sb)">编辑</el-button>
               </div>
             </div>
             <!-- 中：分镜图（优先用 /images?storyboard_id 拉取到的图，否则用 composed_image） -->
@@ -524,21 +544,6 @@
                 <el-button size="small" :loading="generatingSbImageId === sb.id" @click="onGenerateSbImage(sb)">重新生成</el-button>
                 <el-button size="small" :loading="uploadingSbImageId === sb.id" @click="onUploadSbImageClick(sb)">上传</el-button>
               </div>
-              <div class="sb-prompt-label">
-                <span class="sb-dot"></span>
-                <span>图片提示词</span>
-              </div>
-              <div v-if="editingSbImagePromptId === sb.id" class="sb-image-prompt-edit">
-                <el-input v-model="editingSbImagePromptText" type="textarea" :rows="3" placeholder="图片提示词（用于生成分镜图）" />
-                <div class="sb-prompt-edit-actions">
-                  <el-button size="small" type="primary" @click="onSaveSbImagePrompt(sb)">保存</el-button>
-                  <el-button size="small" @click="editingSbImagePromptId = null">取消</el-button>
-                </div>
-              </div>
-              <div v-else class="sb-prompt-row">
-                <span class="sb-prompt-text">{{ sb.image_prompt || '暂无图片提示词' }}</span>
-                <el-button size="small" link type="primary" @click="onEditSbImagePrompt(sb)">编辑</el-button>
-              </div>
             </div>
             <!-- 右：分镜视频（由 /videos?storyboard_id 拉取）；有视频时仍显示提示词与生成按钮便于调整后重新生成 -->
             <div class="sb-panel sb-video">
@@ -555,6 +560,7 @@
                   preload="metadata"
                 />
               </div>
+              <div v-else class="sb-video-area sb-video-placeholder">等待生成</div>
               <div class="sb-video-prompt-label">
                 <span class="sb-dot"></span>
                 <span>视频提示词</span>
@@ -683,7 +689,13 @@
       <!-- 8. 合成视频 -->
       <section id="anchor-video" class="section card">
         <h2 class="section-title">合成视频</h2>
-        <el-button type="primary" size="large" :loading="videoStatus === 'generating'" :disabled="!currentEpisodeId || storyboards.length === 0" @click="onGenerateVideo">
+        <el-button
+          type="primary"
+          size="large"
+          :loading="videoStatus === 'generating'"
+          :disabled="!currentEpisodeId || storyboards.length === 0 || videoStatus === 'generating'"
+          @click="onGenerateVideo"
+        >
           合成视频
         </el-button>
         <div v-if="videoStatus === 'generating'" class="video-progress">
@@ -999,7 +1011,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowUp, ArrowDown, Setting } from '@element-plus/icons-vue'
+import { ArrowUp, ArrowDown, Setting, Plus, Minus } from '@element-plus/icons-vue'
 import { useFilmStore } from '@/stores/film'
 import { dramaAPI } from '@/api/drama'
 import { generationAPI } from '@/api/generation'
@@ -1046,6 +1058,17 @@ const savedCurrentEpisodeNumber = ref(1)
 const scriptLanguage = ref('zh')
 const scriptStoryboardStyle = ref('')
 const scriptGenerating = ref(false)
+const generationStyle = ref('')
+const generationStyleOptions = [
+  { label: '日本动漫', value: 'anime style' },
+  { label: '写实', value: 'realistic' },
+  { label: '电影感', value: 'cinematic' },
+  { label: '赛博朋克', value: 'cyberpunk' },
+  { label: '水彩', value: 'watercolor' },
+  { label: '油画', value: 'oil painting' },
+  { label: '3D 渲染', value: '3d render' },
+  { label: '像素风', value: 'pixel art' }
+]
 const scriptContent = computed({
   get: () => store.scriptContent,
   set: (v) => store.setScriptContent(v)
@@ -1112,6 +1135,7 @@ const propsBlockCollapsed = ref(false)
 const scenesBlockCollapsed = ref(false)
 
 // 分镜行内编辑状态（按 storyboard id 存储）
+const storyboardMenuExpanded = ref(false)
 const sbCharacterIds = ref({})  // sbId -> number[] 多选角色
 const sbPropIds = ref({})       // sbId -> number[] 多选物品
 const sbSceneId = ref({})
@@ -1256,6 +1280,10 @@ function hasAssetImage(item) {
   if (!item) return false
   return !!(item.image_url || item.local_path)
 }
+function getSelectedStyle() {
+  const value = (generationStyle.value || '').toString().trim()
+  return value || undefined
+}
 function openImagePreview(url) {
   previewImageUrl.value = url
 }
@@ -1325,7 +1353,8 @@ async function onGenerateSbImage(sb) {
       storyboard_id: sb.id,
       drama_id: dramaId.value,
       prompt: sb.image_prompt || sb.description || '',
-      model: undefined
+      model: undefined,
+      style: getSelectedStyle()
     })
     ElMessage.success('分镜图生成任务已提交')
     if (res?.task_id) {
@@ -1457,6 +1486,9 @@ async function loadDrama() {
     store.setDrama(d)
     // 恢复「故事生成」框的梗概（项目 description 存的是故事梗概）
     storyInput.value = (d.description || '').toString().trim()
+    storyStyle.value = (d.metadata && d.metadata.story_style) ? d.metadata.story_style : ''
+    storyType.value = d.genre || ''
+    generationStyle.value = d.style || ''
     const list = d.episodes || []
     // 优先保持当前选中的集（按 id 在最新列表中查找），避免 AI 生成角色等操作后误切到其他集
     const currentId = selectedEpisodeId.value
@@ -1551,7 +1583,9 @@ async function saveScriptToBackend(content) {
     const drama = await dramaAPI.create({
       title: scriptTitle.value || '新故事',
       description: storyInput.value?.trim() || trimmed.slice(0, 200),
-      genre: storyType.value || undefined
+      genre: storyType.value || undefined,
+      style: generationStyle.value || undefined,
+      metadata: { story_style: storyStyle.value || undefined }
     })
     store.setDrama(drama)
     dramaId = drama.id
@@ -1582,10 +1616,25 @@ async function saveScriptToBackend(content) {
   }
   await dramaAPI.saveEpisodes(dramaId, updated)
   if (storyInput.value?.trim()) {
-    await dramaAPI.saveOutline(dramaId, { summary: storyInput.value.trim() }).catch(() => {})
+    await dramaAPI.saveOutline(dramaId, {
+      summary: storyInput.value.trim(),
+      genre: storyType.value || undefined,
+      style: generationStyle.value || undefined,
+      metadata: { story_style: storyStyle.value || undefined }
+    }).catch(() => {})
   }
   await loadDrama()
   return { created: false }
+}
+
+async function saveProjectSettings() {
+  if (!store.dramaId) return
+  // Don't block UI
+  dramaAPI.saveOutline(store.dramaId, {
+    genre: storyType.value || undefined,
+    style: generationStyle.value || undefined,
+    metadata: { story_style: storyStyle.value || undefined }
+  }).catch(e => console.error('Settings auto-save failed', e))
 }
 
 async function onGenerateStory() {
@@ -1616,7 +1665,12 @@ async function onGenerateStory() {
       }
       // 把当前故事梗概保存到项目，下次打开可恢复
       if (store.dramaId && text) {
-        await dramaAPI.saveOutline(store.dramaId, { summary: text }).catch(() => {})
+        await dramaAPI.saveOutline(store.dramaId, {
+          summary: text,
+          genre: storyType.value || undefined,
+          style: generationStyle.value || undefined,
+          metadata: { story_style: storyStyle.value || undefined }
+        }).catch(() => {})
       }
     } catch (e) {
       ElMessage.error(e.message || '保存剧本失败')
@@ -2102,7 +2156,7 @@ async function onAddSceneToLibrary(scene) {
 async function onGenerateCharacterImage(char) {
   generatingCharId.value = char.id
   try {
-    const res = await characterAPI.generateImage(char.id, undefined)
+    const res = await characterAPI.generateImage(char.id, undefined, getSelectedStyle())
     const taskId = res?.image_generation?.task_id ?? res?.task_id
     if (taskId) {
       await pollTask(taskId, () => loadDrama())
@@ -2197,7 +2251,7 @@ async function onGeneratePropImage(prop) {
   generatingPropId.value = prop.id
   try {
     const model = undefined
-    const res = await propAPI.generateImage(prop.id, model)
+    const res = await propAPI.generateImage(prop.id, model, getSelectedStyle())
     const taskId = res?.task_id
     if (taskId) {
       await pollTask(taskId, () => loadDrama())
@@ -2223,7 +2277,9 @@ async function onExtractScenes() {
   scenesExtracting.value = true
   try {
     const res = await dramaAPI.extractBackgrounds(currentEpisodeId.value, {
-      model: undefined
+      model: undefined,
+      style: getSelectedStyle(),
+      language: scriptLanguage.value
     })
     const taskId = res?.task_id
     if (taskId) {
@@ -2310,7 +2366,8 @@ async function onGenerateSceneImage(scene) {
   try {
     const res = await sceneAPI.generateImage({
       scene_id: scene.id,
-      model: undefined
+      model: undefined,
+      style: getSelectedStyle()
     })
     const taskId = res?.image_generation?.task_id ?? res?.task_id
     if (taskId) {
@@ -2396,7 +2453,7 @@ function buildVideoPromptFromFields(sbId) {
   const duration = Number(sbDuration.value[sbId])
   const sec = Number.isFinite(duration) && duration > 0 ? duration : 5
   parts.push('Duration: ' + sec + ' seconds')
-  return parts.length ? parts.join('. ') : 'Anime style video scene'
+  return parts.length ? parts.join('. ') : 'Video scene'
 }
 
 async function onSaveSbVideoFields(sb) {
@@ -2451,7 +2508,8 @@ async function onGenerateSbVideo(sb) {
       prompt: sb.video_prompt,
       image_url: absoluteUrl || undefined,
       reference_image_urls: absoluteUrl ? [absoluteUrl] : undefined,
-      model: undefined
+      model: undefined,
+      style: getSelectedStyle()
     })
     if (res?.task_id) {
       await pollTask(res.task_id, () => loadStoryboardMedia())
@@ -2471,7 +2529,7 @@ async function onGenerateStoryboard() {
   if (!currentEpisodeId.value) return
   storyboardGenerating.value = true
   try {
-    const res = await dramaAPI.generateStoryboard(currentEpisodeId.value, undefined)
+    const res = await dramaAPI.generateStoryboard(currentEpisodeId.value, undefined, getSelectedStyle())
     if (res?.task_id) await pollTask(res.task_id, () => loadDrama())
     await loadDrama()
     ElMessage.success('分镜生成任务已提交')
@@ -2485,15 +2543,33 @@ async function onGenerateStoryboard() {
 async function onGenerateVideo() {
   if (!currentEpisodeId.value) return
   store.setVideoStatus('generating')
-  store.setVideoProgress(0)
+  store.setVideoProgress(5)
   videoErrorMsg.value = ''
   try {
     const result = await dramaAPI.finalizeEpisode(currentEpisodeId.value)
-    store.setVideoProgress(100)
     if (result?.task_id != null) {
-      store.setVideoStatus('done')
-      ElMessage.success(result?.message || '视频合成任务已提交，合成完成后将显示在下方预览')
-      await pollTask(result.task_id, () => loadDrama())
+      store.setVideoProgress(10)
+      ElMessage.success(result?.message || '视频合成任务已提交，请稍后查看')
+      const pollResult = await pollTask(result.task_id, () => loadDrama())
+      await loadDrama()
+      if (pollResult?.status === 'completed') {
+        store.setVideoProgress(100)
+        if (currentEpisodeVideoUrl.value) {
+          store.setVideoStatus('done')
+          ElMessage.success('视频生成完成')
+        } else {
+          store.setVideoStatus('error')
+          videoErrorMsg.value = '视频生成完成但未获取到播放地址，请稍后刷新'
+          ElMessage.warning(videoErrorMsg.value)
+        }
+      } else if (pollResult?.status === 'failed') {
+        store.setVideoStatus('error')
+        videoErrorMsg.value = pollResult?.error || '视频生成失败'
+      } else if (pollResult?.status === 'timeout') {
+        store.setVideoStatus('generating')
+        videoErrorMsg.value = '任务仍在排队或生成中，请稍后刷新查看'
+        ElMessage.warning(videoErrorMsg.value)
+      }
     } else {
       store.setVideoStatus('error')
       const msg = result?.message || '本集没有可合成的视频片段'
@@ -2526,17 +2602,18 @@ function pollTask(taskId, onDone) {
         const t = await taskAPI.get(taskId)
         if (t.status === 'completed') {
           if (onDone) await onDone()
-          return resolve()
+          return resolve({ status: 'completed' })
         }
         if (t.status === 'failed') {
-          ElMessage.error(t.error || '任务失败')
-          return resolve()
+          const errMsg = t.error || '任务失败'
+          ElMessage.error(errMsg)
+          return resolve({ status: 'failed', error: errMsg })
         }
       } catch (_) {}
       if (attempts < maxAttempts) setTimeout(tick, interval)
       else {
         ElMessage.warning('任务查询超时，请刷新页面查看最新状态')
-        resolve()
+        resolve({ status: 'timeout' })
       }
     }
     setTimeout(tick, interval)
@@ -2640,6 +2717,7 @@ async function runOneClickPipeline() {
   const episodeId = currentEpisodeId.value
   const dramaIdVal = dramaId.value
   if (!episodeId || !dramaIdVal) return
+  const style = getSelectedStyle()
 
   try {
     // 1. 剧本生成角色
@@ -2664,14 +2742,14 @@ async function runOneClickPipeline() {
 
     // 2. 为每个角色生成图片
     await checkPause()
-    let chars = store.drama?.characters ?? store.currentEpisode?.characters ?? []
+    let chars = store.currentEpisode?.characters ?? []
     const charsWithoutImage = chars.filter((c) => !hasAssetImage(c))
     for (const char of charsWithoutImage) {
       await checkPause()
       pipelineCurrentStep.value = '正在生成角色图：' + (char.name || char.id)
       const stepName = '角色图 ' + (char.name || char.id)
       const ok = await pipelineWithRetry(stepName, async () => {
-        const res = await characterAPI.generateImage(char.id, undefined)
+        const res = await characterAPI.generateImage(char.id, undefined, style)
         const taskId = res?.image_generation?.task_id ?? res?.task_id
         if (taskId) {
           const result = await pollTaskWithPause(taskId, () => loadDrama())
@@ -2680,7 +2758,7 @@ async function runOneClickPipeline() {
         } else {
           await loadDrama()
           await pollUntilResourceHasImage(() => {
-            const list = store.drama?.characters ?? store.currentEpisode?.characters ?? []
+            const list = store.currentEpisode?.characters ?? []
             const c = list.find((x) => Number(x.id) === Number(char.id))
             return !!(c && (c.image_url || c.local_path))
           })
@@ -2694,7 +2772,7 @@ async function runOneClickPipeline() {
     await checkPause()
     pipelineCurrentStep.value = '正在从剧本提取场景...'
     try {
-      const res = await dramaAPI.extractBackgrounds(episodeId, { model: undefined })
+      const res = await dramaAPI.extractBackgrounds(episodeId, { model: undefined, style, language: scriptLanguage.value })
       const taskId = res?.task_id
       if (taskId) {
         const result = await pollTaskWithPause(taskId, () => loadDrama())
@@ -2711,14 +2789,14 @@ async function runOneClickPipeline() {
 
     // 4. 为每个场景生成图片
     await checkPause()
-    let sceneList = store.drama?.scenes ?? store.currentEpisode?.scenes ?? []
+    let sceneList = store.currentEpisode?.scenes ?? []
     const scenesWithoutImage = sceneList.filter((s) => !hasAssetImage(s))
     for (const scene of scenesWithoutImage) {
       await checkPause()
       pipelineCurrentStep.value = '正在生成场景图：' + (scene.location || scene.id)
       const stepName = '场景图 ' + (scene.location || scene.id)
       const ok = await pipelineWithRetry(stepName, async () => {
-        const res = await sceneAPI.generateImage({ scene_id: scene.id, model: undefined })
+        const res = await sceneAPI.generateImage({ scene_id: scene.id, model: undefined, style })
         const taskId = res?.image_generation?.task_id ?? res?.task_id
         if (taskId) {
           const result = await pollTaskWithPause(taskId, () => loadDrama())
@@ -2727,7 +2805,7 @@ async function runOneClickPipeline() {
         } else {
           await loadDrama()
           await pollUntilResourceHasImage(() => {
-            const list = store.drama?.scenes ?? store.currentEpisode?.scenes ?? []
+            const list = store.currentEpisode?.scenes ?? []
             const s = list.find((x) => Number(x.id) === Number(scene.id))
             return !!(s && (s.image_url || s.local_path))
           })
@@ -2741,7 +2819,7 @@ async function runOneClickPipeline() {
     await checkPause()
     pipelineCurrentStep.value = '正在生成分镜...'
     try {
-      const res = await dramaAPI.generateStoryboard(episodeId, undefined)
+      const res = await dramaAPI.generateStoryboard(episodeId, undefined, style)
       const taskId = res?.task_id
       if (taskId) {
         const result = await pollTaskWithPause(taskId, () => loadDrama())
@@ -2770,7 +2848,8 @@ async function runOneClickPipeline() {
           storyboard_id: sb.id,
           drama_id: dramaIdVal,
           prompt: sb.image_prompt || sb.description || '',
-          model: undefined
+          model: undefined,
+          style
         })
         if (res?.task_id) {
           const result = await pollTaskWithPause(res.task_id, () => loadStoryboardMedia())
@@ -2803,7 +2882,8 @@ async function runOneClickPipeline() {
           prompt: sb.video_prompt,
           image_url: absoluteUrl || undefined,
           reference_image_urls: absoluteUrl ? [absoluteUrl] : undefined,
-          model: undefined
+          model: undefined,
+          style
         })
         if (res?.task_id) {
           const result = await pollTaskWithPause(res.task_id, () => loadStoryboardMedia())
@@ -2857,13 +2937,14 @@ async function runRepairPipeline() {
   const episodeId = currentEpisodeId.value
   const dramaIdVal = dramaId.value
   if (!episodeId || !dramaIdVal) return
+  const style = getSelectedStyle()
 
   try {
     pipelineCurrentStep.value = '正在加载数据...'
     await loadDrama()
 
     // 1. 角色：没有则生成角色；再为每个无图角色生成图
-    let chars = store.drama?.characters ?? store.currentEpisode?.characters ?? []
+    let chars = store.currentEpisode?.characters ?? []
     if (chars.length === 0) {
       await checkPause()
       pipelineCurrentStep.value = '正在生成角色列表...'
@@ -2881,7 +2962,7 @@ async function runRepairPipeline() {
         addPipelineError('生成角色', e.message || String(e))
         return
       }
-      chars = store.drama?.characters ?? store.currentEpisode?.characters ?? []
+      chars = store.currentEpisode?.characters ?? []
     }
     const charsWithoutImage = chars.filter((c) => !hasAssetImage(c))
     for (const char of charsWithoutImage) {
@@ -2889,7 +2970,7 @@ async function runRepairPipeline() {
       pipelineCurrentStep.value = '正在生成角色图：' + (char.name || char.id)
       const stepName = '角色图 ' + (char.name || char.id)
       const ok = await pipelineWithRetry(stepName, async () => {
-        const res = await characterAPI.generateImage(char.id, undefined)
+        const res = await characterAPI.generateImage(char.id, undefined, style)
         const taskId = res?.image_generation?.task_id ?? res?.task_id
         if (taskId) {
           const result = await pollTaskWithPause(taskId, () => loadDrama())
@@ -2898,7 +2979,7 @@ async function runRepairPipeline() {
         } else {
           await loadDrama()
           await pollUntilResourceHasImage(() => {
-            const list = store.drama?.characters ?? store.currentEpisode?.characters ?? []
+            const list = store.currentEpisode?.characters ?? []
             const c = list.find((x) => Number(x.id) === Number(char.id))
             return !!(c && (c.image_url || c.local_path))
           })
@@ -2909,12 +2990,12 @@ async function runRepairPipeline() {
     }
 
     // 2. 场景：没有则提取；再为每个无图场景生成图
-    let sceneList = store.drama?.scenes ?? store.currentEpisode?.scenes ?? []
+    let sceneList = store.currentEpisode?.scenes ?? []
     if (sceneList.length === 0) {
       await checkPause()
       pipelineCurrentStep.value = '正在提取场景...'
       try {
-        const res = await dramaAPI.extractBackgrounds(episodeId, { model: undefined })
+        const res = await dramaAPI.extractBackgrounds(episodeId, { model: undefined, style, language: scriptLanguage.value })
         const taskId = res?.task_id
         if (taskId) {
           const result = await pollTaskWithPause(taskId, () => loadDrama())
@@ -2926,7 +3007,7 @@ async function runRepairPipeline() {
         addPipelineError('提取场景', e.message || String(e))
         return
       }
-      sceneList = store.drama?.scenes ?? store.currentEpisode?.scenes ?? []
+      sceneList = store.currentEpisode?.scenes ?? []
     }
     const scenesWithoutImage = sceneList.filter((s) => !hasAssetImage(s))
     for (const scene of scenesWithoutImage) {
@@ -2934,7 +3015,7 @@ async function runRepairPipeline() {
       pipelineCurrentStep.value = '正在生成场景图：' + (scene.location || scene.id)
       const stepName = '场景图 ' + (scene.location || scene.id)
       const ok = await pipelineWithRetry(stepName, async () => {
-        const res = await sceneAPI.generateImage({ scene_id: scene.id, model: undefined })
+        const res = await sceneAPI.generateImage({ scene_id: scene.id, model: undefined, style })
         const taskId = res?.image_generation?.task_id ?? res?.task_id
         if (taskId) {
           const result = await pollTaskWithPause(taskId, () => loadDrama())
@@ -2943,7 +3024,7 @@ async function runRepairPipeline() {
         } else {
           await loadDrama()
           await pollUntilResourceHasImage(() => {
-            const list = store.drama?.scenes ?? store.currentEpisode?.scenes ?? []
+            const list = store.currentEpisode?.scenes ?? []
             const s = list.find((x) => Number(x.id) === Number(scene.id))
             return !!(s && (s.image_url || s.local_path))
           })
@@ -3089,6 +3170,7 @@ onMounted(() => {
     storyType.value = ''
     scriptLanguage.value = 'zh'
     scriptStoryboardStyle.value = ''
+    generationStyle.value = ''
   }
 })
 </script>
@@ -3124,26 +3206,71 @@ onMounted(() => {
 /* 左侧快捷目录 */
 .quick-nav {
   position: fixed;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 20px;
+  top: 100px;
   z-index: 100;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px 8px;
+  gap: 2px;
+  padding: 12px 0;
   background: rgba(24, 24, 27, 0.95);
-  border-radius: 0 10px 10px 0;
+  border-radius: 8px;
   border: 1px solid #27272a;
-  border-left: 0;
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  width: 140px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
 }
-.quick-nav-btn {
-  min-width: 56px;
+.nav-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  color: #a1a1aa;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+.nav-label {
+  flex: 1;
+}
+.nav-expand-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 4px;
+  border-radius: 4px;
+  color: #71717a;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.nav-expand-icon:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e4e4e7;
+}
+.nav-sub-list {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px 0;
+}
+.nav-sub-item {
+  padding: 6px 12px 6px 36px;
+  font-size: 0.8rem;
+  color: #71717a;
+  cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s;
 }
-.quick-nav-btn:hover {
-  color: var(--el-button-text-color);
+.nav-sub-item:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .main {
@@ -3624,6 +3751,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.sb-video-placeholder {
+  color: #71717a;
+  font-size: 0.9rem;
 }
 .sb-video-player {
   width: 100%;

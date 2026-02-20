@@ -22,7 +22,15 @@ function routes(db, log) {
         const dramaId = Number(body.drama_id) || 0;
         const storyboardId = body.storyboard_id != null ? Number(body.storyboard_id) : null;
         const provider = body.provider || 'chatfire';
-        const prompt = body.prompt || '';
+        let prompt = body.prompt || '';
+        const style = (body.style || '').toString().trim();
+        if (style) {
+          const baseLower = String(prompt || '').toLowerCase();
+          const styleLower = style.toLowerCase();
+          if (!baseLower.includes(styleLower)) {
+            prompt = prompt ? `${prompt}. Style: ${style}` : `Style: ${style}`;
+          }
+        }
         const model = body.model ?? null;
         const duration = body.duration ?? null;
         const aspectRatio = body.aspect_ratio ?? null;

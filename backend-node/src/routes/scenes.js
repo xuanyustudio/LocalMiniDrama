@@ -64,6 +64,7 @@ function routes(db, log) {
           prompt,
           model: body.model || null,
           provider: body.provider || 'openai',
+          style: body.style || undefined,
         });
         response.success(res, {
           message: 'Scene image generation started',

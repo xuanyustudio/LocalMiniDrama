@@ -73,7 +73,8 @@ function routes(db, cfg, log) {
           log,
           req.params.episode_id,
           body.model,
-          body.style
+          body.style,
+          body.language
         );
         response.success(res, { task_id: taskId, status: 'pending', message: '场景提取任务已创建，正在后台处理...' });
       } catch (err) {

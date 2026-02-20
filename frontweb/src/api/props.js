@@ -10,8 +10,10 @@ export const propAPI = {
   update(id, data) {
     return request.put(`/props/${id}`, data)
   },
-  generateImage(id, model) {
-    return request.post(`/props/${id}/generate`, model ? { model } : undefined)
+  generateImage(id, model, style) {
+    const body = { model, style }
+    if (body.model == null && body.style == null) return request.post(`/props/${id}/generate`)
+    return request.post(`/props/${id}/generate`, body)
   },
   extractFromScript(episodeId) {
     return request.post(`/episodes/${episodeId}/props/extract`)

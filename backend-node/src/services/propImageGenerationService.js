@@ -5,6 +5,17 @@ const imageClient = require('./imageClient');
 const propService = require('./propService');
 const uploadService = require('./uploadService');
 
+function appendPrompt(base, extra) {
+  const add = (extra || '').toString().trim();
+  if (!add) return (base || '').toString().trim();
+  const current = (base || '').toString().trim();
+  if (!current) return add;
+  const lowerCurrent = current.toLowerCase();
+  const lowerAdd = add.toLowerCase();
+  if (lowerCurrent.includes(lowerAdd)) return current;
+  return current + ', ' + add;
+}
+
 async function processPropImageGeneration(db, log, taskId, propId, opts) {
   taskService.updateTaskStatus(db, taskId, 'processing', 0, '正在生成图片...');
 
@@ -20,9 +31,15 @@ async function processPropImageGeneration(db, log, taskId, propId, opts) {
 
   const loadConfig = require('../config').loadConfig;
   const cfg = loadConfig();
-  const style = (cfg?.style?.default_style || '') + (cfg?.style?.default_prop_style ? ', ' + cfg.style.default_prop_style : '');
+  const styleOverride = (opts && opts.style) ? String(opts.style).trim() : '';
+  const baseStyle = styleOverride || (cfg?.style?.default_style || '');
+  let style = '';
+  style = appendPrompt(style, baseStyle);
+  if (!styleOverride) {
+    style = appendPrompt(style, cfg?.style?.default_prop_style || '');
+  }
   const imageSize = cfg?.style?.default_image_size || '1024x1024';
-  const fullPrompt = style ? style + ', ' + String(prop.prompt).trim() : String(prop.prompt).trim();
+  const fullPrompt = appendPrompt(String(prop.prompt).trim(), style);
   // 与角色/场景一致：使用前端「图片生成模型」选择的 model；未传时用 YAML default_image_provider 兜底
   const model = (opts && opts.model) ? String(opts.model).trim() || null : null;
   const preferredProvider = !model && cfg?.ai?.default_image_provider ? cfg.ai.default_image_provider : null;

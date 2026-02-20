@@ -79,12 +79,15 @@ function buildStoryboardContext(cfg, sb, scene, characterNames) {
   return parts.join('\n');
 }
 
-function buildFallbackPrompt(sb, scene, suffix) {
+function buildFallbackPrompt(cfg, scene, suffix) {
   const parts = [];
   if (scene) {
     parts.push(`${scene.location}, ${scene.time}`);
   }
-  return parts.join(', ') + (parts.length ? ', ' : '') + 'anime style, ' + suffix;
+  const style = (cfg?.style?.default_style || '').toString().trim();
+  if (style) parts.push(style);
+  if (suffix) parts.push(suffix);
+  return parts.join(', ');
 }
 
 function parseFramePromptJSON(log, aiResponse) {
@@ -128,7 +131,7 @@ async function generateSingleFrame(db, log, cfg, sb, scene, characterNames, mode
   } catch (err) {
     log.warn('Frame prompt AI failed, using fallback', { error: err.message });
     const suffix = frameKind === 'first' ? 'first frame, static shot' : frameKind === 'key' ? 'key frame, dynamic action' : 'last frame, final state';
-    const prompt = buildFallbackPrompt(sb, scene, suffix);
+    const prompt = buildFallbackPrompt(cfg, scene, suffix);
     const desc =
       frameKind === 'first'
         ? '镜头开始的静态画面，展示初始状态'
@@ -141,7 +144,7 @@ async function generateSingleFrame(db, log, cfg, sb, scene, characterNames, mode
   if (parsed) return parsed;
   const suffix = frameKind === 'first' ? 'first frame, static shot' : frameKind === 'key' ? 'key frame, dynamic action' : 'last frame, final state';
   return {
-    prompt: buildFallbackPrompt(sb, scene, suffix),
+    prompt: buildFallbackPrompt(cfg, scene, suffix),
     description: frameKind === 'last' ? '镜头结束画面，展示最终状态和结果' : frameKind === 'key' ? '动作高潮瞬间，展示关键动作' : '镜头开始的静态画面，展示初始状态',
   };
 }

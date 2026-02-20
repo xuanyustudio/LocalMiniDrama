@@ -49,8 +49,9 @@ function generateImage(db, log) {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return response.badRequest(res, '无效的ID');
     const model = req.body?.model != null ? String(req.body.model).trim() || null : null;
+    const style = req.body?.style != null ? String(req.body.style).trim() || null : null;
     try {
-      const taskId = propImageGenerationService.generatePropImage(db, log, id, { model });
+      const taskId = propImageGenerationService.generatePropImage(db, log, id, { model, style });
       response.success(res, { task_id: taskId });
     } catch (err) {
       if (err.message === '道具不存在') return response.notFound(res, err.message);
