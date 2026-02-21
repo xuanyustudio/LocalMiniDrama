@@ -536,6 +536,11 @@ function createAndGenerateImage(db, log, opts) {
           'UPDATE image_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?'
         ).run('failed', result.error, now2, imageGenId);
         taskService.updateTaskError(db, taskId, result.error);
+        if (charIdNum != null) {
+          try {
+            db.prepare('UPDATE characters SET error_msg = ?, updated_at = ? WHERE id = ?').run(result.error, now2, charIdNum);
+          } catch (_) {}
+        }
         log.error('Image generation failed', { image_gen_id: imageGenId, error: result.error });
         return;
       }
@@ -595,6 +600,11 @@ function createAndGenerateImage(db, log, opts) {
         taskService.updateTaskError(db, taskId, errMsg);
       } catch (e) {
         log.error('Image generation: failed to update task status', { task_id: taskId, error: e.message });
+      }
+      if (charIdNum != null) {
+        try {
+          db.prepare('UPDATE characters SET error_msg = ?, updated_at = ? WHERE id = ?').run(errMsg, now2, charIdNum);
+        } catch (_) {}
       }
       log.error('Image generation error', { image_gen_id: imageGenId, task_id: taskId, error: err.message });
     }

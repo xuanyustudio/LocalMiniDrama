@@ -68,6 +68,14 @@
         style="display: none"
         @change="onResourceImageFileChange"
       />
+      <!-- 分镜图上传图片用，单例放在外层避免 v-for 导致 ref 为数组 -->
+      <input
+        ref="sbImageFileInput"
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        style="display: none"
+        @change="onSbImageFileChange"
+      />
       <!-- 1. 故事生成 -->
       <section class="section card">
         <h2 class="section-title">故事生成</h2>
@@ -230,6 +238,7 @@
                     @drop="onResourceDrop($event, 'character', char.id)"
                   >
                     <img v-if="hasAssetImage(char)" :src="assetImageUrl(char)" class="cover-img" alt="" />
+                    <div v-else-if="char.error_msg || char.errorMsg" class="cover-placeholder error" :title="char.error_msg || char.errorMsg">{{ char.error_msg || char.errorMsg }}</div>
                     <div v-else class="cover-placeholder">暂无图</div>
                     <div v-if="dragOverResourceKey === 'char-' + char.id" class="asset-cover-drop-hint">松开上传</div>
                   </div>
@@ -281,6 +290,7 @@
                     @drop="onResourceDrop($event, 'prop', prop.id)"
                   >
                     <img v-if="hasAssetImage(prop)" :src="assetImageUrl(prop)" class="cover-img" alt="" />
+                    <div v-else-if="prop.error_msg || prop.errorMsg" class="cover-placeholder error" :title="prop.error_msg || prop.errorMsg">{{ prop.error_msg || prop.errorMsg }}</div>
                     <div v-else class="cover-placeholder">暂无图</div>
                     <div v-if="dragOverResourceKey === 'prop-' + prop.id" class="asset-cover-drop-hint">松开上传</div>
                   </div>
@@ -334,6 +344,7 @@
                     @drop="onResourceDrop($event, 'scene', scene.id)"
                   >
                     <img v-if="hasAssetImage(scene)" :src="assetImageUrl(scene)" class="cover-img" alt="" />
+                    <div v-else-if="scene.error_msg || scene.errorMsg" class="cover-placeholder error" :title="scene.error_msg || scene.errorMsg">{{ scene.error_msg || scene.errorMsg }}</div>
                     <div v-else class="cover-placeholder">暂无图</div>
                     <div v-if="dragOverResourceKey === 'scene-' + scene.id" class="asset-cover-drop-hint">松开上传</div>
                   </div>
@@ -501,13 +512,6 @@
                 <el-icon><Picture /></el-icon>
                 <span>分镜图</span>
               </div>
-              <input
-                ref="sbImageFileInput"
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                class="sb-image-file-input"
-                @change="onSbImageFileChange"
-              />
               <div
                 class="sb-image-area"
                 :class="{ 'sb-image-area--dragover': dragOverSbId === sb.id }"
@@ -530,6 +534,14 @@
                     alt=""
                     @click="openImagePreview(imageUrl(sb.composed_image || sb.image_url))"
                   />
+                </template>
+                <template v-else-if="sb.error_msg || sb.errorMsg">
+                  <div class="sb-image-error" :title="sb.error_msg || sb.errorMsg">{{ sb.error_msg || sb.errorMsg }}</div>
+                  <el-button type="primary" size="small" class="sb-gen-btn" :loading="generatingSbImageId === sb.id" @click="onGenerateSbImage(sb)">
+                    <el-icon><Refresh /></el-icon>
+                    重试
+                  </el-button>
+                  <el-button size="small" :loading="uploadingSbImageId === sb.id" @click="onUploadSbImageClick(sb)">上传</el-button>
                 </template>
                 <template v-else>
                   <el-button type="primary" size="small" class="sb-gen-btn" :loading="generatingSbImageId === sb.id" @click="onGenerateSbImage(sb)">
@@ -594,6 +606,10 @@
                     <div class="sb-field sb-field-full">
                       <span class="sb-field-label">对白</span>
                       <el-input v-model="sbDialogue[sb.id]" type="textarea" :rows="2" placeholder="角色对白" />
+                    </div>
+                    <div class="sb-field sb-field-full">
+                      <span class="sb-field-label">画面结果</span>
+                      <el-input v-model="sbResult[sb.id]" type="textarea" :rows="2" placeholder="动作完成后的画面结果" />
                     </div>
                     <div class="sb-field sb-field-full">
                       <span class="sb-field-label">氛围</span>
@@ -1147,6 +1163,7 @@ const sbLocation = ref({})
 const sbTime = ref({})
 const sbDuration = ref({})
 const sbAction = ref({})
+const sbResult = ref({})
 const sbAtmosphere = ref({})
 const sbAngle = ref({})
 const sbMovement = ref({})
@@ -1347,6 +1364,8 @@ async function loadStoryboardMedia() {
 
 async function onGenerateSbImage(sb) {
   if (!dramaId.value || !sb?.id) return
+  sb.errorMsg = ''
+  sb.error_msg = ''
   generatingSbImageId.value = sb.id
   try {
     const res = await imagesAPI.create({
@@ -1358,12 +1377,18 @@ async function onGenerateSbImage(sb) {
     })
     ElMessage.success('分镜图生成任务已提交')
     if (res?.task_id) {
-      await pollTask(res.task_id, () => loadStoryboardMedia())
-      ElMessage.success('分镜图生成完成')
+      const pollRes = await pollTask(res.task_id, () => loadStoryboardMedia())
+      if (pollRes?.status === 'failed') {
+        sb.errorMsg = pollRes.error || '生成失败'
+      } else {
+        ElMessage.success('分镜图生成完成')
+      }
     } else {
       await loadStoryboardMedia()
     }
   } catch (e) {
+    console.error(e)
+    sb.errorMsg = e.message || '生成失败'
     ElMessage.error(e.message || '生成失败')
   } finally {
     generatingSbImageId.value = null
@@ -1373,7 +1398,10 @@ async function onGenerateSbImage(sb) {
 function onUploadSbImageClick(sb) {
   if (!sb?.id) return
   sbImageUploadForId.value = sb.id
-  sbImageFileInput.value?.click()
+  if (sbImageFileInput.value) {
+    sbImageFileInput.value.value = ''
+    sbImageFileInput.value.click()
+  }
 }
 
 async function doUploadSbImage(sbId, file) {
@@ -1427,6 +1455,7 @@ function syncStoryboardStateFromEpisode(ep) {
   const nextTime = {}
   const nextDuration = {}
   const nextAction = {}
+  const nextResult = {}
   const nextAtmosphere = {}
   const nextAngle = {}
   const nextMovement = {}
@@ -1439,6 +1468,7 @@ function syncStoryboardStateFromEpisode(ep) {
     nextTime[sb.id] = (sb.time ?? '').toString()
     nextDuration[sb.id] = sb.duration != null ? Number(sb.duration) : 5
     nextAction[sb.id] = (sb.action ?? '').toString()
+    nextResult[sb.id] = (sb.result ?? '').toString()
     nextAtmosphere[sb.id] = (sb.atmosphere ?? '').toString()
     nextAngle[sb.id] = (sb.angle ?? '').toString()
     nextMovement[sb.id] = (sb.movement ?? '').toString()
@@ -1456,6 +1486,7 @@ function syncStoryboardStateFromEpisode(ep) {
   sbTime.value = nextTime
   sbDuration.value = nextDuration
   sbAction.value = nextAction
+  sbResult.value = nextResult
   sbAtmosphere.value = nextAtmosphere
   sbAngle.value = nextAngle
   sbMovement.value = nextMovement
@@ -2154,13 +2185,19 @@ async function onAddSceneToLibrary(scene) {
 }
 
 async function onGenerateCharacterImage(char) {
+  char.errorMsg = ''
+  char.error_msg = ''
   generatingCharId.value = char.id
   try {
     const res = await characterAPI.generateImage(char.id, undefined, getSelectedStyle())
     const taskId = res?.image_generation?.task_id ?? res?.task_id
     if (taskId) {
-      await pollTask(taskId, () => loadDrama())
-      ElMessage.success('角色图片已生成')
+      const pollRes = await pollTask(taskId, () => loadDrama())
+      if (pollRes?.status === 'failed') {
+        char.errorMsg = pollRes.error || '生成失败'
+      } else {
+        ElMessage.success('角色图片已生成')
+      }
     } else {
       await loadDrama()
       await pollUntilResourceHasImage(() => {
@@ -2171,6 +2208,8 @@ async function onGenerateCharacterImage(char) {
       ElMessage.success('角色图片已生成')
     }
   } catch (e) {
+    console.error(e)
+    char.errorMsg = e.message || '生成失败'
     ElMessage.error(e.message || '提交失败')
   } finally {
     generatingCharId.value = null
@@ -2187,8 +2226,10 @@ async function onExtractProps() {
     const res = await propAPI.extractFromScript(currentEpisodeId.value)
     const taskId = res?.task_id
     if (taskId) {
-      await pollTask(taskId, () => loadDrama())
-      ElMessage.success('道具提取完成')
+      const pollRes = await pollTask(taskId, () => loadDrama())
+      if (pollRes?.status !== 'failed') {
+        ElMessage.success('道具提取完成')
+      }
     } else {
       await loadDrama()
       ElMessage.success('道具提取任务已提交')
@@ -2248,14 +2289,20 @@ async function onDeleteProp(prop) {
 }
 
 async function onGeneratePropImage(prop) {
+  prop.errorMsg = ''
+  prop.error_msg = ''
   generatingPropId.value = prop.id
   try {
     const model = undefined
     const res = await propAPI.generateImage(prop.id, model, getSelectedStyle())
     const taskId = res?.task_id
     if (taskId) {
-      await pollTask(taskId, () => loadDrama())
-      ElMessage.success('道具图片已生成')
+      const pollRes = await pollTask(taskId, () => loadDrama())
+      if (pollRes?.status === 'failed') {
+        prop.errorMsg = pollRes.error || '生成失败'
+      } else {
+        ElMessage.success('道具图片已生成')
+      }
     } else {
       await loadDrama()
       await pollUntilResourceHasImage(() => {
@@ -2266,6 +2313,8 @@ async function onGeneratePropImage(prop) {
       ElMessage.success('道具图片已生成')
     }
   } catch (e) {
+    console.error(e)
+    prop.errorMsg = e.message || '生成失败'
     ElMessage.error(e.message || '提交失败')
   } finally {
     generatingPropId.value = null
@@ -2283,8 +2332,10 @@ async function onExtractScenes() {
     })
     const taskId = res?.task_id
     if (taskId) {
-      await pollTask(taskId, () => loadDrama())
-      ElMessage.success('场景提取完成')
+      const pollRes = await pollTask(taskId, () => loadDrama())
+      if (pollRes?.status !== 'failed') {
+        ElMessage.success('场景提取完成')
+      }
     } else {
       await loadDrama()
       ElMessage.success('场景提取任务已提交')
@@ -2362,6 +2413,8 @@ async function onDeleteScene(scene) {
 }
 
 async function onGenerateSceneImage(scene) {
+  scene.errorMsg = ''
+  scene.error_msg = ''
   generatingSceneId.value = scene.id
   try {
     const res = await sceneAPI.generateImage({
@@ -2371,8 +2424,12 @@ async function onGenerateSceneImage(scene) {
     })
     const taskId = res?.image_generation?.task_id ?? res?.task_id
     if (taskId) {
-      await pollTask(taskId, () => loadDrama())
-      ElMessage.success('场景图片已生成')
+      const pollRes = await pollTask(taskId, () => loadDrama())
+      if (pollRes?.status === 'failed') {
+        scene.errorMsg = pollRes.error || '生成失败'
+      } else {
+        ElMessage.success('场景图片已生成')
+      }
     } else {
       await loadDrama()
       await pollUntilResourceHasImage(() => {
@@ -2383,6 +2440,8 @@ async function onGenerateSceneImage(scene) {
       ElMessage.success('场景图片已生成')
     }
   } catch (e) {
+    console.error(e)
+    scene.errorMsg = e.message || '生成失败'
     ElMessage.error(e.message || '提交失败')
   } finally {
     generatingSceneId.value = null
@@ -2450,6 +2509,8 @@ function buildVideoPromptFromFields(sbId) {
   if (movement) parts.push('Camera movement: ' + movement)
   const atmosphere = (sbAtmosphere.value[sbId] || '').toString().trim()
   if (atmosphere) parts.push('Atmosphere: ' + atmosphere)
+  const result = (sbResult.value[sbId] || '').toString().trim()
+  if (result) parts.push('Result: ' + result)
   const duration = Number(sbDuration.value[sbId])
   const sec = Number.isFinite(duration) && duration > 0 ? duration : 5
   parts.push('Duration: ' + sec + ' seconds')
@@ -2468,6 +2529,7 @@ async function onSaveSbVideoFields(sb) {
       action: (sbAction.value[sb.id] || '').toString().trim() || null,
       dialogue: (sbDialogue.value[sb.id] || '').toString().trim() || null,
       atmosphere: (sbAtmosphere.value[sb.id] || '').toString().trim() || null,
+      result: (sbResult.value[sb.id] || '').toString().trim() || null,
       angle: (sbAngle.value[sb.id] || '').toString().trim() || null,
       movement: (sbMovement.value[sb.id] || '').toString().trim() || null,
       shot_type: (sbShotType.value[sb.id] || '').toString().trim() || null,
@@ -3482,6 +3544,30 @@ onMounted(() => {
   justify-content: center;
   color: #71717a;
   font-size: 0.85rem;
+}
+.cover-placeholder.error {
+  background: #450a0a;
+  color: #f87171;
+  font-size: 0.8rem;
+  padding: 8px;
+  line-height: 1.4;
+  word-break: break-all;
+  text-align: center;
+}
+.sb-image-error {
+  width: 100%;
+  flex: 1;
+  background: #450a0a;
+  color: #f87171;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  text-align: center;
+  font-size: 0.85rem;
+  overflow: hidden;
+  margin-bottom: 8px;
 }
 .asset-cover--dragover {
   outline: 2px dashed var(--el-color-primary);

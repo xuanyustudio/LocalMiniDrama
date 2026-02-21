@@ -53,6 +53,7 @@ function getStoryboardsForEpisode(db, episodeId) {
       duration: normalizeDuration(r.duration),
       dialogue: r.dialogue,
       action: r.action,
+      result: r.result,
       atmosphere: r.atmosphere,
       image_prompt: r.image_prompt,
       video_prompt: r.video_prompt,
@@ -183,8 +184,8 @@ function saveStoryboards(db, log, episodeId, storyboards, cfg, styleOverride) {
 
     try {
       const insertWithVisual = db.prepare(
-        `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, duration, dialogue, action, atmosphere, image_prompt, video_prompt, characters, shot_type, angle, movement, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
+        `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, duration, dialogue, action, result, atmosphere, image_prompt, video_prompt, characters, shot_type, angle, movement, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
       );
       insertWithVisual.run(
         episodeIdNum,
@@ -197,6 +198,7 @@ function saveStoryboards(db, log, episodeId, storyboards, cfg, styleOverride) {
         sb.duration ?? 5,
         dialogue || null,
         action || null,
+        result || null,
         sb.atmosphere ?? null,
         imagePrompt,
         videoPrompt,
@@ -208,7 +210,8 @@ function saveStoryboards(db, log, episodeId, storyboards, cfg, styleOverride) {
         now
       );
     } catch (e) {
-      if ((e.message || '').includes('shot_type') || (e.message || '').includes('angle') || (e.message || '').includes('movement')) {
+      if ((e.message || '').includes('shot_type') || (e.message || '').includes('angle') || (e.message || '').includes('movement') || (e.message || '').includes('result')) {
+        // Fallback if columns missing (should not happen if migration runs)
         const insertBasic = db.prepare(
           `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, duration, dialogue, action, atmosphere, image_prompt, video_prompt, characters, status, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
@@ -248,6 +251,7 @@ function saveStoryboards(db, log, episodeId, storyboards, cfg, styleOverride) {
       duration: sb.duration ?? 5,
       dialogue: dialogue || null,
       action: action || null,
+      result: result || null,
       atmosphere: sb.atmosphere ?? null,
       image_prompt: imagePrompt,
       video_prompt: videoPrompt,

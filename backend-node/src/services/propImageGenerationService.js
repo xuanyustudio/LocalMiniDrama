@@ -54,17 +54,28 @@ async function processPropImageGeneration(db, log, taskId, propId, opts) {
       preferred_provider: preferredProvider || undefined,
     });
   } catch (err) {
+    const errMsg = '图片生成请求失败: ' + (err.message || '未知错误');
     log.error('Prop image API failed', { prop_id: propId, error: err.message });
-    taskService.updateTaskError(db, taskId, '图片生成请求失败: ' + (err.message || '未知错误'));
+    taskService.updateTaskError(db, taskId, errMsg);
+    try {
+      db.prepare('UPDATE props SET error_msg = ?, updated_at = ? WHERE id = ?').run(errMsg, new Date().toISOString(), propId);
+    } catch (_) {}
     return;
   }
 
   if (result.error) {
     taskService.updateTaskError(db, taskId, result.error);
+    try {
+      db.prepare('UPDATE props SET error_msg = ?, updated_at = ? WHERE id = ?').run(result.error, new Date().toISOString(), propId);
+    } catch (_) {}
     return;
   }
   if (!result.image_url) {
-    taskService.updateTaskError(db, taskId, '未返回图片地址');
+    const errMsg = '未返回图片地址';
+    taskService.updateTaskError(db, taskId, errMsg);
+    try {
+      db.prepare('UPDATE props SET error_msg = ?, updated_at = ? WHERE id = ?').run(errMsg, new Date().toISOString(), propId);
+    } catch (_) {}
     return;
   }
 

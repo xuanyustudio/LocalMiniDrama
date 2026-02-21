@@ -215,6 +215,49 @@ function ensureVideoGenerationsColumns(database) {
   }
 }
 
+/** 若 characters/props/scenes/storyboards 缺少 error_msg 则补上（用于前端持久化显示生成失败原因） */
+function ensureResourceErrorMsgColumns(database) {
+  const tables = ['characters', 'props', 'scenes', 'storyboards'];
+  for (const table of tables) {
+    try {
+      const rows = database.prepare(`PRAGMA table_info(${table})`).all();
+      const hasColumn = rows.some((r) => r.name === 'error_msg');
+      if (hasColumn) continue;
+      database.exec(`ALTER TABLE ${table} ADD COLUMN error_msg TEXT`);
+      console.log(`Ran ensureResourceErrorMsgColumns: added error_msg to ${table}`);
+    } catch (err) {
+      const msg = (err.message || '').toLowerCase();
+      if (msg.includes('duplicate column')) {
+        console.log(`ensureResourceErrorMsgColumns: column already exists in ${table}`);
+      } else if (msg.includes('no such table')) {
+        console.log(`ensureResourceErrorMsgColumns: table ${table} not found, skip`);
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+/** 若 storyboards 缺少 result 列则补上（用于存储动作结果） */
+function ensureStoryboardResultColumn(database) {
+  try {
+    const rows = database.prepare("PRAGMA table_info(storyboards)").all();
+    const hasColumn = rows.some((r) => r.name === 'result');
+    if (hasColumn) return;
+    database.exec('ALTER TABLE storyboards ADD COLUMN result TEXT');
+    console.log('Ran ensureStoryboardResultColumn: added result');
+  } catch (err) {
+    const msg = (err.message || '').toLowerCase();
+    if (msg.includes('duplicate column')) {
+      console.log('ensureStoryboardResultColumn: column already exists');
+    } else if (msg.includes('no such table')) {
+      console.log('ensureStoryboardResultColumn: table not found, skip');
+    } else {
+      throw err;
+    }
+  }
+}
+
 /** 对已打开的 database 执行迁移与兜底补列（供 app 启动时调用） */
 function runMigrationsAndEnsure(database) {
   runMigrations(database);
@@ -225,6 +268,8 @@ function runMigrationsAndEnsure(database) {
   ensureCharactersLocalPathColumn(database);
   ensureScenesImageColumns(database);
   ensureVideoGenerationsColumns(database);
+  ensureResourceErrorMsgColumns(database);
+  ensureStoryboardResultColumn(database);
 }
 
 function main() {

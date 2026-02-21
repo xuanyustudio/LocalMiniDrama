@@ -211,6 +211,16 @@ async function processImageGeneration(db, log, imageGenId) {
       );
       if (row.task_id) taskService.updateTaskError(db, row.task_id, result.error);
       log.error('Image generation failed', { id: imageGenId, error: result.error });
+      if (row.scene_id != null) {
+        try {
+          db.prepare('UPDATE scenes SET error_msg = ?, updated_at = ? WHERE id = ?').run(result.error, now2, row.scene_id);
+        } catch (_) {}
+      }
+      if (row.storyboard_id != null) {
+        try {
+          db.prepare('UPDATE storyboards SET error_msg = ?, updated_at = ? WHERE id = ?').run(result.error, now2, row.storyboard_id);
+        } catch (_) {}
+      }
       return;
     }
     let localPath = null;
@@ -250,6 +260,16 @@ async function processImageGeneration(db, log, imageGenId) {
     );
     if (row.task_id) taskService.updateTaskError(db, row.task_id, err.message);
     log.error('Image generation error', { id: imageGenId, error: err.message });
+    if (row.scene_id != null) {
+      try {
+        db.prepare('UPDATE scenes SET error_msg = ?, updated_at = ? WHERE id = ?').run(err.message, now2, row.scene_id);
+      } catch (_) {}
+    }
+    if (row.storyboard_id != null) {
+      try {
+        db.prepare('UPDATE storyboards SET error_msg = ?, updated_at = ? WHERE id = ?').run(err.message, now2, row.storyboard_id);
+      } catch (_) {}
+    }
   }
 }
 

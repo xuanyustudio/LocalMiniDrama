@@ -275,6 +275,7 @@ function rowToStoryboard(r) {
     composed_image: r.composed_image,
     video_url: r.video_url,
     status: r.status || 'pending',
+    error_msg: r.error_msg,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -295,6 +296,7 @@ function rowToCharacter(r) {
     reference_images: r.reference_images,
     seed_value: r.seed_value,
     sort_order: r.sort_order ?? 0,
+    error_msg: r.error_msg,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -311,6 +313,7 @@ function rowToScene(r) {
     image_url: r.image_url,
     local_path: r.local_path,
     status: r.status || 'pending',
+    error_msg: r.error_msg,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -326,6 +329,7 @@ function rowToProp(r) {
     prompt: r.prompt,
     image_url: r.image_url,
     local_path: r.local_path,
+    error_msg: r.error_msg,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
