@@ -32,11 +32,16 @@ export const dramaAPI = {
   getStoryboards(episodeId) {
     return request.get(`/episodes/${episodeId}/storyboards`)
   },
-  generateStoryboard(episodeId, model, style) {
-    const params = {}
-    if (model) params.model = model
-    if (style) params.style = style
-    return request.post(`/episodes/${episodeId}/storyboards`, {}, { params })
+  generateStoryboard(episodeId, options) {
+    // 兼容旧调用方式: generateStoryboard(episodeId, model, style)
+    let body = {};
+    if (arguments.length > 2 || typeof options === 'string') {
+       body.model = arguments[1];
+       body.style = arguments[2];
+    } else {
+       body = options || {};
+    }
+    return request.post(`/episodes/${episodeId}/storyboards`, body)
   },
   finalizeEpisode(episodeId, data) {
     return request.post(`/episodes/${episodeId}/finalize`, data || {})

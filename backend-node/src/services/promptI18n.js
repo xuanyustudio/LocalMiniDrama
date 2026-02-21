@@ -190,6 +190,8 @@ function formatUserPrompt(cfg, key, ...args) {
       shot_type_label: 'Shot type: %s',
       angle_label: 'Angle: %s',
       movement_label: 'Movement: %s',
+      storyboard_count_constraint: '**Constraint**: Total shot count must be around %s (allow ±20%). Please merge or split actions to meet this requirement.',
+      video_duration_constraint: '**Constraint**: Total video duration must be around %s seconds (allow ±10%). Please adjust shot count and duration to meet this requirement.',
     },
     zh: {
       character_request: '剧本内容：\n%s\n\n请从剧本中提取并整理最多 %d 个主要角色的详细设定。',
@@ -214,6 +216,8 @@ function formatUserPrompt(cfg, key, ...args) {
       shot_type_label: '景别: %s',
       angle_label: '角度: %s',
       movement_label: '运镜: %s',
+      storyboard_count_constraint: '**重要约束**：总分镜数量必须控制在 %s 个左右（允许 ±20% 的偏差）。请务必合并或拆分动作以满足此数量要求。',
+      video_duration_constraint: '**重要约束**：视频总时长必须控制在 %s 秒左右（允许 ±10% 的偏差）。请调整分镜数量和单镜时长以满足此要求。',
     },
   };
   const lang = isEnglish(cfg) ? 'en' : 'zh';

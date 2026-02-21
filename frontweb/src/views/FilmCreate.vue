@@ -358,11 +358,36 @@
 
       <!-- 6. 分镜生成 -->
       <section id="anchor-storyboard" class="section card">
-        <h2 class="section-title">分镜生成</h2>
+        <h2 class="section-title">
+          <span>5. 分镜生成</span>
+          <span class="step-desc">根据剧本、角色、场景自动生成分镜头脚本</span>
+        </h2>
+        <div class="config-row">
+          <div class="config-item">
+            <span class="config-label">分镜数量</span>
+            <el-input-number v-model="storyboardCount" :min="1" :max="50" placeholder="自动" />
+            <span class="config-tip-inline">留空则由 AI 自动决定</span>
+          </div>
+          <div class="config-item">
+            <span class="config-label">视频总长度(秒)</span>
+            <el-input-number v-model="videoDuration" :min="10" :max="600" placeholder="自动" />
+            <span class="config-tip-inline">留空则由 AI 自动决定</span>
+          </div>
+        </div>
         <div class="asset-actions">
-          <el-button type="primary" :loading="storyboardGenerating" :disabled="!currentEpisodeId" @click="onGenerateStoryboard">
-            生成分镜
+          <el-button
+            type="primary"
+            size="large"
+            :loading="storyboardGenerating"
+            :disabled="!currentEpisodeId || storyboardGenerating"
+            @click="onGenerateStoryboard"
+          >
+            {{ storyboards.length > 0 ? '重新生成分镜' : 'AI 生成分镜' }}
           </el-button>
+        </div>
+        <div v-if="storyboardGenerating" class="storyboard-generating-tip">
+          <el-icon class="is-loading"><Loading /></el-icon>
+          <span>正在分析剧本并拆解分镜，请稍候...</span>
         </div>
         <template v-if="storyboards.length > 0">
           <div v-for="(sb, i) in storyboards" :key="sb.id" :id="'sb-' + sb.id" class="storyboard-row">
@@ -1198,6 +1223,8 @@ const charLibraryPage = ref(1)
 const charLibraryPageSize = ref(20)
 const charLibraryTotal = ref(0)
 const charLibraryKeyword = ref('')
+const storyboardCount = ref(null) // 分镜数量
+const videoDuration = ref(null) // 视频总长度
 const showEditCharLibrary = ref(false)
 const editCharLibraryForm = ref(null)
 const editCharLibrarySaving = ref(false)
@@ -2591,7 +2618,13 @@ async function onGenerateStoryboard() {
   if (!currentEpisodeId.value) return
   storyboardGenerating.value = true
   try {
-    const res = await dramaAPI.generateStoryboard(currentEpisodeId.value, undefined, getSelectedStyle())
+    // 传递对象形式的 options
+    const res = await dramaAPI.generateStoryboard(currentEpisodeId.value, {
+      model: undefined,
+      style: getSelectedStyle(),
+      storyboard_count: storyboardCount.value || undefined,
+      video_duration: videoDuration.value || undefined
+    })
     if (res?.task_id) await pollTask(res.task_id, () => loadDrama())
     await loadDrama()
     ElMessage.success('分镜生成任务已提交')

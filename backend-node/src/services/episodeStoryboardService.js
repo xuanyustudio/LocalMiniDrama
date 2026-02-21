@@ -273,10 +273,13 @@ async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, mode
     taskService.updateTaskStatus(db, taskId, 'processing', 10, '开始生成分镜头...');
     log.info('Processing storyboard generation', { task_id: taskId, episode_id: episodeId });
 
-    const text = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+    // 添加系统提示词：明确要求数量和时长
+    const constraintPrompt = `\nIMPORTANT: Please strictly follow the user's constraints on "Total shot count" and "Total video duration". Consolidate or split shots as needed to meet these targets within ±20% margin.`;
+    
+    const text = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt + constraintPrompt, {
       model: model || undefined,
       temperature: 0.7,
-      max_tokens: 8192, // DeepSeek 等厂商上限 8192，兼容所有文本模型 原本是16000
+      max_tokens: 8192,
     });
 
     taskService.updateTaskStatus(db, taskId, 'processing', 50, '分镜头生成完成，正在解析结果...');
@@ -333,7 +336,7 @@ async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, mode
   }
 }
 
-function generateStoryboard(db, log, episodeId, model, style) {
+function generateStoryboard(db, log, episodeId, model, style, storyboardCount, videoDuration, aspectRatio) {
   const cfg = loadConfig();
   const episode = db.prepare(
     'SELECT id, script_content, description, drama_id FROM episodes WHERE id = ? AND deleted_at IS NULL'
@@ -341,6 +344,13 @@ function generateStoryboard(db, log, episodeId, model, style) {
   if (!episode) {
     throw new Error('剧集不存在或无权限访问');
   }
+
+  // 获取剧集风格（如果未指定，则从 drama 中获取）
+  const drama = db.prepare('SELECT style FROM dramas WHERE id = ?').get(episode.drama_id);
+  const finalStyle = style || (drama && drama.style) || 'realistic';
+  
+  // 图片比例
+  const imageRatio = aspectRatio || cfg?.style?.default_video_ratio || '16:9';
 
   let scriptContent = (episode.script_content && String(episode.script_content).trim())
     ? String(episode.script_content)
@@ -370,6 +380,27 @@ function generateStoryboard(db, log, episodeId, model, style) {
   const scriptLabel = promptI18n.formatUserPrompt(cfg, 'script_content_label');
   const taskLabel = promptI18n.formatUserPrompt(cfg, 'task_label');
   const taskInstruction = promptI18n.formatUserPrompt(cfg, 'task_instruction');
+  
+  // 处理分镜数量和时长约束
+  let extraConstraint = '';
+  // 宽松判断：只要有值（包括字符串形式的数字），就尝试转换并添加约束
+  if (storyboardCount) {
+    const countVal = Number(storyboardCount);
+    if (Number.isFinite(countVal) && countVal > 0) {
+      const countLabel = promptI18n.formatUserPrompt(cfg, 'storyboard_count_constraint', countVal);
+      if (countLabel) extraConstraint += `\n${countLabel}`;
+    }
+  }
+  if (videoDuration) {
+    const durationVal = Number(videoDuration);
+    if (Number.isFinite(durationVal) && durationVal > 0) {
+      const durationLabel = promptI18n.formatUserPrompt(cfg, 'video_duration_constraint', durationVal);
+      if (durationLabel) extraConstraint += `\n${durationLabel}`;
+    }
+  }
+  
+  console.log('==c storyboardCount:', storyboardCount, 'videoDuration:', videoDuration, 'extraConstraint:', extraConstraint);
+
   const charListLabel = promptI18n.formatUserPrompt(cfg, 'character_list_label');
   const charConstraint = promptI18n.formatUserPrompt(cfg, 'character_constraint');
   const sceneListLabel = promptI18n.formatUserPrompt(cfg, 'scene_list_label');
@@ -377,7 +408,7 @@ function generateStoryboard(db, log, episodeId, model, style) {
   const suffix = promptI18n.getStoryboardUserPromptSuffix(cfg);
 
   const userPrompt =
-    `${scriptLabel}\n${scriptContent}\n\n${taskLabel}\n${taskInstruction}\n\n${charListLabel}\n${characterList}\n\n${charConstraint}\n\n${sceneListLabel}\n${sceneList}\n\n${sceneConstraint}\n\n【剧本原文】\n${scriptContent}\n\n${suffix}`;
+    `${scriptLabel}\n${scriptContent}\n\n${taskLabel}\n${taskInstruction}${extraConstraint}\n\n${charListLabel}\n${characterList}\n\n${charConstraint}\n\n${sceneListLabel}\n${sceneList}\n\n${sceneConstraint}\n\n【剧本原文】\n${scriptContent}\n\n${suffix}`;
 console.log("==c 用户提示词：",userPrompt);
   const systemPrompt = promptI18n.getStoryboardSystemPrompt(cfg);
 
@@ -389,10 +420,15 @@ console.log("==c 用户提示词：",userPrompt);
     script_length: scriptContent.length,
     character_count: characters.length,
     scene_count: scenes.length,
+    storyboard_count: storyboardCount,
+    video_duration: videoDuration
   });
 
   setImmediate(() => {
-    processStoryboardGeneration(db, log, cfg, task.id, String(episodeId), model || undefined, style, userPrompt, systemPrompt);
+    // 传入 imageRatio 覆盖默认配置，以便 saveStoryboards 生成 VideoPrompt 时使用正确的比例
+    const runCfg = { ...cfg, style: { ...(cfg?.style || {}), default_video_ratio: imageRatio } };
+    // 如果 model 为 null，则传 undefined，让 generateText 内部去兜底找默认配置
+    processStoryboardGeneration(db, log, runCfg, task.id, String(episodeId), model || undefined, finalStyle, userPrompt, systemPrompt);
   });
 
   return task.id;

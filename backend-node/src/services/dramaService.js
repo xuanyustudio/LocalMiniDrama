@@ -180,6 +180,15 @@ function updateDrama(db, log, dramaId, req) {
   return getDramaById(db, dramaId);
 }
 
+function generateStoryboard(db, log, episodeId, options) {
+  const episodeStoryboardService = require('./episodeStoryboardService');
+  const { model, style, storyboard_count, video_duration, aspect_ratio } = options || {};
+  // 转换可能为字符串的数字
+  const count = storyboard_count ? Number(storyboard_count) : undefined;
+  const duration = video_duration ? Number(video_duration) : undefined;
+  return episodeStoryboardService.generateStoryboard(db, log, episodeId, model || undefined, style, count, duration, aspect_ratio);
+}
+
 function deleteDrama(db, log, dramaId) {
   const result = db.prepare('UPDATE dramas SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL').run(
     new Date().toISOString(),
@@ -572,4 +581,5 @@ module.exports = {
   saveProgress,
   finalizeEpisode,
   downloadEpisodeVideo,
+  generateStoryboard,
 };

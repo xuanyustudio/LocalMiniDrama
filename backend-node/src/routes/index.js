@@ -138,7 +138,9 @@ function setupRouter(cfg, db, log) {
   r.post('/upload/image', uploadModule.multerSingle, uploadHandlers.uploadImage);
 
   // ---------- episodes ----------
-  r.post('/episodes/:episode_id/storyboards', storyboards.episodeStoryboardsGenerate);
+  // 注意：drama.generateStoryboard 已处理所有逻辑（包括参数解析），这里统一使用 drama 模块的实现
+  // 之前可能有部分路由指向了 storyboards.episodeStoryboardsGenerate，这可能导致参数解析不一致
+  r.post('/episodes/:episode_id/storyboards', drama.generateStoryboard);
   r.post('/episodes/:episode_id/props/extract', prop.extractProps);
   r.post('/episodes/:episode_id/characters/extract', stub.episodeCharactersExtract);
   r.get('/episodes/:episode_id/storyboards', storyboards.episodeStoryboardsGet);

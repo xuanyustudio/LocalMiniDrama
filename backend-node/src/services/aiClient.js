@@ -39,8 +39,12 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
   let config = preferredModel
     ? getConfigForModel(db, serviceType, preferredModel)
     : getDefaultConfig(db, serviceType);
+  if (!config && preferredModel === undefined) {
+    // 兜底：如果前端传了 undefined，且没找到默认，尝试重新找一下（可能 serviceType 传值问题，或者数据库问题）
+    config = getDefaultConfig(db, 'text');
+  }
   if (!config) {
-    throw new Error('未配置文本模型，请在「AI 配置」中添加 text 类型且已启用的配置');
+    throw new Error(`未配置文本模型，请在「AI 配置」中添加 ${serviceType} 类型 且已启用的配置`);
   }
   const model = getModelFromConfig(config, preferredModel);
   const url = buildChatUrl(config);
