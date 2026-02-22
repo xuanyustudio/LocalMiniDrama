@@ -592,7 +592,18 @@
                   preload="metadata"
                 />
               </div>
-              <div v-else class="sb-video-area sb-video-placeholder">等待生成</div>
+              <div v-else class="sb-video-area sb-video-placeholder">
+                <span v-if="generatingSbVideoId === sb.id" class="sb-video-generating-text">
+                  <el-icon class="is-loading"><Loading /></el-icon>
+                  正在生成视频...
+                </span>
+                <template v-else>
+                  <span>等待生成</span>
+                  <div v-if="getSbVideoError(sb.id)" class="sb-video-error">
+                    {{ getSbVideoError(sb.id) }}
+                  </div>
+                </template>
+              </div>
               <div class="sb-video-prompt-label">
                 <span class="sb-dot"></span>
                 <span>视频提示词</span>
@@ -1190,6 +1201,7 @@ const sbMovement = ref({})
 // 分镜图片/视频列表（由 /images?storyboard_id=xx 和 /videos?storyboard_id=xx 拉取）
 const sbImages = ref({})
 const sbVideos = ref({})
+const sbVideoErrors = ref({})
 const generatingSbImageId = ref(null)
 const generatingSbVideoId = ref(null)
 /** 正在编辑视频提示词的分镜 id；编辑中显示文本框与保存/取消 */
@@ -1354,6 +1366,17 @@ function getSbVideo(storyboardId) {
   if (!Array.isArray(list)) return null
   const completed = list.find((i) => i.status === 'completed' && (i.video_url || i.local_path))
   return completed || null
+}
+/** 取该分镜最近一次视频生成的错误信息（从 API 返回的记录或本地即时错误） */
+function getSbVideoError(storyboardId) {
+  if (sbVideoErrors.value[storyboardId]) return sbVideoErrors.value[storyboardId]
+  const list = sbVideos.value[storyboardId]
+  if (!Array.isArray(list) || list.length === 0) return ''
+  const hasCompleted = list.some((i) => i.status === 'completed' && (i.video_url || i.local_path))
+  if (hasCompleted) return ''
+  const failed = list.filter((i) => i.status === 'failed' && i.error_msg)
+  if (failed.length === 0) return ''
+  return failed[0].error_msg
 }
 
 async function loadStoryboardMedia() {
@@ -2584,6 +2607,7 @@ async function onGenerateSbVideo(sb) {
     return
   }
   generatingSbVideoId.value = sb.id
+  sbVideoErrors.value[sb.id] = ''
   try {
     const absoluteUrl = toAbsoluteImageUrl(firstFrameUrl)
     const res = await videosAPI.create({
@@ -2596,16 +2620,23 @@ async function onGenerateSbVideo(sb) {
       style: getSelectedStyle()
     })
     if (res?.task_id) {
-      await pollTask(res.task_id, () => loadStoryboardMedia())
-      ElMessage.success('视频生成完成')
+      const pollRes = await pollTask(res.task_id, () => loadStoryboardMedia())
+      if (pollRes?.status === 'failed') {
+        sbVideoErrors.value[sb.id] = pollRes.error || '视频生成失败'
+      } else if (pollRes?.status === 'completed') {
+        sbVideoErrors.value[sb.id] = ''
+        ElMessage.success('视频生成完成')
+      }
     } else {
       await loadStoryboardMedia()
       ElMessage.success('视频生成已提交，请稍后查看')
     }
   } catch (e) {
+    sbVideoErrors.value[sb.id] = e.message || '提交失败'
     ElMessage.error(e.message || '提交失败')
   } finally {
     generatingSbVideoId.value = null
+    await loadStoryboardMedia()
   }
 }
 
@@ -3861,6 +3892,30 @@ onMounted(() => {
 .sb-video-placeholder {
   color: #71717a;
   font-size: 0.9rem;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+  padding: 12px;
+}
+.sb-video-generating-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #409eff;
+  font-size: 0.85rem;
+}
+.sb-video-error {
+  color: #f56c6c;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  word-break: break-word;
+  max-height: 80px;
+  overflow-y: auto;
+  padding: 4px 8px;
+  background: rgba(245, 108, 108, 0.08);
+  border-radius: 4px;
+  text-align: left;
+  width: 100%;
 }
 .sb-video-player {
   width: 100%;

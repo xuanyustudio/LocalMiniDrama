@@ -9,8 +9,8 @@
 
 以下为本项目的主要界面截图，展示了从启动到生成短剧的主要功能界面：
 
-<img src="项目截图/1.png" alt="主界面" width="400" height="400" />
-<img src="项目截图/2.png" alt="剧本编辑" width="400" height="400" />
+<img src="项目截图/武侠.png" alt="主界面" width="600" height="500" />
+<img src="项目截图/武侠分镜.png" alt="剧本编辑" width="600" height="500" />
 <img src="项目截图/3.png" alt="画面生成" width="400" height="400" />
 <img src="项目截图/4.png" alt="预览效果" width="400" height="400" />
 <img src="项目截图/5.png" alt="生成结果" width="400" height="400" />
