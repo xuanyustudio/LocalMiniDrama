@@ -431,7 +431,7 @@ console.log("==c 用户提示词：",userPrompt);
     processStoryboardGeneration(db, log, runCfg, task.id, String(episodeId), model || undefined, finalStyle, userPrompt, systemPrompt);
   });
 
-  return task.id;
+  return { task_id: task.id, status: 'pending', message: '分镜生成任务已创建，正在后台处理...' };
 }
 
 module.exports = {

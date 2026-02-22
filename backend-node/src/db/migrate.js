@@ -21,8 +21,9 @@ function runOne(database, sql, file, index) {
     database.exec(s);
     console.log('Ran migration:', file + (index >= 0 ? ' #' + (index + 1) : ''));
   } catch (err) {
-    if (err.code === 'SQLITE_ERROR' && (err.message || '').toLowerCase().includes('duplicate column')) {
-      console.log('Skip (column exists):', file + (index >= 0 ? ' #' + (index + 1) : ''));
+    const msg = (err.message || '').toLowerCase();
+    if (err.code === 'SQLITE_ERROR' && (msg.includes('duplicate column') || msg.includes('already exists'))) {
+      console.log('Skip (already exists):', file + (index >= 0 ? ' #' + (index + 1) : ''));
     } else {
       throw err;
     }
@@ -51,225 +52,330 @@ function runMigrations(database) {
   }
 }
 
-/** 若 ai_service_configs 缺少 default_model 列则补上（兜底：迁移未执行或失败时） */
-function ensureDefaultModelColumn(database) {
+/**
+ * 通用：确保某张表存在指定列，不存在则 ALTER TABLE ADD COLUMN。
+ * @param {object} database - better-sqlite3 实例
+ * @param {string} table - 表名
+ * @param {Array<{name:string, type:string}>} columns - 要确保存在的列
+ */
+function ensureColumns(database, table, columns) {
+  let existing;
   try {
-    const rows = database.prepare("PRAGMA table_info(ai_service_configs)").all();
-    const hasColumn = rows.some((r) => r.name === 'default_model');
-    if (hasColumn) return;
-    database.exec('ALTER TABLE ai_service_configs ADD COLUMN default_model TEXT');
-    console.log('Ran ensureDefaultModelColumn: added default_model');
+    existing = database.prepare(`PRAGMA table_info(${table})`).all();
   } catch (err) {
-    const msg = (err.message || '').toLowerCase();
-    if (msg.includes('duplicate column')) {
-      console.log('ensureDefaultModelColumn: column already exists');
-    } else if (msg.includes('no such table')) {
-      console.log('ensureDefaultModelColumn: table not found, skip');
-    } else {
-      throw err;
+    if ((err.message || '').toLowerCase().includes('no such table')) {
+      console.log(`ensureColumns: table ${table} not found, skip`);
+      return;
     }
+    throw err;
   }
-}
-
-/** 若 props 缺少 episode_id 列则补上（从某集提取的道具归属该集） */
-function ensurePropsEpisodeIdColumn(database) {
-  try {
-    const rows = database.prepare("PRAGMA table_info(props)").all();
-    const hasColumn = rows.some((r) => r.name === 'episode_id');
-    if (hasColumn) return;
-    database.exec('ALTER TABLE props ADD COLUMN episode_id INTEGER');
-    console.log('Ran ensurePropsEpisodeIdColumn: added episode_id');
-  } catch (err) {
-    const msg = (err.message || '').toLowerCase();
-    if (msg.includes('duplicate column')) {
-      console.log('ensurePropsEpisodeIdColumn: column already exists');
-    } else if (msg.includes('no such table')) {
-      console.log('ensurePropsEpisodeIdColumn: table not found, skip');
-    } else {
-      throw err;
-    }
-  }
-}
-
-/** 若 async_tasks 缺少 completed_at/error/result 则补上（taskService 依赖） */
-function ensureAsyncTasksColumns(database) {
-  const cols = ['completed_at', 'error', 'result'];
-  try {
-    const rows = database.prepare("PRAGMA table_info(async_tasks)").all();
-    const names = new Set(rows.map((r) => r.name));
-    for (const col of cols) {
-      if (names.has(col)) continue;
-      try {
-        database.exec(`ALTER TABLE async_tasks ADD COLUMN ${col} TEXT`);
-        console.log('Ran ensureAsyncTasksColumns: added', col);
-      } catch (e) {
-        if ((e.message || '').toLowerCase().includes('duplicate column')) {}
-        else throw e;
-      }
-    }
-  } catch (err) {
-    const msg = (err.message || '').toLowerCase();
-    if (msg.includes('no such table')) {
-      console.log('ensureAsyncTasksColumns: table not found, skip');
-    } else {
-      throw err;
-    }
-  }
-}
-
-/** 若 image_generations 缺少 completed_at / error_msg 则补上（imageClient 更新完成时间与错误信息用） */
-function ensureImageGenerationsColumns(database) {
-  const cols = ['completed_at', 'error_msg'];
-  try {
-    const rows = database.prepare("PRAGMA table_info(image_generations)").all();
-    const names = new Set(rows.map((r) => r.name));
-    for (const col of cols) {
-      if (names.has(col)) continue;
-      try {
-        database.exec(`ALTER TABLE image_generations ADD COLUMN ${col} TEXT`);
-        console.log('Ran ensureImageGenerationsColumns: added', col);
-      } catch (e) {
-        if ((e.message || '').toLowerCase().includes('duplicate column')) {}
-        else throw e;
-      }
-    }
-  } catch (err) {
-    const msg = (err.message || '').toLowerCase();
-    if (msg.includes('no such table')) {
-      console.log('ensureImageGenerationsColumns: table not found, skip');
-    } else {
-      throw err;
-    }
-  }
-}
-
-/** 若 characters 缺少 local_path 则补上（角色本地图片路径） */
-function ensureCharactersLocalPathColumn(database) {
-  try {
-    const rows = database.prepare("PRAGMA table_info(characters)").all();
-    const hasColumn = rows.some((r) => r.name === 'local_path');
-    if (hasColumn) return;
-    database.exec('ALTER TABLE characters ADD COLUMN local_path TEXT');
-    console.log('Ran ensureCharactersLocalPathColumn: added local_path');
-  } catch (err) {
-    const msg = (err.message || '').toLowerCase();
-    if (msg.includes('duplicate column')) {
-      console.log('ensureCharactersLocalPathColumn: column already exists');
-    } else if (msg.includes('no such table')) {
-      console.log('ensureCharactersLocalPathColumn: table not found, skip');
-    } else {
-      throw err;
-    }
-  }
-}
-
-/** 若 scenes 缺少 image_url / local_path 则补上（场景上传/生成图用） */
-function ensureScenesImageColumns(database) {
-  const cols = ['image_url', 'local_path'];
-  try {
-    const rows = database.prepare("PRAGMA table_info(scenes)").all();
-    const names = new Set(rows.map((r) => r.name));
-    for (const col of cols) {
-      if (names.has(col)) continue;
-      try {
-        database.exec(`ALTER TABLE scenes ADD COLUMN ${col} TEXT`);
-        console.log('Ran ensureScenesImageColumns: added', col);
-      } catch (e) {
-        if ((e.message || '').toLowerCase().includes('duplicate column')) {}
-        else throw e;
-      }
-    }
-  } catch (err) {
-    const msg = (err.message || '').toLowerCase();
-    if (msg.includes('no such table')) {
-      console.log('ensureScenesImageColumns: table not found, skip');
-    } else {
-      throw err;
-    }
-  }
-}
-
-/** 若 video_generations 缺少 completed_at / error_msg 则补上（videoService 更新完成状态用） */
-function ensureVideoGenerationsColumns(database) {
-  const cols = ['completed_at', 'error_msg'];
-  try {
-    const rows = database.prepare("PRAGMA table_info(video_generations)").all();
-    const names = new Set(rows.map((r) => r.name));
-    for (const col of cols) {
-      if (names.has(col)) continue;
-      try {
-        database.exec(`ALTER TABLE video_generations ADD COLUMN ${col} TEXT`);
-        console.log('Ran ensureVideoGenerationsColumns: added', col);
-      } catch (e) {
-        if ((e.message || '').toLowerCase().includes('duplicate column')) {}
-        else throw e;
-      }
-    }
-  } catch (err) {
-    const msg = (err.message || '').toLowerCase();
-    if (msg.includes('no such table')) {
-      console.log('ensureVideoGenerationsColumns: table not found, skip');
-    } else {
-      throw err;
-    }
-  }
-}
-
-/** 若 characters/props/scenes/storyboards 缺少 error_msg 则补上（用于前端持久化显示生成失败原因） */
-function ensureResourceErrorMsgColumns(database) {
-  const tables = ['characters', 'props', 'scenes', 'storyboards'];
-  for (const table of tables) {
+  const names = new Set(existing.map((r) => r.name));
+  for (const col of columns) {
+    if (names.has(col.name)) continue;
     try {
-      const rows = database.prepare(`PRAGMA table_info(${table})`).all();
-      const hasColumn = rows.some((r) => r.name === 'error_msg');
-      if (hasColumn) continue;
-      database.exec(`ALTER TABLE ${table} ADD COLUMN error_msg TEXT`);
-      console.log(`Ran ensureResourceErrorMsgColumns: added error_msg to ${table}`);
-    } catch (err) {
-      const msg = (err.message || '').toLowerCase();
-      if (msg.includes('duplicate column')) {
-        console.log(`ensureResourceErrorMsgColumns: column already exists in ${table}`);
-      } else if (msg.includes('no such table')) {
-        console.log(`ensureResourceErrorMsgColumns: table ${table} not found, skip`);
+      database.exec(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.type}`);
+      console.log(`ensureColumns: added ${table}.${col.name} (${col.type})`);
+    } catch (e) {
+      if ((e.message || '').toLowerCase().includes('duplicate column')) {
+        // already exists (race / concurrent)
       } else {
-        throw err;
+        console.warn(`ensureColumns: failed to add ${table}.${col.name}:`, e.message);
       }
     }
   }
 }
 
-/** 若 storyboards 缺少 result 列则补上（用于存储动作结果） */
-function ensureStoryboardResultColumn(database) {
-  try {
-    const rows = database.prepare("PRAGMA table_info(storyboards)").all();
-    const hasColumn = rows.some((r) => r.name === 'result');
-    if (hasColumn) return;
-    database.exec('ALTER TABLE storyboards ADD COLUMN result TEXT');
-    console.log('Ran ensureStoryboardResultColumn: added result');
-  } catch (err) {
-    const msg = (err.message || '').toLowerCase();
-    if (msg.includes('duplicate column')) {
-      console.log('ensureStoryboardResultColumn: column already exists');
-    } else if (msg.includes('no such table')) {
-      console.log('ensureStoryboardResultColumn: table not found, skip');
-    } else {
-      throw err;
-    }
-  }
+/**
+ * 全量兜底补列：覆盖所有表的所有业务列。
+ * 对于旧数据库（用更早版本的 init 脚本创建、缺少部分列），
+ * 在每次启动时自动补齐，避免 "no such column" 运行时错误。
+ *
+ * SQLite 不支持 ALTER TABLE ADD COLUMN ... NOT NULL（无默认值），
+ * 所以原 schema 中 NOT NULL 的列在这里用 DEFAULT 兜底。
+ */
+function ensureAllColumns(database) {
+  // --- dramas ---
+  ensureColumns(database, 'dramas', [
+    { name: 'title',          type: 'TEXT NOT NULL DEFAULT \'\'' },
+    { name: 'description',    type: 'TEXT' },
+    { name: 'genre',          type: 'TEXT' },
+    { name: 'style',          type: 'TEXT DEFAULT \'realistic\'' },
+    { name: 'tags',           type: 'TEXT' },
+    { name: 'thumbnail',      type: 'TEXT' },
+    { name: 'total_episodes', type: 'INTEGER DEFAULT 1' },
+    { name: 'total_duration', type: 'INTEGER DEFAULT 0' },
+    { name: 'status',         type: 'TEXT DEFAULT \'draft\'' },
+    { name: 'metadata',       type: 'TEXT' },
+    { name: 'created_at',     type: 'TEXT' },
+    { name: 'updated_at',     type: 'TEXT' },
+    { name: 'deleted_at',     type: 'TEXT' },
+  ]);
+
+  // --- episodes ---
+  ensureColumns(database, 'episodes', [
+    { name: 'drama_id',       type: 'INTEGER DEFAULT 0' },
+    { name: 'episode_number', type: 'INTEGER DEFAULT 0' },
+    { name: 'title',          type: 'TEXT DEFAULT \'\'' },
+    { name: 'script_content', type: 'TEXT' },
+    { name: 'description',    type: 'TEXT' },
+    { name: 'duration',       type: 'INTEGER DEFAULT 0' },
+    { name: 'video_url',      type: 'TEXT' },
+    { name: 'thumbnail',      type: 'TEXT' },
+    { name: 'status',         type: 'TEXT DEFAULT \'draft\'' },
+    { name: 'created_at',     type: 'TEXT' },
+    { name: 'updated_at',     type: 'TEXT' },
+    { name: 'deleted_at',     type: 'TEXT' },
+  ]);
+
+  // --- storyboards ---
+  ensureColumns(database, 'storyboards', [
+    { name: 'episode_id',        type: 'INTEGER DEFAULT 0' },
+    { name: 'scene_id',          type: 'INTEGER' },
+    { name: 'storyboard_number', type: 'INTEGER DEFAULT 0' },
+    { name: 'title',             type: 'TEXT' },
+    { name: 'description',       type: 'TEXT' },
+    { name: 'location',          type: 'TEXT' },
+    { name: 'time',              type: 'TEXT' },
+    { name: 'duration',          type: 'REAL' },
+    { name: 'dialogue',          type: 'TEXT' },
+    { name: 'action',            type: 'TEXT' },
+    { name: 'atmosphere',        type: 'TEXT' },
+    { name: 'image_prompt',      type: 'TEXT' },
+    { name: 'video_prompt',      type: 'TEXT' },
+    { name: 'characters',        type: 'TEXT' },
+    { name: 'shot_type',         type: 'TEXT' },
+    { name: 'angle',             type: 'TEXT' },
+    { name: 'movement',          type: 'TEXT' },
+    { name: 'video_url',         type: 'TEXT' },
+    { name: 'composed_image',    type: 'TEXT' },
+    { name: 'result',            type: 'TEXT' },
+    { name: 'error_msg',         type: 'TEXT' },
+    { name: 'status',            type: 'TEXT DEFAULT \'draft\'' },
+    { name: 'created_at',        type: 'TEXT' },
+    { name: 'updated_at',        type: 'TEXT' },
+    { name: 'deleted_at',        type: 'TEXT' },
+  ]);
+
+  // --- characters ---
+  ensureColumns(database, 'characters', [
+    { name: 'drama_id',    type: 'INTEGER DEFAULT 0' },
+    { name: 'name',        type: 'TEXT NOT NULL DEFAULT \'\'' },
+    { name: 'role',        type: 'TEXT' },
+    { name: 'description', type: 'TEXT' },
+    { name: 'personality', type: 'TEXT' },
+    { name: 'appearance',  type: 'TEXT' },
+    { name: 'image_url',   type: 'TEXT' },
+    { name: 'local_path',  type: 'TEXT' },
+    { name: 'voice_style', type: 'TEXT' },
+    { name: 'sort_order',  type: 'INTEGER DEFAULT 0' },
+    { name: 'error_msg',   type: 'TEXT' },
+    { name: 'created_at',  type: 'TEXT' },
+    { name: 'updated_at',  type: 'TEXT' },
+    { name: 'deleted_at',  type: 'TEXT' },
+  ]);
+
+  // --- scenes ---
+  ensureColumns(database, 'scenes', [
+    { name: 'drama_id',         type: 'INTEGER DEFAULT 0' },
+    { name: 'episode_id',       type: 'INTEGER' },
+    { name: 'location',         type: 'TEXT' },
+    { name: 'time',             type: 'TEXT' },
+    { name: 'prompt',           type: 'TEXT' },
+    { name: 'image_url',        type: 'TEXT' },
+    { name: 'local_path',       type: 'TEXT' },
+    { name: 'storyboard_count', type: 'INTEGER DEFAULT 0' },
+    { name: 'error_msg',        type: 'TEXT' },
+    { name: 'status',           type: 'TEXT DEFAULT \'draft\'' },
+    { name: 'created_at',       type: 'TEXT' },
+    { name: 'updated_at',       type: 'TEXT' },
+    { name: 'deleted_at',       type: 'TEXT' },
+  ]);
+
+  // --- props ---
+  ensureColumns(database, 'props', [
+    { name: 'drama_id',    type: 'INTEGER DEFAULT 0' },
+    { name: 'episode_id',  type: 'INTEGER' },
+    { name: 'name',        type: 'TEXT NOT NULL DEFAULT \'\'' },
+    { name: 'type',        type: 'TEXT' },
+    { name: 'description', type: 'TEXT' },
+    { name: 'prompt',      type: 'TEXT' },
+    { name: 'image_url',   type: 'TEXT' },
+    { name: 'local_path',  type: 'TEXT' },
+    { name: 'error_msg',   type: 'TEXT' },
+    { name: 'created_at',  type: 'TEXT' },
+    { name: 'updated_at',  type: 'TEXT' },
+    { name: 'deleted_at',  type: 'TEXT' },
+  ]);
+
+  // --- ai_service_configs ---
+  ensureColumns(database, 'ai_service_configs', [
+    { name: 'service_type',   type: 'TEXT NOT NULL DEFAULT \'text\'' },
+    { name: 'provider',       type: 'TEXT DEFAULT \'\'' },
+    { name: 'name',           type: 'TEXT DEFAULT \'\'' },
+    { name: 'base_url',       type: 'TEXT DEFAULT \'\'' },
+    { name: 'api_key',        type: 'TEXT' },
+    { name: 'model',          type: 'TEXT' },
+    { name: 'default_model',  type: 'TEXT' },
+    { name: 'endpoint',       type: 'TEXT' },
+    { name: 'query_endpoint', type: 'TEXT' },
+    { name: 'priority',       type: 'INTEGER DEFAULT 0' },
+    { name: 'is_default',     type: 'INTEGER DEFAULT 0' },
+    { name: 'is_active',      type: 'INTEGER DEFAULT 1' },
+    { name: 'settings',       type: 'TEXT' },
+    { name: 'created_at',     type: 'TEXT' },
+    { name: 'updated_at',     type: 'TEXT' },
+    { name: 'deleted_at',     type: 'TEXT' },
+  ]);
+
+  // --- async_tasks ---
+  ensureColumns(database, 'async_tasks', [
+    { name: 'type',         type: 'TEXT NOT NULL DEFAULT \'\'' },
+    { name: 'status',       type: 'TEXT NOT NULL DEFAULT \'pending\'' },
+    { name: 'progress',     type: 'INTEGER DEFAULT 0' },
+    { name: 'message',      type: 'TEXT' },
+    { name: 'resource_id',  type: 'TEXT' },
+    { name: 'completed_at', type: 'TEXT' },
+    { name: 'error',        type: 'TEXT' },
+    { name: 'result',       type: 'TEXT' },
+    { name: 'created_at',   type: 'TEXT' },
+    { name: 'updated_at',   type: 'TEXT' },
+    { name: 'deleted_at',   type: 'TEXT' },
+  ]);
+
+  // --- image_generations ---
+  ensureColumns(database, 'image_generations', [
+    { name: 'storyboard_id',    type: 'INTEGER' },
+    { name: 'drama_id',         type: 'INTEGER' },
+    { name: 'scene_id',         type: 'INTEGER' },
+    { name: 'character_id',     type: 'INTEGER' },
+    { name: 'provider',         type: 'TEXT' },
+    { name: 'prompt',           type: 'TEXT' },
+    { name: 'negative_prompt',  type: 'TEXT' },
+    { name: 'model',            type: 'TEXT' },
+    { name: 'frame_type',       type: 'TEXT' },
+    { name: 'reference_images', type: 'TEXT' },
+    { name: 'size',             type: 'TEXT' },
+    { name: 'quality',          type: 'TEXT' },
+    { name: 'image_url',        type: 'TEXT' },
+    { name: 'local_path',       type: 'TEXT' },
+    { name: 'status',           type: 'TEXT' },
+    { name: 'task_id',          type: 'TEXT' },
+    { name: 'completed_at',     type: 'TEXT' },
+    { name: 'error_msg',        type: 'TEXT' },
+    { name: 'created_at',       type: 'TEXT' },
+    { name: 'updated_at',       type: 'TEXT' },
+    { name: 'deleted_at',       type: 'TEXT' },
+  ]);
+
+  // --- video_generations ---
+  ensureColumns(database, 'video_generations', [
+    { name: 'drama_id',             type: 'INTEGER' },
+    { name: 'storyboard_id',        type: 'INTEGER' },
+    { name: 'provider',             type: 'TEXT' },
+    { name: 'prompt',               type: 'TEXT' },
+    { name: 'model',                type: 'TEXT' },
+    { name: 'duration',             type: 'REAL' },
+    { name: 'aspect_ratio',         type: 'TEXT' },
+    { name: 'image_url',            type: 'TEXT' },
+    { name: 'first_frame_url',      type: 'TEXT' },
+    { name: 'last_frame_url',       type: 'TEXT' },
+    { name: 'reference_image_urls', type: 'TEXT' },
+    { name: 'video_url',            type: 'TEXT' },
+    { name: 'local_path',           type: 'TEXT' },
+    { name: 'status',               type: 'TEXT' },
+    { name: 'task_id',              type: 'TEXT' },
+    { name: 'scene_id',             type: 'INTEGER' },
+    { name: 'completed_at',         type: 'TEXT' },
+    { name: 'error_msg',            type: 'TEXT' },
+    { name: 'created_at',           type: 'TEXT' },
+    { name: 'updated_at',           type: 'TEXT' },
+    { name: 'deleted_at',           type: 'TEXT' },
+  ]);
+
+  // --- video_merges ---
+  ensureColumns(database, 'video_merges', [
+    { name: 'episode_id', type: 'INTEGER' },
+    { name: 'drama_id',   type: 'INTEGER' },
+    { name: 'title',      type: 'TEXT' },
+    { name: 'provider',   type: 'TEXT' },
+    { name: 'model',      type: 'TEXT' },
+    { name: 'status',     type: 'TEXT' },
+    { name: 'scenes',     type: 'TEXT' },
+    { name: 'task_id',    type: 'TEXT' },
+    { name: 'created_at', type: 'TEXT' },
+    { name: 'deleted_at', type: 'TEXT' },
+  ]);
+
+  // --- assets ---
+  ensureColumns(database, 'assets', [
+    { name: 'drama_id',     type: 'INTEGER' },
+    { name: 'name',         type: 'TEXT' },
+    { name: 'type',         type: 'TEXT' },
+    { name: 'category',     type: 'TEXT' },
+    { name: 'url',          type: 'TEXT' },
+    { name: 'local_path',   type: 'TEXT' },
+    { name: 'file_size',    type: 'INTEGER' },
+    { name: 'mime_type',    type: 'TEXT' },
+    { name: 'width',        type: 'INTEGER' },
+    { name: 'height',       type: 'INTEGER' },
+    { name: 'duration',     type: 'REAL' },
+    { name: 'image_gen_id', type: 'INTEGER' },
+    { name: 'video_gen_id', type: 'INTEGER' },
+    { name: 'created_at',   type: 'TEXT' },
+    { name: 'updated_at',   type: 'TEXT' },
+    { name: 'deleted_at',   type: 'TEXT' },
+  ]);
+
+  // --- character_libraries ---
+  ensureColumns(database, 'character_libraries', [
+    { name: 'name',        type: 'TEXT NOT NULL DEFAULT \'\'' },
+    { name: 'category',    type: 'TEXT' },
+    { name: 'image_url',   type: 'TEXT' },
+    { name: 'local_path',  type: 'TEXT' },
+    { name: 'description', type: 'TEXT' },
+    { name: 'tags',        type: 'TEXT' },
+    { name: 'source_type', type: 'TEXT' },
+    { name: 'created_at',  type: 'TEXT' },
+    { name: 'updated_at',  type: 'TEXT' },
+    { name: 'deleted_at',  type: 'TEXT' },
+  ]);
+
+  // --- scene_libraries ---
+  ensureColumns(database, 'scene_libraries', [
+    { name: 'location',    type: 'TEXT NOT NULL DEFAULT \'\'' },
+    { name: 'time',        type: 'TEXT' },
+    { name: 'prompt',      type: 'TEXT' },
+    { name: 'description', type: 'TEXT' },
+    { name: 'image_url',   type: 'TEXT' },
+    { name: 'local_path',  type: 'TEXT' },
+    { name: 'category',    type: 'TEXT' },
+    { name: 'tags',        type: 'TEXT' },
+    { name: 'source_type', type: 'TEXT' },
+    { name: 'created_at',  type: 'TEXT' },
+    { name: 'updated_at',  type: 'TEXT' },
+    { name: 'deleted_at',  type: 'TEXT' },
+  ]);
+
+  // --- prop_libraries ---
+  ensureColumns(database, 'prop_libraries', [
+    { name: 'name',        type: 'TEXT NOT NULL DEFAULT \'\'' },
+    { name: 'description', type: 'TEXT' },
+    { name: 'prompt',      type: 'TEXT' },
+    { name: 'image_url',   type: 'TEXT' },
+    { name: 'local_path',  type: 'TEXT' },
+    { name: 'category',    type: 'TEXT' },
+    { name: 'tags',        type: 'TEXT' },
+    { name: 'source_type', type: 'TEXT' },
+    { name: 'created_at',  type: 'TEXT' },
+    { name: 'updated_at',  type: 'TEXT' },
+    { name: 'deleted_at',  type: 'TEXT' },
+  ]);
 }
 
 /** 对已打开的 database 执行迁移与兜底补列（供 app 启动时调用） */
 function runMigrationsAndEnsure(database) {
   runMigrations(database);
-  ensureDefaultModelColumn(database);
-  ensurePropsEpisodeIdColumn(database);
-  ensureAsyncTasksColumns(database);
-  ensureImageGenerationsColumns(database);
-  ensureCharactersLocalPathColumn(database);
-  ensureScenesImageColumns(database);
-  ensureVideoGenerationsColumns(database);
-  ensureResourceErrorMsgColumns(database);
-  ensureStoryboardResultColumn(database);
+  ensureAllColumns(database);
 }
 
 function main() {
@@ -283,4 +389,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { runMigrationsAndEnsure, ensureDefaultModelColumn };
+module.exports = { runMigrationsAndEnsure, ensureColumns };

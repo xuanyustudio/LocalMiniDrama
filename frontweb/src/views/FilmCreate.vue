@@ -510,11 +510,6 @@
                   </div>
                 </div>
               </div>
-              <div class="sb-script-label">
-                <el-icon><Grid /></el-icon>
-                <span>构图参考</span>
-                <el-icon class="sb-upload-icon"><Upload /></el-icon>
-              </div>
               <div class="sb-prompt-label">
                 <span class="sb-dot"></span>
                 <span>图片提示词</span>
@@ -2618,16 +2613,16 @@ async function onGenerateStoryboard() {
   if (!currentEpisodeId.value) return
   storyboardGenerating.value = true
   try {
-    // 传递对象形式的 options
     const res = await dramaAPI.generateStoryboard(currentEpisodeId.value, {
       model: undefined,
       style: getSelectedStyle(),
       storyboard_count: storyboardCount.value || undefined,
       video_duration: videoDuration.value || undefined
     })
-    if (res?.task_id) await pollTask(res.task_id, () => loadDrama())
+    const taskId = res?.task_id ?? (typeof res === 'string' ? res : null)
+    if (taskId) await pollTask(taskId, () => loadDrama())
     await loadDrama()
-    ElMessage.success('分镜生成任务已提交')
+    ElMessage.success('分镜生成完成')
   } catch (e) {
     ElMessage.error(e.message || '生成失败')
   } finally {
@@ -2914,8 +2909,8 @@ async function runOneClickPipeline() {
     await checkPause()
     pipelineCurrentStep.value = '正在生成分镜...'
     try {
-      const res = await dramaAPI.generateStoryboard(episodeId, undefined, style)
-      const taskId = res?.task_id
+      const res = await dramaAPI.generateStoryboard(episodeId, { style })
+      const taskId = res?.task_id ?? (typeof res === 'string' ? res : null)
       if (taskId) {
         const result = await pollTaskWithPause(taskId, () => loadDrama())
         if (result?.paused) { await waitForResume(); return }
@@ -3135,8 +3130,8 @@ async function runRepairPipeline() {
       await checkPause()
       pipelineCurrentStep.value = '正在生成分镜...'
       try {
-        const res = await dramaAPI.generateStoryboard(episodeId, undefined)
-        const taskId = res?.task_id
+        const res = await dramaAPI.generateStoryboard(episodeId)
+        const taskId = res?.task_id ?? (typeof res === 'string' ? res : null)
         if (taskId) {
           const result = await pollTaskWithPause(taskId, () => loadDrama())
           if (result?.paused) { await waitForResume(); return }
@@ -3799,14 +3794,6 @@ onMounted(() => {
 }
 .sb-script-label .el-icon { font-size: 0.9rem; }
 .sb-upload-icon { margin-left: auto; cursor: pointer; color: #a1a1aa; }
-.sb-narration {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 8px 0 4px;
-}
-.sb-narration-type { font-size: 0.85rem; color: #a1a1aa; }
-.sb-dialogue-input { margin-bottom: 6px; }
 .sb-meta {
   font-size: 0.75rem;
   color: #71717a;
