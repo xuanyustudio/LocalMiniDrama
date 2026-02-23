@@ -59,6 +59,8 @@ function createApp() {
   console.log('webDist', webDist);
   if (fs.existsSync(webDist)) {
     app.use('/assets', express.static(path.join(webDist, 'assets')));
+    // 服务 dist 根目录的静态文件（如 wx.jpg、favicon.ico 等）
+    app.use(express.static(webDist, { index: false }));
     app.get('/favicon.ico', (req, res) => {
       const fav = path.join(webDist, 'favicon.ico');
       if (fs.existsSync(fav)) res.sendFile(fav);

@@ -17,6 +17,9 @@
         </div>
         <!-- 右侧操作区 -->
         <div class="header-actions">
+          <el-button class="btn-wechat" title="扫码联系作者" @click="showWechat = true">
+            <el-icon><ChatDotSquare /></el-icon>微信我
+          </el-button>
           <el-button class="btn-theme" :title="isDark ? '切换到白天模式' : '切换到暗色模式'" @click="toggleTheme">
             <el-icon><Sunny v-if="isDark" /><Moon v-else /></el-icon>
             {{ isDark ? '白天' : '暗色' }}
@@ -252,6 +255,14 @@
       </template>
     </el-dialog>
 
+    <!-- 微信二维码 -->
+    <el-dialog v-model="showWechat" title="微信联系作者" width="320px" align-center>
+      <div style="text-align:center;padding:8px 0 4px">
+        <img src="/wx.jpg" alt="微信二维码" style="width:240px;height:240px;object-fit:contain;border-radius:8px;" />
+        <p style="margin:12px 0 0;font-size:13px;color:var(--text-secondary,#a1a1aa);">扫码添加微信，欢迎交流</p>
+      </div>
+    </el-dialog>
+
     <!-- 图片放大预览 -->
     <Teleport to="body">
       <div v-if="previewImageUrl" class="image-preview-overlay" @click="previewImageUrl = null">
@@ -287,7 +298,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, Setting, Plus, User, PictureFilled, Box, Sunny, Moon } from '@element-plus/icons-vue'
+import { Edit, Delete, Setting, Plus, User, PictureFilled, Box, Sunny, Moon, ChatDotSquare } from '@element-plus/icons-vue'
 import { useTheme } from '@/composables/useTheme'
 import { dramaAPI } from '@/api/drama'
 import { characterLibraryAPI } from '@/api/characterLibrary'
@@ -362,6 +373,7 @@ const dramas = ref([])
 const total = ref(0)
 
 const showAiConfigDialog = ref(false)
+const showWechat = ref(false)
 
 // 图片预览
 const previewImageUrl = ref(null)
@@ -695,6 +707,25 @@ html.light .btn-theme {
   --el-button-hover-bg-color: rgba(99, 102, 241, 0.15);
   --el-button-hover-border-color: rgba(99, 102, 241, 0.5);
   --el-button-hover-text-color: #4f46e5;
+}
+
+/* 微信我按钮 —— 绿调 */
+.btn-wechat {
+  --el-button-bg-color: rgba(34, 197, 94, 0.1);
+  --el-button-border-color: rgba(34, 197, 94, 0.3);
+  --el-button-text-color: #22c55e;
+  --el-button-hover-bg-color: rgba(34, 197, 94, 0.2);
+  --el-button-hover-border-color: rgba(34, 197, 94, 0.5);
+  --el-button-hover-text-color: #16a34a;
+  transition: all 0.2s;
+}
+html.light .btn-wechat {
+  --el-button-bg-color: rgba(22, 163, 74, 0.08);
+  --el-button-border-color: rgba(22, 163, 74, 0.3);
+  --el-button-text-color: #16a34a;
+  --el-button-hover-bg-color: rgba(22, 163, 74, 0.15);
+  --el-button-hover-border-color: rgba(22, 163, 74, 0.5);
+  --el-button-hover-text-color: #15803d;
 }
 
 /* AI配置按钮 —— 琥珀调 */
