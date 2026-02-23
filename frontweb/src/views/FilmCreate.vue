@@ -25,7 +25,10 @@
     </header>
 
     <!-- 左侧快捷目录 -->
-    <nav class="quick-nav" aria-label="快捷导航">
+    <nav class="quick-nav" :class="{ collapsed: navCollapsed }" aria-label="快捷导航">
+      <div class="nav-toggle" :title="navCollapsed ? '展开导航' : '收起导航'" @click="navCollapsed = !navCollapsed">
+        <el-icon><ArrowLeft v-if="!navCollapsed" /><ArrowRight v-else /></el-icon>
+      </div>
       <div class="nav-item" @click="scrollToTop">
         <span class="nav-label">顶部</span>
       </div>
@@ -379,17 +382,18 @@
           <span>5. 分镜生成</span>
           <span class="step-desc">根据剧本、角色、场景自动生成分镜头脚本</span>
         </h2>
-        <div class="config-row">
-          <div class="config-item">
-            <span class="config-label">分镜数量</span>
-            <el-input-number v-model="storyboardCount" :min="1" :max="50" placeholder="自动" />
-            <span class="config-tip-inline">留空则由 AI 自动决定</span>
-          </div>
-          <div class="config-item">
-            <span class="config-label">视频总长度(秒)</span>
-            <el-input-number v-model="videoDuration" :min="10" :max="600" placeholder="自动" />
-            <span class="config-tip-inline">留空则由 AI 自动决定</span>
-          </div>
+        <div class="sb-config-row">
+          <label class="sb-config-item">
+            <span class="sb-config-label">分镜数量</span>
+            <el-input-number v-model="storyboardCount" :min="1" :max="50" :step="5" placeholder="自动" class="sb-config-input" />
+            <span class="sb-config-hint">留空由 AI 决定</span>
+          </label>
+          <span class="sb-config-divider">｜</span>
+          <label class="sb-config-item">
+            <span class="sb-config-label">视频时长(秒)</span>
+            <el-input-number v-model="videoDuration" :min="10" :max="600" :step="5" placeholder="自动" class="sb-config-input" />
+            <span class="sb-config-hint">留空由 AI 决定</span>
+          </label>
         </div>
         <div class="asset-actions">
           <el-button
@@ -1076,7 +1080,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowUp, ArrowDown, ArrowLeft, Setting, Plus, Minus, Sunny, Moon } from '@element-plus/icons-vue'
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Setting, Plus, Minus, Sunny, Moon } from '@element-plus/icons-vue'
 import { useTheme } from '@/composables/useTheme'
 import { useFilmStore } from '@/stores/film'
 import { dramaAPI } from '@/api/drama'
@@ -1203,6 +1207,7 @@ const scenesBlockCollapsed = ref(false)
 
 // 分镜行内编辑状态（按 storyboard id 存储）
 const storyboardMenuExpanded = ref(false)
+const navCollapsed = ref(false)
 const sbCharacterIds = ref({})  // sbId -> number[] 多选角色
 const sbPropIds = ref({})       // sbId -> number[] 多选物品
 const sbSceneId = ref({})
@@ -3442,7 +3447,7 @@ html.light .btn-theme {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px 0;
+  padding: 4px 0 12px;
   background: rgba(24, 24, 27, 0.95);
   border-radius: 8px;
   border: 1px solid #27272a;
@@ -3450,6 +3455,32 @@ html.light .btn-theme {
   width: 140px;
   max-height: calc(100vh - 120px);
   overflow-y: auto;
+  transition: width 0.2s ease, padding 0.2s ease;
+}
+.quick-nav.collapsed {
+  width: 36px;
+  overflow: hidden;
+  padding: 4px 0;
+}
+.quick-nav.collapsed .nav-item,
+.quick-nav.collapsed .nav-group {
+  display: none;
+}
+.nav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  cursor: pointer;
+  color: #52525b;
+  transition: color 0.15s, background 0.15s;
+  border-radius: 6px;
+  margin: 0 4px 2px;
+  flex-shrink: 0;
+}
+.nav-toggle:hover {
+  color: #e4e4e7;
+  background: rgba(255, 255, 255, 0.08);
 }
 .nav-item {
   padding: 8px 16px;
@@ -4103,6 +4134,36 @@ html.light .btn-theme {
   color: #a1a1aa;
 }
 .config-tip .el-link { font-size: inherit; }
+.sb-config-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.sb-config-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sb-config-label {
+  font-size: 0.85rem;
+  color: #a1a1aa;
+  white-space: nowrap;
+}
+.sb-config-input {
+  width: 110px;
+}
+.sb-config-hint {
+  font-size: 0.78rem;
+  color: #52525b;
+  white-space: nowrap;
+}
+.sb-config-divider {
+  color: #3f3f46;
+  font-size: 0.85rem;
+  margin: 0 4px;
+}
 .sub-title {
   font-size: 1rem;
   margin: 16px 0 8px;

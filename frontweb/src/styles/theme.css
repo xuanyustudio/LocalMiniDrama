@@ -225,3 +225,12 @@ html.light .el-message-box__content { color: var(--text-primary) !important; }
 html.light span, html.light label, html.light p {
   color: inherit;
 }
+
+/* AI 配置字段帮助提示框 */
+.cfg-tip-popper.el-popper {
+  max-width: 300px;
+}
+.cfg-tip-content {
+  font-size: 12px;
+  line-height: 1.7;
+}

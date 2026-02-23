@@ -54,7 +54,22 @@
       @closed="resetForm"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item label="服务类型" prop="service_type">
+        <el-form-item prop="service_type">
+          <template #label>
+            <span class="form-label-tip">服务类型
+              <el-tooltip placement="top" :show-arrow="true" popper-class="cfg-tip-popper">
+                <template #content>
+                  <div class="cfg-tip-content">
+                    <b>文本/对话</b>：用于 AI 生成故事剧本<br>
+                    <b>文本生成图片</b>：角色、场景、道具的图片生成（不支持参考图）<br>
+                    <b>分镜图片生成</b>：生成分镜图片，支持传入角色参考图<br>
+                    <b>视频生成</b>：根据分镜图生成视频片段
+                  </div>
+                </template>
+                <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <el-select v-model="form.service_type" placeholder="选择类型" style="width: 100%" @change="onServiceTypeChange">
             <el-option label="文本/对话" value="text" />
             <el-option label="文本生成图片" value="image" />
@@ -62,10 +77,24 @@
             <el-option label="视频生成" value="video" />
           </el-select>
         </el-form-item>
-        <el-form-item label="厂商" prop="provider">
+        <el-form-item prop="provider">
+          <template #label>
+            <span class="form-label-tip">厂商
+              <el-tooltip placement="top" popper-class="cfg-tip-popper">
+                <template #content>
+                  <div class="cfg-tip-content">
+                    从下拉选择预设厂商，会自动填入 Base URL 和模型列表。<br>
+                    也可直接输入自定义厂商名（需手动填写其他字段）。<br>
+                    <b>推荐</b>：通义千问 / 火山引擎，国内访问稳定。
+                  </div>
+                </template>
+                <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <el-select
             v-model="form.provider"
-            placeholder="从下拉选择预设（自动填充 Base URL 和模型）或输入自定义厂商名"
+            placeholder="选择预设厂商（自动填充 URL 和模型）"
             clearable
             filterable
             allow-create
@@ -81,16 +110,63 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="名称" prop="name">
+        <el-form-item prop="name">
+          <template #label>
+            <span class="form-label-tip">名称
+              <el-tooltip content="配置的显示名，用于在列表中区分不同配置，选择厂商后可自动生成。" placement="top" popper-class="cfg-tip-popper">
+                <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <el-input v-model="form.name" placeholder="如：OpenAI 图文，可自动生成" />
         </el-form-item>
-        <el-form-item label="Base URL" prop="base_url">
+        <el-form-item prop="base_url">
+          <template #label>
+            <span class="form-label-tip">Base URL
+              <el-tooltip placement="top" popper-class="cfg-tip-popper">
+                <template #content>
+                  <div class="cfg-tip-content">
+                    API 接口地址，选择预设厂商后自动填入，一般无需修改。<br>
+                    示例：https://dashscope.aliyuncs.com
+                  </div>
+                </template>
+                <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <el-input v-model="form.base_url" placeholder="选择预设厂商后自动填充，可修改" />
         </el-form-item>
-        <el-form-item label="API Key" prop="api_key">
+        <el-form-item prop="api_key">
+          <template #label>
+            <span class="form-label-tip">API Key
+              <el-tooltip placement="top" popper-class="cfg-tip-popper">
+                <template #content>
+                  <div class="cfg-tip-content">
+                    在对应 AI 平台申请的密钥，用于身份验证。<br>
+                    通义：<b>dashscope.aliyuncs.com</b><br>
+                    火山：<b>console.volcengine.com/ark</b>
+                  </div>
+                </template>
+                <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <el-input v-model="form.api_key" type="password" placeholder="API 密钥" show-password-on="click" />
         </el-form-item>
-        <el-form-item label="模型">
+        <el-form-item>
+          <template #label>
+            <span class="form-label-tip">模型列表
+              <el-tooltip placement="top" popper-class="cfg-tip-popper">
+                <template #content>
+                  <div class="cfg-tip-content">
+                    该厂商下可用的模型，多个用逗号或换行分隔。<br>
+                    可从上方「追加预设模型」下拉快速添加，也可手动输入。
+                  </div>
+                </template>
+                <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <div class="model-row">
             <el-select
               v-model="presetModelPick"
@@ -105,7 +181,14 @@
           </div>
           <el-input v-model="form.modelText" type="textarea" :rows="2" placeholder="选择预设厂商后自动填入，可编辑；多个用逗号或换行分隔" />
         </el-form-item>
-        <el-form-item label="生成时默认使用">
+        <el-form-item>
+          <template #label>
+            <span class="form-label-tip">默认模型
+              <el-tooltip content="有多个模型时，实际调用哪个进行生成。建议选响应快、效果好的那个。" placement="top" popper-class="cfg-tip-popper">
+                <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <el-select
             v-model="form.default_model"
             :placeholder="formModelList.length ? '从上面模型列表中选一个作为生成时使用的默认' : '请先填写上方模型列表'"
@@ -116,10 +199,30 @@
           </el-select>
           <p class="field-tip">该配置被选为「默认」时，生成故事/图片/视频将使用此处指定的模型。</p>
         </el-form-item>
-        <el-form-item label="优先级">
+        <el-form-item>
+          <template #label>
+            <span class="form-label-tip">优先级
+              <el-tooltip content="同一服务类型有多个配置时，数字越大越优先被调用。默认 0，一般设为 10 即可。" placement="top" popper-class="cfg-tip-popper">
+                <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <el-input-number v-model="form.priority" :min="0" :max="999" />
         </el-form-item>
-        <el-form-item label="设为默认">
+        <el-form-item>
+          <template #label>
+            <span class="form-label-tip">设为默认
+              <el-tooltip placement="top" popper-class="cfg-tip-popper">
+                <template #content>
+                  <div class="cfg-tip-content">
+                    每种服务类型只有一个「默认」配置。<br>
+                    生成时系统会优先使用默认配置，建议每类至少设一个默认。
+                  </div>
+                </template>
+                <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <el-switch v-model="form.is_default" />
         </el-form-item>
       </el-form>
@@ -200,7 +303,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, MagicStick } from '@element-plus/icons-vue'
+import { Plus, MagicStick, QuestionFilled } from '@element-plus/icons-vue'
 import { aiAPI } from '@/api/ai'
 
 const loading = ref(false)
@@ -612,5 +715,21 @@ onMounted(() => loadList())
   font-size: 12px;
   color: #909399;
   line-height: 1.4;
+}
+.form-label-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.tip-icon {
+  font-size: 13px;
+  color: #909399;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.tip-icon:hover {
+  color: #409eff;
 }
 </style>

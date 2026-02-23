@@ -463,15 +463,42 @@ function saveEpisodes(db, log, dramaId, req) {
   const did = Number(dramaId);
   const drama = getDramaById(db, did);
   if (!drama) return false;
-  db.prepare('UPDATE episodes SET deleted_at = ? WHERE drama_id = ?').run(new Date().toISOString(), did);
   const episodes = req.episodes || [];
   const now = new Date().toISOString();
+
+  // 按 episode_number upsert：保留已有分集的 id，避免关联数据（角色/场景/道具/分镜）孤岛化
+  const keptNumbers = new Set();
   for (const ep of episodes) {
-    db.prepare(
-      `INSERT INTO episodes (drama_id, episode_number, title, script_content, description, duration, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?)`
-    ).run(did, ep.episode_number ?? 0, ep.title || '', ep.script_content ?? null, ep.description ?? null, ep.duration ?? 0, now, now);
+    const num = ep.episode_number ?? 0;
+    keptNumbers.add(num);
+    // 查找已有的（包含软删除的，以防重新激活）
+    const existing = db.prepare(
+      'SELECT id FROM episodes WHERE drama_id = ? AND episode_number = ? ORDER BY deleted_at IS NOT NULL ASC, id ASC LIMIT 1'
+    ).get(did, num);
+    if (existing) {
+      // 更新已有分集，保留 id
+      db.prepare(
+        `UPDATE episodes SET title = ?, script_content = ?, description = ?, duration = ?, deleted_at = NULL, updated_at = ? WHERE id = ?`
+      ).run(ep.title || '', ep.script_content ?? null, ep.description ?? null, ep.duration ?? 0, now, existing.id);
+    } else {
+      // 新增
+      db.prepare(
+        `INSERT INTO episodes (drama_id, episode_number, title, script_content, description, duration, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?)`
+      ).run(did, num, ep.title || '', ep.script_content ?? null, ep.description ?? null, ep.duration ?? 0, now, now);
+    }
   }
+
+  // 软删除本次未提交的分集（如用户删掉了某一集）
+  const liveEpisodes = db.prepare(
+    'SELECT id, episode_number FROM episodes WHERE drama_id = ? AND deleted_at IS NULL'
+  ).all(did);
+  for (const row of liveEpisodes) {
+    if (!keptNumbers.has(row.episode_number)) {
+      db.prepare('UPDATE episodes SET deleted_at = ? WHERE id = ?').run(now, row.id);
+    }
+  }
+
   db.prepare('UPDATE dramas SET updated_at = ? WHERE id = ?').run(now, did);
   log.info('Episodes saved', { drama_id: dramaId, count: episodes.length });
   return true;
