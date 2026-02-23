@@ -5,6 +5,10 @@
       <div class="header-inner">
         <h1 class="logo" @click="goList">LocalMiniDrama.ai</h1>
         <span class="page-title">{{ dramaId ? (store.drama?.title || '项目') : '新建故事' }}</span>
+        <el-button v-if="dramaId" class="btn-back-drama" @click="router.push('/drama/' + dramaId)">
+          <el-icon><ArrowLeft /></el-icon>
+          返回剧集
+        </el-button>
         <el-button class="btn-new" @click="goList">
           <el-icon><Plus /></el-icon>
           新建项目
@@ -206,7 +210,7 @@
                   剧本自动提取角色
                 </el-button>
                 <el-button size="small" :disabled="!dramaId" @click="openAddCharacter">添加角色</el-button>
-                <el-button size="small" @click="showCharLibrary = true">公共角色</el-button>
+                <el-button size="small" @click="showCharLibrary = true">本剧角色库</el-button>
               </div>
               <div class="asset-list asset-list-two">
                 <div v-for="char in characters" :key="char.id" class="asset-item asset-item-left-right">
@@ -222,7 +226,10 @@
                         上传
                       </el-button>
                       <el-button size="small" :loading="addingCharToLibraryId === char.id" :disabled="!hasAssetImage(char)" @click="onAddCharacterToLibrary(char)">
-                        加入公共库
+                        加入本剧库
+                      </el-button>
+                      <el-button size="small" :loading="addingCharToMaterialId === char.id" :disabled="!hasAssetImage(char)" @click="onAddCharacterToMaterialLibrary(char)">
+                        加入素材库
                       </el-button>
                       <el-button size="small" type="danger" plain @click="onDeleteCharacter(char)">删除</el-button>
                     </div>
@@ -258,7 +265,7 @@
               <div class="asset-actions">
                 <el-button size="small" :loading="propsExtracting" :disabled="!currentEpisodeId" @click="onExtractProps">从剧本提取道具</el-button>
                 <el-button type="primary" size="small" :disabled="!dramaId" @click="showAddProp = true">添加道具</el-button>
-                <el-button size="small" @click="showPropLibrary = true">公共道具</el-button>
+                <el-button size="small" @click="showPropLibrary = true">本剧道具库</el-button>
               </div>
               <div class="asset-list asset-list-two">
                 <div v-for="prop in props" :key="prop.id" class="asset-item asset-item-left-right">
@@ -274,7 +281,10 @@
                         上传
                       </el-button>
                       <el-button size="small" :loading="addingPropToLibraryId === prop.id" :disabled="!hasAssetImage(prop)" @click="onAddPropToLibrary(prop)">
-                        加入公共库
+                        加入本剧库
+                      </el-button>
+                      <el-button size="small" :loading="addingPropToMaterialId === prop.id" :disabled="!hasAssetImage(prop)" @click="onAddPropToMaterialLibrary(prop)">
+                        加入素材库
                       </el-button>
                       <el-button size="small" type="danger" plain @click="onDeleteProp(prop)">删除</el-button>
                     </div>
@@ -312,7 +322,7 @@
                   从剧本提取场景
                 </el-button>
                 <el-button size="small" :disabled="!dramaId" @click="openAddScene">添加场景</el-button>
-                <el-button size="small" @click="showSceneLibrary = true">公共场景</el-button>
+                <el-button size="small" @click="showSceneLibrary = true">本剧场景库</el-button>
               </div>
               <div class="asset-list asset-list-two">
                 <div v-for="scene in scenes" :key="scene.id" class="asset-item asset-item-left-right">
@@ -328,7 +338,10 @@
                         上传
                       </el-button>
                       <el-button size="small" :loading="addingSceneToLibraryId === scene.id" :disabled="!hasAssetImage(scene)" @click="onAddSceneToLibrary(scene)">
-                        加入公共库
+                        加入本剧库
+                      </el-button>
+                      <el-button size="small" :loading="addingSceneToMaterialId === scene.id" :disabled="!hasAssetImage(scene)" @click="onAddSceneToMaterialLibrary(scene)">
+                        加入素材库
                       </el-button>
                       <el-button size="small" type="danger" plain @click="onDeleteScene(scene)">删除</el-button>
                     </div>
@@ -855,8 +868,8 @@
       </template>
     </el-dialog>
 
-    <!-- 公共角色库 -->
-    <el-dialog v-model="showCharLibrary" title="公共角色" width="720px" destroy-on-close class="library-dialog" @open="loadCharLibraryList">
+    <!-- 本剧角色库 -->
+    <el-dialog v-model="showCharLibrary" title="本剧角色库" width="720px" destroy-on-close class="library-dialog" @open="loadCharLibraryList">
       <div class="library-toolbar">
         <el-input v-model="charLibraryKeyword" placeholder="搜索名称或描述" clearable style="width: 200px" @input="debouncedLoadCharLibrary()" />
       </div>
@@ -870,12 +883,13 @@
             <div class="library-item-name">{{ item.name || '未命名' }}</div>
             <div class="library-item-desc">{{ (item.description || '').slice(0, 60) }}{{ (item.description || '').length > 60 ? '…' : '' }}</div>
             <div class="library-item-actions">
+              <el-button size="small" type="primary" :loading="addingCharFromLibraryId === item.id" :disabled="!currentEpisodeId" @click="onAddCharFromLibrary(item)">加入本集</el-button>
               <el-button size="small" @click="openEditCharLibrary(item)">编辑</el-button>
               <el-button size="small" type="danger" plain @click="onDeleteCharLibrary(item)">删除</el-button>
             </div>
           </div>
         </div>
-        <div v-if="!charLibraryLoading && charLibraryList.length === 0" class="library-empty">暂无公共角色，可将本剧角色「加入公共库」后在此查看</div>
+        <div v-if="!charLibraryLoading && charLibraryList.length === 0" class="library-empty">暂无本剧角色库记录，可将本剧角色「加入本剧库」后在此查看</div>
       </div>
       <div class="library-pagination">
         <el-pagination
@@ -914,8 +928,8 @@
       </template>
     </el-dialog>
 
-    <!-- 公共道具库 -->
-    <el-dialog v-model="showPropLibrary" title="公共道具" width="720px" destroy-on-close class="library-dialog" @open="loadPropLibraryList">
+    <!-- 本剧道具库 -->
+    <el-dialog v-model="showPropLibrary" title="本剧道具库" width="720px" destroy-on-close class="library-dialog" @open="loadPropLibraryList">
       <div class="library-toolbar">
         <el-input v-model="propLibraryKeyword" placeholder="搜索名称或描述" clearable style="width: 200px" @input="debouncedLoadPropLibrary()" />
       </div>
@@ -934,7 +948,7 @@
             </div>
           </div>
         </div>
-        <div v-if="!propLibraryLoading && propLibraryList.length === 0" class="library-empty">暂无公共道具，可将本剧道具「加入公共库」后在此查看</div>
+        <div v-if="!propLibraryLoading && propLibraryList.length === 0" class="library-empty">暂无本剧道具库记录，可将本剧道具「加入本剧库」后在此查看</div>
       </div>
       <div class="library-pagination">
         <el-pagination
@@ -973,8 +987,8 @@
       </template>
     </el-dialog>
 
-    <!-- 公共场景库 -->
-    <el-dialog v-model="showSceneLibrary" title="公共场景" width="720px" destroy-on-close class="library-dialog" @open="loadSceneLibraryList">
+    <!-- 本剧场景库 -->
+    <el-dialog v-model="showSceneLibrary" title="本剧场景库" width="720px" destroy-on-close class="library-dialog" @open="loadSceneLibraryList">
       <div class="library-toolbar">
         <el-input v-model="sceneLibraryKeyword" placeholder="搜索地点或描述" clearable style="width: 200px" @input="debouncedLoadSceneLibrary()" />
       </div>
@@ -993,7 +1007,7 @@
             </div>
           </div>
         </div>
-        <div v-if="!sceneLibraryLoading && sceneLibraryList.length === 0" class="library-empty">暂无公共场景，可将本剧场景「加入公共库」后在此查看</div>
+        <div v-if="!sceneLibraryLoading && sceneLibraryList.length === 0" class="library-empty">暂无本剧场景库记录，可将本剧场景「加入本剧库」后在此查看</div>
       </div>
       <div class="library-pagination">
         <el-pagination
@@ -1058,7 +1072,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowUp, ArrowDown, Setting, Plus, Minus } from '@element-plus/icons-vue'
+import { ArrowUp, ArrowDown, ArrowLeft, Setting, Plus, Minus } from '@element-plus/icons-vue'
 import { useFilmStore } from '@/stores/film'
 import { dramaAPI } from '@/api/drama'
 import { generationAPI } from '@/api/generation'
@@ -1236,8 +1250,12 @@ const showEditCharLibrary = ref(false)
 const editCharLibraryForm = ref(null)
 const editCharLibrarySaving = ref(false)
 const addingCharToLibraryId = ref(null)
+const addingCharToMaterialId = ref(null)
+const addingCharFromLibraryId = ref(null)
 const addingPropToLibraryId = ref(null)
+const addingPropToMaterialId = ref(null)
 const addingSceneToLibraryId = ref(null)
+const addingSceneToMaterialId = ref(null)
 // 公共道具库
 const propLibraryList = ref([])
 const propLibraryLoading = ref(false)
@@ -1918,11 +1936,11 @@ async function doUploadResourceImage(type, id, file) {
       return
     }
     if (type === 'character') {
-      await characterAPI.putImage(id, { image_url: url })
+      await characterAPI.putImage(id, { image_url: url, local_path: null })
     } else if (type === 'prop') {
-      await propAPI.update(id, { image_url: url })
+      await propAPI.update(id, { image_url: url, local_path: null })
     } else if (type === 'scene') {
-      await sceneAPI.update(id, { image_url: url })
+      await sceneAPI.update(id, { image_url: url, local_path: null })
     }
     await loadDrama()
     ElMessage.success('上传成功')
@@ -1968,6 +1986,7 @@ async function loadCharLibraryList() {
   charLibraryLoading.value = true
   try {
     const res = await characterLibraryAPI.list({
+      drama_id: dramaId.value,
       page: charLibraryPage.value,
       page_size: charLibraryPageSize.value,
       keyword: charLibraryKeyword.value || undefined
@@ -2036,14 +2055,11 @@ async function onDeleteCharLibrary(item) {
 }
 
 async function onAddCharacterToLibrary(char) {
-  if (!hasAssetImage(char)) {
-    ElMessage.warning('请先为该角色生成或上传图片')
-    return
-  }
+  if (!hasAssetImage(char)) { ElMessage.warning('请先为该角色生成或上传图片'); return }
   addingCharToLibraryId.value = char.id
   try {
     await characterAPI.addToLibrary(char.id, {})
-    ElMessage.success('已加入公共角色库')
+    ElMessage.success('已加入本剧角色库')
     if (showCharLibrary.value) loadCharLibraryList()
   } catch (e) {
     ElMessage.error(e.message || '加入失败')
@@ -2051,11 +2067,55 @@ async function onAddCharacterToLibrary(char) {
     addingCharToLibraryId.value = null
   }
 }
+async function onAddCharacterToMaterialLibrary(char) {
+  if (!hasAssetImage(char)) { ElMessage.warning('请先为该角色生成或上传图片'); return }
+  addingCharToMaterialId.value = char.id
+  try {
+    await characterAPI.addToMaterialLibrary(char.id)
+    ElMessage.success('已加入全局素材库')
+  } catch (e) {
+    ElMessage.error(e.message || '加入失败')
+  } finally {
+    addingCharToMaterialId.value = null
+  }
+}
+
+// 从本剧角色库加入本集
+async function onAddCharFromLibrary(item) {
+  if (!store.dramaId) return
+  addingCharFromLibraryId.value = item.id
+  try {
+    const existing = (store.characters || []).map((c) => ({
+      name: c.name || '',
+      role: c.role || undefined,
+      appearance: c.appearance || undefined,
+      personality: c.personality || undefined,
+      description: c.description || undefined,
+      image_url: c.image_url || undefined,
+    }))
+    await dramaAPI.saveCharacters(store.dramaId, {
+      characters: [...existing, {
+        name: item.name || '未命名',
+        description: item.description || undefined,
+        appearance: item.description || undefined,
+        image_url: item.image_url || undefined,
+      }],
+      episode_id: currentEpisodeId.value ?? undefined,
+    })
+    await loadDrama()
+    ElMessage.success(`「${item.name || '角色'}」已加入本集`)
+  } catch (e) {
+    ElMessage.error(e.message || '加入失败')
+  } finally {
+    addingCharFromLibraryId.value = null
+  }
+}
 
 async function loadPropLibraryList() {
   propLibraryLoading.value = true
   try {
     const res = await propLibraryAPI.list({
+      drama_id: dramaId.value,
       page: propLibraryPage.value,
       page_size: propLibraryPageSize.value,
       keyword: propLibraryKeyword.value || undefined
@@ -2123,14 +2183,11 @@ async function onDeletePropLibrary(item) {
   }
 }
 async function onAddPropToLibrary(prop) {
-  if (!hasAssetImage(prop)) {
-    ElMessage.warning('请先为该道具生成或上传图片')
-    return
-  }
+  if (!hasAssetImage(prop)) { ElMessage.warning('请先为该道具生成或上传图片'); return }
   addingPropToLibraryId.value = prop.id
   try {
     await propAPI.addToLibrary(prop.id, {})
-    ElMessage.success('已加入公共道具库')
+    ElMessage.success('已加入本剧道具库')
     if (showPropLibrary.value) loadPropLibraryList()
   } catch (e) {
     ElMessage.error(e.message || '加入失败')
@@ -2138,11 +2195,24 @@ async function onAddPropToLibrary(prop) {
     addingPropToLibraryId.value = null
   }
 }
+async function onAddPropToMaterialLibrary(prop) {
+  if (!hasAssetImage(prop)) { ElMessage.warning('请先为该道具生成或上传图片'); return }
+  addingPropToMaterialId.value = prop.id
+  try {
+    await propAPI.addToMaterialLibrary(prop.id)
+    ElMessage.success('已加入全局素材库')
+  } catch (e) {
+    ElMessage.error(e.message || '加入失败')
+  } finally {
+    addingPropToMaterialId.value = null
+  }
+}
 
 async function loadSceneLibraryList() {
   sceneLibraryLoading.value = true
   try {
     const res = await sceneLibraryAPI.list({
+      drama_id: dramaId.value,
       page: sceneLibraryPage.value,
       page_size: sceneLibraryPageSize.value,
       keyword: sceneLibraryKeyword.value || undefined
@@ -2213,19 +2283,28 @@ async function onDeleteSceneLibrary(item) {
   }
 }
 async function onAddSceneToLibrary(scene) {
-  if (!hasAssetImage(scene)) {
-    ElMessage.warning('请先为该场景生成或上传图片')
-    return
-  }
+  if (!hasAssetImage(scene)) { ElMessage.warning('请先为该场景生成或上传图片'); return }
   addingSceneToLibraryId.value = scene.id
   try {
     await sceneAPI.addToLibrary(scene.id, {})
-    ElMessage.success('已加入公共场景库')
+    ElMessage.success('已加入本剧场景库')
     if (showSceneLibrary.value) loadSceneLibraryList()
   } catch (e) {
     ElMessage.error(e.message || '加入失败')
   } finally {
     addingSceneToLibraryId.value = null
+  }
+}
+async function onAddSceneToMaterialLibrary(scene) {
+  if (!hasAssetImage(scene)) { ElMessage.warning('请先为该场景生成或上传图片'); return }
+  addingSceneToMaterialId.value = scene.id
+  try {
+    await sceneAPI.addToMaterialLibrary(scene.id)
+    ElMessage.success('已加入全局素材库')
+  } catch (e) {
+    ElMessage.error(e.message || '加入失败')
+  } finally {
+    addingSceneToMaterialId.value = null
   }
 }
 
@@ -3280,6 +3359,10 @@ onMounted(() => {
   const id = route.params.id
   if (id && id !== 'new') {
     store.setDrama({ id: Number(id) })
+    // 如果 URL 带了 ?episode=X，先设置好，让 loadDrama 优先恢复到该集
+    if (route.query.episode) {
+      selectedEpisodeId.value = Number(route.query.episode)
+    }
     loadDrama()
   } else {
     store.reset()
@@ -3323,6 +3406,9 @@ onMounted(() => {
 .page-title {
   color: #a1a1aa;
   font-size: 0.95rem;
+}
+.btn-back-drama {
+  margin-left: auto;
 }
 /* 左侧快捷目录 */
 .quick-nav {

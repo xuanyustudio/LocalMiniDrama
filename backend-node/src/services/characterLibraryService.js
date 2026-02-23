@@ -54,6 +54,11 @@ function generateCharacterImage(db, log, cfg, characterId, modelName, style) {
 function listLibraryItems(db, query) {
   let sql = 'FROM character_libraries WHERE deleted_at IS NULL';
   const params = [];
+  // drama_id 过滤：传了就只看本剧；不传看全部（素材库全量视图）
+  if (query.drama_id != null && query.drama_id !== '') {
+    sql += ' AND drama_id = ?';
+    params.push(Number(query.drama_id));
+  }
   if (query.category) {
     sql += ' AND category = ?';
     params.push(query.category);
@@ -80,9 +85,10 @@ function createLibraryItem(db, log, req) {
   const now = new Date().toISOString();
   const sourceType = req.source_type || 'generated';
   const info = db.prepare(
-    `INSERT INTO character_libraries (name, category, image_url, local_path, description, tags, source_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO character_libraries (drama_id, name, category, image_url, local_path, description, tags, source_type, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
+    req.drama_id ?? null,
     req.name || '',
     req.category ?? null,
     req.image_url || '',
@@ -158,18 +164,33 @@ function uploadCharacterImage(db, log, characterId, imageUrl) {
   return { ok: true };
 }
 
+// 加入本剧资源库（带 drama_id）
 function addCharacterToLibrary(db, log, characterId, category) {
   const charRow = db.prepare('SELECT * FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(characterId));
   if (!charRow) return { ok: false, error: 'character not found' };
   const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
   if (!drama) return { ok: false, error: 'unauthorized' };
-  if (!charRow.image_url) return { ok: false, error: '角色还没有形象图片' };
+  if (!charRow.image_url && !charRow.local_path) return { ok: false, error: '角色还没有形象图片' };
   const now = new Date().toISOString();
   const info = db.prepare(
-    `INSERT INTO character_libraries (name, image_url, local_path, description, source_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 'character', ?, ?)`
-  ).run(charRow.name, charRow.image_url, charRow.local_path || null, charRow.description || null, now, now);
-  log.info('Character added to library', { character_id: characterId, library_item_id: info.lastInsertRowid });
+    `INSERT INTO character_libraries (drama_id, name, image_url, local_path, description, source_type, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, 'character', ?, ?)`
+  ).run(charRow.drama_id, charRow.name, charRow.image_url || null, charRow.local_path || null, charRow.description || null, now, now);
+  log.info('Character added to drama library', { character_id: characterId, drama_id: charRow.drama_id, library_item_id: info.lastInsertRowid });
+  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)) };
+}
+
+// 加入全局素材库（drama_id = NULL）
+function addCharacterToMaterialLibrary(db, log, characterId) {
+  const charRow = db.prepare('SELECT * FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  if (!charRow.image_url && !charRow.local_path) return { ok: false, error: '角色还没有形象图片' };
+  const now = new Date().toISOString();
+  const info = db.prepare(
+    `INSERT INTO character_libraries (drama_id, name, image_url, local_path, description, source_type, created_at, updated_at)
+     VALUES (NULL, ?, ?, ?, ?, 'character', ?, ?)`
+  ).run(charRow.name, charRow.image_url || null, charRow.local_path || null, charRow.description || null, now, now);
+  log.info('Character added to material library (global)', { character_id: characterId, library_item_id: info.lastInsertRowid });
   return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)) };
 }
 
@@ -257,6 +278,7 @@ module.exports = {
   applyLibraryItemToCharacter,
   uploadCharacterImage,
   addCharacterToLibrary,
+  addCharacterToMaterialLibrary,
   updateCharacter,
   deleteCharacter,
   generateCharacterImage,

@@ -120,11 +120,11 @@ function routes(db, cfg, log, uploadService) {
           if (out.error === 'character not found') return response.notFound(res, '角色不存在');
           return response.badRequest(res, out.error);
         }
-        if (body.local_path != null) {
+        if (body.local_path !== undefined) {
           const charRow = db.prepare('SELECT id FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(req.params.id));
           if (charRow) {
             db.prepare('UPDATE characters SET local_path = ?, updated_at = ? WHERE id = ?').run(
-              body.local_path,
+              body.local_path ?? null,
               new Date().toISOString(),
               Number(req.params.id)
             );
@@ -160,9 +160,22 @@ function routes(db, cfg, log, uploadService) {
           if (out.error === 'character not found') return response.notFound(res, '角色不存在');
           return response.badRequest(res, out.error);
         }
-        response.success(res, { message: '已加入角色库', item: out.item });
+        response.success(res, { message: '已加入本剧角色库', item: out.item });
       } catch (err) {
         log.error('characters add-to-library', { error: err.message });
+        response.internalError(res, err.message);
+      }
+    },
+    addToMaterialLibrary: (req, res) => {
+      try {
+        const out = characterLibraryService.addCharacterToMaterialLibrary(db, log, req.params.id);
+        if (!out.ok) {
+          if (out.error === 'character not found') return response.notFound(res, '角色不存在');
+          return response.badRequest(res, out.error);
+        }
+        response.success(res, { message: '已加入全局素材库', item: out.item });
+      } catch (err) {
+        log.error('characters add-to-material-library', { error: err.message });
         response.internalError(res, err.message);
       }
     },

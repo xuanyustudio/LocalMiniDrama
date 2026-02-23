@@ -126,6 +126,7 @@ function setupRouter(cfg, db, log) {
   r.put('/characters/:id/image', characters.putImage);
   r.put('/characters/:id/image-from-library', characters.imageFromLibrary);
   r.post('/characters/:id/add-to-library', characters.addToLibrary);
+  r.post('/characters/:id/add-to-material-library', characters.addToMaterialLibrary);
 
   // ---------- props ----------
   r.post('/props', prop.createProp);
@@ -133,6 +134,7 @@ function setupRouter(cfg, db, log) {
   r.delete('/props/:id', prop.deleteProp);
   r.post('/props/:id/generate', prop.generateImage);
   r.post('/props/:id/add-to-library', prop.addToLibrary);
+  r.post('/props/:id/add-to-material-library', prop.addToMaterialLibrary);
 
   // ---------- upload ----------
   r.post('/upload/image', uploadModule.multerSingle, uploadHandlers.uploadImage);
@@ -158,6 +160,7 @@ function setupRouter(cfg, db, log) {
   r.post('/scenes/generate-image', scenes.generateImage);
   r.post('/scenes', scenes.create);
   r.post('/scenes/:scene_id/add-to-library', scenes.addToLibrary);
+  r.post('/scenes/:scene_id/add-to-material-library', scenes.addToMaterialLibrary);
 
   // ---------- images ----------
   r.get('/images', images.list);

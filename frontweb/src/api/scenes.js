@@ -15,5 +15,8 @@ export const sceneAPI = {
   },
   addToLibrary(sceneId, body = {}) {
     return request.post(`/scenes/${sceneId}/add-to-library`, body)
+  },
+  addToMaterialLibrary(sceneId) {
+    return request.post(`/scenes/${sceneId}/add-to-material-library`, {})
   }
 }

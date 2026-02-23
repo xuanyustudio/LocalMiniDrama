@@ -4,6 +4,7 @@ const sceneService = require('./sceneService');
 function rowToItem(r) {
   return {
     id: r.id,
+    drama_id: r.drama_id ?? null,
     location: r.location,
     time: r.time,
     prompt: r.prompt,
@@ -21,6 +22,10 @@ function rowToItem(r) {
 function listLibraryItems(db, query) {
   let sql = 'FROM scene_libraries WHERE deleted_at IS NULL';
   const params = [];
+  if (query.drama_id != null && query.drama_id !== '') {
+    sql += ' AND drama_id = ?';
+    params.push(Number(query.drama_id));
+  }
   if (query.category) {
     sql += ' AND category = ?';
     params.push(query.category);
@@ -47,9 +52,10 @@ function createLibraryItem(db, log, req) {
   const now = new Date().toISOString();
   const sourceType = req.source_type || 'generated';
   const info = db.prepare(
-    `INSERT INTO scene_libraries (location, time, prompt, description, image_url, local_path, category, tags, source_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO scene_libraries (drama_id, location, time, prompt, description, image_url, local_path, category, tags, source_type, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
+    req.drama_id ?? null,
     req.location || '',
     req.time ?? null,
     req.prompt ?? null,
@@ -100,27 +106,33 @@ function deleteLibraryItem(db, log, id) {
   return true;
 }
 
-function addSceneToLibrary(db, log, sceneId, category) {
+// 加入本剧资源库（带 drama_id）
+function addSceneToLibrary(db, log, sceneId) {
   const scene = sceneService.getSceneById(db, Number(sceneId));
   if (!scene) return { ok: false, error: 'scene not found' };
   const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(scene.drama_id);
   if (!drama) return { ok: false, error: 'unauthorized' };
-  if (!scene.image_url) return { ok: false, error: '场景还没有形象图片' };
+  if (!scene.image_url && !scene.local_path) return { ok: false, error: '场景还没有形象图片' };
   const now = new Date().toISOString();
   const info = db.prepare(
-    `INSERT INTO scene_libraries (location, time, prompt, description, image_url, local_path, source_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'scene', ?, ?)`
-  ).run(
-    scene.location || '',
-    scene.time || null,
-    scene.prompt || null,
-    scene.prompt || null,
-    scene.image_url,
-    scene.local_path || null,
-    now,
-    now
-  );
-  log.info('Scene added to library', { scene_id: sceneId, library_item_id: info.lastInsertRowid });
+    `INSERT INTO scene_libraries (drama_id, location, time, prompt, description, image_url, local_path, source_type, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'scene', ?, ?)`
+  ).run(scene.drama_id, scene.location || '', scene.time || null, scene.prompt || null, scene.prompt || null, scene.image_url || null, scene.local_path || null, now, now);
+  log.info('Scene added to drama library', { scene_id: sceneId, drama_id: scene.drama_id, library_item_id: info.lastInsertRowid });
+  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)) };
+}
+
+// 加入全局素材库（drama_id = NULL）
+function addSceneToMaterialLibrary(db, log, sceneId) {
+  const scene = sceneService.getSceneById(db, Number(sceneId));
+  if (!scene) return { ok: false, error: 'scene not found' };
+  if (!scene.image_url && !scene.local_path) return { ok: false, error: '场景还没有形象图片' };
+  const now = new Date().toISOString();
+  const info = db.prepare(
+    `INSERT INTO scene_libraries (drama_id, location, time, prompt, description, image_url, local_path, source_type, created_at, updated_at)
+     VALUES (NULL, ?, ?, ?, ?, ?, ?, 'scene', ?, ?)`
+  ).run(scene.location || '', scene.time || null, scene.prompt || null, scene.prompt || null, scene.image_url || null, scene.local_path || null, now, now);
+  log.info('Scene added to material library (global)', { scene_id: sceneId, library_item_id: info.lastInsertRowid });
   return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)) };
 }
 
@@ -131,4 +143,5 @@ module.exports = {
   updateLibraryItem,
   deleteLibraryItem,
   addSceneToLibrary,
+  addSceneToMaterialLibrary,
 };

@@ -328,6 +328,7 @@ function ensureAllColumns(database) {
 
   // --- character_libraries ---
   ensureColumns(database, 'character_libraries', [
+    { name: 'drama_id',    type: 'INTEGER' },   // NULL = 全局素材库；有值 = 本剧专属
     { name: 'name',        type: 'TEXT NOT NULL DEFAULT \'\'' },
     { name: 'category',    type: 'TEXT' },
     { name: 'image_url',   type: 'TEXT' },
@@ -342,6 +343,7 @@ function ensureAllColumns(database) {
 
   // --- scene_libraries ---
   ensureColumns(database, 'scene_libraries', [
+    { name: 'drama_id',    type: 'INTEGER' },   // NULL = 全局素材库
     { name: 'location',    type: 'TEXT NOT NULL DEFAULT \'\'' },
     { name: 'time',        type: 'TEXT' },
     { name: 'prompt',      type: 'TEXT' },
@@ -358,6 +360,7 @@ function ensureAllColumns(database) {
 
   // --- prop_libraries ---
   ensureColumns(database, 'prop_libraries', [
+    { name: 'drama_id',    type: 'INTEGER' },   // NULL = 全局素材库
     { name: 'name',        type: 'TEXT NOT NULL DEFAULT \'\'' },
     { name: 'description', type: 'TEXT' },
     { name: 'prompt',      type: 'TEXT' },

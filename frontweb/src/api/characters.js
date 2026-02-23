@@ -22,5 +22,8 @@ export const characterAPI = {
   },
   addToLibrary(characterId, body) {
     return request.post(`/characters/${characterId}/add-to-library`, body || {})
+  },
+  addToMaterialLibrary(characterId) {
+    return request.post(`/characters/${characterId}/add-to-material-library`, {})
   }
 }

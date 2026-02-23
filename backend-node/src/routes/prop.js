@@ -93,14 +93,26 @@ function addToLibrary(db, log) {
   return (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) return response.badRequest(res, '无效的ID');
-    const category = (req.body || {}).category;
-    const out = propLibraryService.addPropToLibrary(db, log, id, category);
+    const out = propLibraryService.addPropToLibrary(db, log, id);
     if (!out.ok) {
       if (out.error === 'prop not found') return response.notFound(res, '道具不存在');
       if (out.error === 'unauthorized') return response.forbidden(res, '无权限');
       return response.badRequest(res, out.error);
     }
-    response.success(res, { message: '已加入道具库', item: out.item });
+    response.success(res, { message: '已加入本剧道具库', item: out.item });
+  };
+}
+
+function addToMaterialLibrary(db, log) {
+  return (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return response.badRequest(res, '无效的ID');
+    const out = propLibraryService.addPropToMaterialLibrary(db, log, id);
+    if (!out.ok) {
+      if (out.error === 'prop not found') return response.notFound(res, '道具不存在');
+      return response.badRequest(res, out.error);
+    }
+    response.success(res, { message: '已加入全局素材库', item: out.item });
   };
 }
 
@@ -114,5 +126,6 @@ module.exports = function propRoutes(db, log) {
     extractProps: extractProps(db, log),
     associateProps: associateProps(db, log),
     addToLibrary: addToLibrary(db, log),
+    addToMaterialLibrary: addToMaterialLibrary(db, log),
   };
 };

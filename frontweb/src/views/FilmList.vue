@@ -6,13 +6,13 @@
         <!-- 公共资源库（左侧，靛紫调） -->
         <div class="header-library">
           <el-button class="btn-library" @click="showCharLibrary = true">
-            <el-icon><User /></el-icon>公共角色
+            <el-icon><User /></el-icon>素材角色
           </el-button>
           <el-button class="btn-library" @click="showSceneLibrary = true">
-            <el-icon><PictureFilled /></el-icon>公共场景
+            <el-icon><PictureFilled /></el-icon>素材场景
           </el-button>
           <el-button class="btn-library" @click="showPropLibrary = true">
-            <el-icon><Box /></el-icon>公共道具
+            <el-icon><Box /></el-icon>素材道具
           </el-button>
         </div>
         <!-- 右侧操作区 -->
@@ -86,7 +86,7 @@
     </el-dialog>
 
     <!-- 公共角色库 -->
-    <el-dialog v-model="showCharLibrary" title="公共角色" width="720px" destroy-on-close class="library-dialog" @open="loadCharLibraryList">
+    <el-dialog v-model="showCharLibrary" title="素材库 · 角色" width="720px" destroy-on-close class="library-dialog" @open="loadCharLibraryList">
       <div class="library-toolbar">
         <el-input v-model="charLibraryKeyword" placeholder="搜索名称或描述" clearable style="width: 200px" @input="debouncedLoadCharLibrary()" />
       </div>
@@ -105,7 +105,7 @@
             </div>
           </div>
         </div>
-        <div v-if="!charLibraryLoading && charLibraryList.length === 0" class="library-empty">暂无公共角色，可在项目中将角色「加入公共库」后在此查看</div>
+        <div v-if="!charLibraryLoading && charLibraryList.length === 0" class="library-empty">素材库暂无角色，可在项目中将角色「加入素材库」后在此查看</div>
       </div>
       <div class="library-pagination">
         <el-pagination v-model:current-page="charLibraryPage" v-model:page-size="charLibraryPageSize" :total="charLibraryTotal" :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next" @current-change="loadCharLibraryList" @size-change="loadCharLibraryList" />
@@ -127,7 +127,7 @@
     </el-dialog>
 
     <!-- 公共场景库 -->
-    <el-dialog v-model="showSceneLibrary" title="公共场景" width="720px" destroy-on-close class="library-dialog" @open="loadSceneLibraryList">
+    <el-dialog v-model="showSceneLibrary" title="素材库 · 场景" width="720px" destroy-on-close class="library-dialog" @open="loadSceneLibraryList">
       <div class="library-toolbar">
         <el-input v-model="sceneLibraryKeyword" placeholder="搜索地点或描述" clearable style="width: 200px" @input="debouncedLoadSceneLibrary()" />
       </div>
@@ -146,7 +146,7 @@
             </div>
           </div>
         </div>
-        <div v-if="!sceneLibraryLoading && sceneLibraryList.length === 0" class="library-empty">暂无公共场景，可在项目中将场景「加入公共库」后在此查看</div>
+        <div v-if="!sceneLibraryLoading && sceneLibraryList.length === 0" class="library-empty">素材库暂无场景，可在项目中将场景「加入素材库」后在此查看</div>
       </div>
       <div class="library-pagination">
         <el-pagination v-model:current-page="sceneLibraryPage" v-model:page-size="sceneLibraryPageSize" :total="sceneLibraryTotal" :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next" @current-change="loadSceneLibraryList" @size-change="loadSceneLibraryList" />
@@ -169,7 +169,7 @@
     </el-dialog>
 
     <!-- 公共道具库 -->
-    <el-dialog v-model="showPropLibrary" title="公共道具" width="720px" destroy-on-close class="library-dialog" @open="loadPropLibraryList">
+    <el-dialog v-model="showPropLibrary" title="素材库 · 道具" width="720px" destroy-on-close class="library-dialog" @open="loadPropLibraryList">
       <div class="library-toolbar">
         <el-input v-model="propLibraryKeyword" placeholder="搜索名称或描述" clearable style="width: 200px" @input="debouncedLoadPropLibrary()" />
       </div>
@@ -188,7 +188,7 @@
             </div>
           </div>
         </div>
-        <div v-if="!propLibraryLoading && propLibraryList.length === 0" class="library-empty">暂无公共道具，可在项目中将道具「加入公共库」后在此查看</div>
+        <div v-if="!propLibraryLoading && propLibraryList.length === 0" class="library-empty">素材库暂无道具，可在项目中将道具「加入素材库」后在此查看</div>
       </div>
       <div class="library-pagination">
         <el-pagination v-model:current-page="propLibraryPage" v-model:page-size="propLibraryPageSize" :total="propLibraryTotal" :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next" @current-change="loadPropLibraryList" @size-change="loadPropLibraryList" />
@@ -494,7 +494,7 @@ async function submitEdit() {
 }
 
 function openProject(id) {
-  router.push('/film/' + id)
+  router.push('/drama/' + id)
 }
 
 async function onDelete(d) {

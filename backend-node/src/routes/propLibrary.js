@@ -5,7 +5,7 @@ function routes(db, cfg, log) {
   return {
     list: (req, res) => {
       try {
-        const query = { page: req.query.page, page_size: req.query.page_size, category: req.query.category, source_type: req.query.source_type, keyword: req.query.keyword };
+        const query = { page: req.query.page, page_size: req.query.page_size, drama_id: req.query.drama_id, category: req.query.category, source_type: req.query.source_type, keyword: req.query.keyword };
         const { items, total, page, pageSize } = propLibraryService.listLibraryItems(db, query);
         response.successWithPagination(res, items, total, page, pageSize);
       } catch (err) {

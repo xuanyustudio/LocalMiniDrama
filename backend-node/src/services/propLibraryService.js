@@ -4,6 +4,7 @@ const propService = require('./propService');
 function rowToItem(r) {
   return {
     id: r.id,
+    drama_id: r.drama_id ?? null,
     name: r.name,
     description: r.description,
     prompt: r.prompt,
@@ -20,6 +21,10 @@ function rowToItem(r) {
 function listLibraryItems(db, query) {
   let sql = 'FROM prop_libraries WHERE deleted_at IS NULL';
   const params = [];
+  if (query.drama_id != null && query.drama_id !== '') {
+    sql += ' AND drama_id = ?';
+    params.push(Number(query.drama_id));
+  }
   if (query.category) {
     sql += ' AND category = ?';
     params.push(query.category);
@@ -46,9 +51,10 @@ function createLibraryItem(db, log, req) {
   const now = new Date().toISOString();
   const sourceType = req.source_type || 'generated';
   const info = db.prepare(
-    `INSERT INTO prop_libraries (name, description, prompt, image_url, local_path, category, tags, source_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO prop_libraries (drama_id, name, description, prompt, image_url, local_path, category, tags, source_type, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
+    req.drama_id ?? null,
     req.name || '',
     req.description ?? null,
     req.prompt ?? null,
@@ -97,26 +103,33 @@ function deleteLibraryItem(db, log, id) {
   return true;
 }
 
-function addPropToLibrary(db, log, propId, category) {
+// 加入本剧资源库（带 drama_id）
+function addPropToLibrary(db, log, propId) {
   const prop = propService.getById(db, Number(propId));
   if (!prop) return { ok: false, error: 'prop not found' };
   const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(prop.drama_id);
   if (!drama) return { ok: false, error: 'unauthorized' };
-  if (!prop.image_url) return { ok: false, error: '道具还没有形象图片' };
+  if (!prop.image_url && !prop.local_path) return { ok: false, error: '道具还没有形象图片' };
   const now = new Date().toISOString();
   const info = db.prepare(
-    `INSERT INTO prop_libraries (name, description, prompt, image_url, local_path, source_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'prop', ?, ?)`
-  ).run(
-    prop.name || '',
-    prop.description || null,
-    prop.prompt || null,
-    prop.image_url,
-    prop.local_path || null,
-    now,
-    now
-  );
-  log.info('Prop added to library', { prop_id: propId, library_item_id: info.lastInsertRowid });
+    `INSERT INTO prop_libraries (drama_id, name, description, prompt, image_url, local_path, source_type, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'prop', ?, ?)`
+  ).run(prop.drama_id, prop.name || '', prop.description || null, prop.prompt || null, prop.image_url || null, prop.local_path || null, now, now);
+  log.info('Prop added to drama library', { prop_id: propId, drama_id: prop.drama_id, library_item_id: info.lastInsertRowid });
+  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)) };
+}
+
+// 加入全局素材库（drama_id = NULL）
+function addPropToMaterialLibrary(db, log, propId) {
+  const prop = propService.getById(db, Number(propId));
+  if (!prop) return { ok: false, error: 'prop not found' };
+  if (!prop.image_url && !prop.local_path) return { ok: false, error: '道具还没有形象图片' };
+  const now = new Date().toISOString();
+  const info = db.prepare(
+    `INSERT INTO prop_libraries (drama_id, name, description, prompt, image_url, local_path, source_type, created_at, updated_at)
+     VALUES (NULL, ?, ?, ?, ?, ?, 'prop', ?, ?)`
+  ).run(prop.name || '', prop.description || null, prop.prompt || null, prop.image_url || null, prop.local_path || null, now, now);
+  log.info('Prop added to material library (global)', { prop_id: propId, library_item_id: info.lastInsertRowid });
   return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)) };
 }
 
@@ -127,4 +140,5 @@ module.exports = {
   updateLibraryItem,
   deleteLibraryItem,
   addPropToLibrary,
+  addPropToMaterialLibrary,
 };

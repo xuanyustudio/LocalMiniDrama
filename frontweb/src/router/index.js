@@ -10,6 +10,12 @@ const router = createRouter({
       meta: { title: '项目列表' }
     },
     {
+      path: '/drama/:id',
+      name: 'drama-detail',
+      component: () => import('@/views/DramaDetail.vue'),
+      meta: { title: '剧集管理' }
+    },
+    {
       path: '/film/:id',
       name: 'film',
       component: () => import('@/views/FilmCreate.vue'),

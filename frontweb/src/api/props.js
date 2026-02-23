@@ -23,5 +23,8 @@ export const propAPI = {
   },
   addToLibrary(id, body = {}) {
     return request.post(`/props/${id}/add-to-library`, body)
+  },
+  addToMaterialLibrary(id) {
+    return request.post(`/props/${id}/add-to-material-library`, {})
   }
 }

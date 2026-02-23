@@ -63,7 +63,7 @@ function update(db, log, id, updates) {
   if (updates.description != null) { set.push('description = ?'); params.push(updates.description); }
   if (updates.prompt != null) { set.push('prompt = ?'); params.push(updates.prompt); }
   if (updates.image_url != null) { set.push('image_url = ?'); params.push(updates.image_url); }
-  if (updates.local_path != null) { set.push('local_path = ?'); params.push(updates.local_path); }
+  if (updates.local_path !== undefined) { set.push('local_path = ?'); params.push(updates.local_path ?? null); }
   if (set.length === 0) return existing;
   params.push(new Date().toISOString(), id);
   db.prepare('UPDATE props SET ' + set.join(', ') + ', updated_at = ? WHERE id = ?').run(...params);

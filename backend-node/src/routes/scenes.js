@@ -78,16 +78,28 @@ function routes(db, log) {
     },
     addToLibrary: (req, res) => {
       try {
-        const category = (req.body || {}).category;
-        const out = sceneLibraryService.addSceneToLibrary(db, log, req.params.scene_id, category);
+        const out = sceneLibraryService.addSceneToLibrary(db, log, req.params.scene_id);
         if (!out.ok) {
           if (out.error === 'scene not found') return response.notFound(res, '场景不存在');
           if (out.error === 'unauthorized') return response.forbidden(res, '无权限');
           return response.badRequest(res, out.error);
         }
-        response.success(res, { message: '已加入场景库', item: out.item });
+        response.success(res, { message: '已加入本剧场景库', item: out.item });
       } catch (err) {
         log.error('scenes add-to-library', { error: err.message });
+        response.internalError(res, err.message);
+      }
+    },
+    addToMaterialLibrary: (req, res) => {
+      try {
+        const out = sceneLibraryService.addSceneToMaterialLibrary(db, log, req.params.scene_id);
+        if (!out.ok) {
+          if (out.error === 'scene not found') return response.notFound(res, '场景不存在');
+          return response.badRequest(res, out.error);
+        }
+        response.success(res, { message: '已加入全局素材库', item: out.item });
+      } catch (err) {
+        log.error('scenes add-to-material-library', { error: err.message });
         response.internalError(res, err.message);
       }
     },
