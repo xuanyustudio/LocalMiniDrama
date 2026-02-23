@@ -58,6 +58,13 @@
             <div class="project-card-body">
               <h3 class="project-title">{{ d.title || '未命名项目' }}</h3>
               <p class="project-desc">{{ d.description || '暂无描述' }}</p>
+              <div class="project-badges">
+                <span class="badge badge-status" :class="'badge-status--' + (d.status || 'draft')">{{ formatStatus(d.status) }}</span>
+                <span v-if="d.episodes?.length" class="badge badge-episodes">{{ d.episodes.length }} 集</span>
+                <span v-if="totalStoryboards(d) > 0" class="badge badge-storyboards">{{ totalStoryboards(d) }} 分镜</span>
+                <span v-if="d.style" class="badge badge-style">{{ formatStyle(d.style) }}</span>
+                <span v-if="d.genre" class="badge badge-genre">{{ formatGenre(d.genre) }}</span>
+              </div>
               <p class="project-meta">{{ formatDate(d.updated_at) }}</p>
             </div>
           </div>
@@ -560,6 +567,39 @@ function formatDate(val) {
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
+function formatStatus(status) {
+  const map = { draft: '草稿', published: '已发布', archived: '已归档', generating: '生成中' }
+  return map[status] || status || '草稿'
+}
+
+function formatStyle(style) {
+  const map = {
+    realistic: '写实',
+    cinematic: '电影感',
+    'anime style': '日本动漫',
+    cyberpunk: '赛博朋克',
+    watercolor: '水彩',
+    'oil painting': '油画',
+    '3d render': '3D渲染',
+    'pixel art': '像素风',
+    anime: '动漫',
+    cartoon: '卡通',
+    fantasy: '奇幻',
+    sci_fi: '科幻',
+    historical: '古装',
+  }
+  return map[style] || style
+}
+
+function formatGenre(genre) {
+  const map = { drama: '剧情', comedy: '喜剧', adventure: '冒险', romance: '爱情', thriller: '悬疑', action: '动作', horror: '恐怖' }
+  return map[genre] || genre
+}
+
+function totalStoryboards(d) {
+  return (d.episodes || []).reduce((sum, ep) => sum + (ep.storyboards?.length || 0), 0)
+}
+
 function goNewProject() {
   showNewDialog.value = true
 }
@@ -800,6 +840,62 @@ html.light .btn-wechat {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.project-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.badge-status--draft {
+  background: rgba(113, 113, 122, 0.15);
+  color: #a1a1aa;
+  border: 1px solid rgba(113, 113, 122, 0.3);
+}
+.badge-status--published {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.badge-status--generating {
+  background: rgba(234, 179, 8, 0.12);
+  color: #fcd34d;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+.badge-status--archived {
+  background: rgba(99, 102, 241, 0.1);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+.badge-episodes {
+  background: rgba(14, 165, 233, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.28);
+}
+.badge-storyboards {
+  background: rgba(20, 184, 166, 0.12);
+  color: #2dd4bf;
+  border: 1px solid rgba(20, 184, 166, 0.28);
+}
+.badge-style {
+  background: rgba(168, 85, 247, 0.1);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+}
+.badge-genre {
+  background: rgba(249, 115, 22, 0.1);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.25);
 }
 .project-meta {
   font-size: 0.75rem;
