@@ -79,6 +79,12 @@
             </div>
             <div class="episode-title">{{ ep.title || '未命名' }}</div>
             <div class="episode-preview">{{ (ep.script_content || '').slice(0, 20) || '暂无剧本' }}</div>
+            <div class="episode-stats">
+              <span class="ep-stat">
+                <span class="ep-stat-num">{{ ep.storyboards?.length ?? 0 }}</span> 分镜
+              </span>
+              <span v-if="ep.status" class="ep-stat ep-stat--status" :class="'ep-status--' + ep.status">{{ epStatusLabel(ep.status) }}</span>
+            </div>
           </div>
         </div>
       </section>
@@ -857,6 +863,11 @@ function goEpisode(epId) {
   router.push(`/film/${dramaId}?episode=${epId}`)
 }
 
+function epStatusLabel(status) {
+  const map = { draft: '草稿', processing: '生成中', completed: '已完成', failed: '失败' }
+  return map[status] || status
+}
+
 const addingEpisode = ref(false)
 const deletingEpisodeId = ref(null)
 
@@ -1125,7 +1136,15 @@ onMounted(() => {
 .episode-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .episode-num { font-size: 0.8rem; color: #71717a; }
 .episode-title { font-weight: 500; color: #fafafa; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.episode-preview { font-size: 0.78rem; color: #71717a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.episode-preview { font-size: 0.78rem; color: #71717a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 8px; }
+.episode-stats { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ep-stat { font-size: 0.72rem; color: #71717a; }
+.ep-stat-num { color: #38bdf8; font-weight: 600; }
+.ep-stat--status { padding: 1px 7px; border-radius: 99px; font-size: 0.7rem; }
+.ep-status--draft { background: rgba(113,113,122,0.15); color: #a1a1aa; }
+.ep-status--processing { background: rgba(234,179,8,0.12); color: #fcd34d; }
+.ep-status--completed { background: rgba(34,197,94,0.12); color: #4ade80; }
+.ep-status--failed { background: rgba(239,68,68,0.12); color: #f87171; }
 
 /* 资源库 */
 .library-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }

@@ -9,10 +9,6 @@
           <el-icon><ArrowLeft /></el-icon>
           返回剧集
         </el-button>
-        <el-button class="btn-new" @click="goList">
-          <el-icon><Plus /></el-icon>
-          新建项目
-        </el-button>
         <el-button class="btn-theme" :title="isDark ? '切换到白天模式' : '切换到暗色模式'" @click="toggleTheme">
           <el-icon><Sunny v-if="isDark" /><Moon v-else /></el-icon>
           {{ isDark ? '白天' : '暗色' }}

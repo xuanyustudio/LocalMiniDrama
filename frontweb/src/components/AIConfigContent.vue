@@ -235,18 +235,39 @@
     <!-- 一键配置通义 -->
     <el-dialog
       v-model="oneKeyTongyiVisible"
-      title="一键配置通义"
-      width="440px"
+      title="一键配置通义千问 / 万象"
+      width="520px"
       :close-on-click-modal="false"
       @closed="oneKeyTongyiKey = ''"
     >
-      <p class="one-key-tip">将同时创建「文本」「图片」「视频」三条通义配置，只需填写一次 API Key。</p>
-      <el-form label-width="0">
+      <div class="one-key-help">
+        <div class="one-key-section">
+          <div class="one-key-section-title">📋 将自动创建以下配置</div>
+          <ul class="one-key-list">
+            <li><b>文本/对话</b>：通义千问（qwen-plus）— 生成故事剧本</li>
+            <li><b>文本生成图片</b>：通义万象（wan2.6-image）— 角色/场景/道具图</li>
+            <li><b>文本生成图片</b>：通义千问图像（qwen-image-max）— 角色/场景图备选</li>
+            <li><b>分镜图片生成</b>：通义万象（wan2.6-image）— 支持角色参考图</li>
+            <li><b>视频生成</b>：通义万相（wan2.2-kf2v-flash）— 生成视频片段</li>
+          </ul>
+        </div>
+        <div class="one-key-section">
+          <div class="one-key-section-title">🔑 如何申请 API Key</div>
+          <ol class="one-key-list">
+            <li>前往阿里云百炼控制台：<a href="https://bailian.console.aliyun.com/" target="_blank" class="one-key-link">bailian.console.aliyun.com</a></li>
+            <li>注册/登录阿里云账号，开通「百炼」服务（新用户有免费额度）</li>
+            <li>左侧菜单点击「API Key」→「创建 API Key」</li>
+            <li>复制生成的 Key（格式：<code>sk-xxxxxxxx</code>）填入下方</li>
+          </ol>
+          <p class="one-key-note">💡 通义一个 Key 同时支持文本、图片、视频等所有服务</p>
+        </div>
+      </div>
+      <el-form label-width="0" style="margin-top: 8px">
         <el-form-item>
           <el-input
             v-model="oneKeyTongyiKey"
             type="password"
-            placeholder="请输入通义（DashScope）API Key"
+            placeholder="请输入通义（DashScope）API Key，格式：sk-xxxxxxxx"
             show-password-on="click"
             clearable
           />
@@ -255,7 +276,7 @@
       <template #footer>
         <el-button @click="oneKeyTongyiVisible = false">取消</el-button>
         <el-button type="success" :loading="oneKeyTongyiSaving" :disabled="!oneKeyTongyiKey.trim()" @click="submitOneKeyTongyi">
-          确定
+          确定，一键创建配置
         </el-button>
       </template>
     </el-dialog>
@@ -263,13 +284,34 @@
     <!-- 一键配置火山 -->
     <el-dialog
       v-model="oneKeyVolcVisible"
-      title="一键配置火山"
-      width="440px"
+      title="一键配置火山引擎（方舟）"
+      width="520px"
       :close-on-click-modal="false"
       @closed="oneKeyVolcKey = ''"
     >
-      <p class="one-key-tip">将同时创建「文本」「图片」「视频」三条火山引擎配置，只需填写一次 API Key。</p>
-      <el-form label-width="0">
+      <div class="one-key-help">
+        <div class="one-key-section">
+          <div class="one-key-section-title">📋 将自动创建以下配置</div>
+          <ul class="one-key-list">
+            <li><b>文本/对话</b>：豆包 1.5 Pro（doubao-1-5-pro-32k-250115）— 生成故事剧本</li>
+            <li><b>文本生成图片</b>：即梦 4.5（doubao-seedream-4-5-251128）— 角色/场景/道具图</li>
+            <li><b>分镜图片生成</b>：即梦 4.5（doubao-seedream-4-5-251128）— 支持角色参考图</li>
+            <li><b>视频生成</b>：即梦 Seedance 1.5 Pro — 生成视频片段</li>
+          </ul>
+        </div>
+        <div class="one-key-section">
+          <div class="one-key-section-title">🔑 如何申请 API Key</div>
+          <ol class="one-key-list">
+            <li>前往火山引擎方舟控制台：<a href="https://console.volcengine.com/ark" target="_blank" class="one-key-link">console.volcengine.com/ark</a></li>
+            <li>注册/登录字节跳动火山引擎账号（新用户有免费 token 额度）</li>
+            <li>左侧菜单点击「API Key 管理」→「创建 API Key」</li>
+            <li>复制生成的 Key 填入下方</li>
+          </ol>
+          <p class="one-key-note">💡 方舟平台一个 Key 同时支持豆包文本、即梦图片与视频等所有服务</p>
+          <p class="one-key-note">⚠️ 视频生成需在控制台「开通」对应模型（即梦 Seedance）后方可使用</p>
+        </div>
+      </div>
+      <el-form label-width="0" style="margin-top: 8px">
         <el-form-item>
           <el-input
             v-model="oneKeyVolcKey"
@@ -283,7 +325,7 @@
       <template #footer>
         <el-button @click="oneKeyVolcVisible = false">取消</el-button>
         <el-button type="success" :loading="oneKeyVolcSaving" :disabled="!oneKeyVolcKey.trim()" @click="submitOneKeyVolc">
-          确定
+          确定，一键创建配置
         </el-button>
       </template>
     </el-dialog>
@@ -699,6 +741,55 @@ onMounted(() => loadList())
   color: #606266;
   font-size: 13px;
   line-height: 1.5;
+}
+.one-key-help {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.one-key-section {
+  background: var(--el-fill-color-light, #f5f7fa);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.one-key-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary, #303133);
+  margin-bottom: 8px;
+}
+.one-key-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--el-text-color-regular, #606266);
+  line-height: 1.8;
+}
+.one-key-list li {
+  margin-bottom: 2px;
+}
+.one-key-link {
+  color: var(--el-color-primary, #409eff);
+  text-decoration: none;
+}
+.one-key-link:hover {
+  text-decoration: underline;
+}
+.one-key-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  line-height: 1.5;
+}
+.one-key-note + .one-key-note {
+  margin-top: 4px;
+}
+code {
+  background: var(--el-fill-color, #f0f2f5);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: monospace;
 }
 .default-tip {
   margin: 0 0 16px;
