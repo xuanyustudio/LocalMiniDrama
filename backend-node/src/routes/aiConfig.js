@@ -70,6 +70,7 @@ function testConnection(log) {
         model: body.model,
         provider: body.provider,
         endpoint: body.endpoint,
+        service_type: body.service_type,
       });
       response.success(res, { message: '连接测试成功' });
     } catch (err) {

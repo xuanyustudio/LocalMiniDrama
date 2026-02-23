@@ -490,7 +490,8 @@ async function openTest(row) {
       api_key: row.api_key,
       model: Array.isArray(row.model) ? row.model[0] : row.model,
       provider: row.provider,
-      endpoint: row.endpoint
+      endpoint: row.endpoint,
+      service_type: row.service_type
     })
     testResult.value = true
   } catch (e) {

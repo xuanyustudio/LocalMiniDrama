@@ -83,6 +83,8 @@ function createConfig(db, log, req) {
       if (st === 'video') {
         endpoint = '/contents/generations/tasks';
         queryEndpoint = '/contents/generations/tasks/{taskId}';
+      } else if (st === 'image' || st === 'storyboard_image') {
+        endpoint = '/images/generations';
       }
     }
   }
@@ -215,8 +217,10 @@ async function testConnection(opts) {
   const model = models[0] || '';
   if (!model && (opts.provider === 'gemini' || opts.provider === 'google')) throw new Error('model 必填');
   const provider = (opts.provider || 'openai').toLowerCase();
+  const serviceType = (opts.service_type || '').toLowerCase();
   let endpoint = opts.endpoint || '';
 
+  // --- Gemini ---
   if (provider === 'gemini' || provider === 'google') {
     endpoint = endpoint || '/v1beta/models/{model}:generateContent';
     const path = endpoint.replace(/{model}/g, model || 'gemini-pro');
@@ -238,7 +242,112 @@ async function testConnection(opts) {
     return;
   }
 
-  // OpenAI / chatfire / 默认：OpenAI 兼容 chat completions
+  // service_type 作为主要判断信号
+  const isImageService = serviceType === 'image' || serviceType === 'storyboard_image';
+  const isVideoService = serviceType === 'video';
+  const hasImageEndpoint = !!(endpoint && endpoint.includes('/images/'));
+
+  const isDashscope = provider === 'dashscope' || provider === 'qwen_image';
+  const isVolcengine = provider === 'volces' || provider === 'volcengine' || provider === 'volc';
+  const modelLower = model.toLowerCase();
+
+  // 兜底识别图片/视频模型（service_type 未传时使用）
+  const looksLikeImageModel = /seedream|image2video|text2image|img2img|wanx|wan\d|flux|stable.?diff|dall.?e|imagen|-image$/i.test(modelLower)
+    || (isVolcengine && /seedream|vision|image/i.test(modelLower));
+  const looksLikeVideoModel = /seedance|video.?gen|video2video|kf2v|cogvideo|sora|kling/i.test(modelLower);
+  // DashScope 图片/视频专用端点特征
+  const isDashscopeNonChatEndpoint = isDashscope && !!(endpoint && (endpoint.includes('aigc') || endpoint.includes('multimodal') || endpoint.includes('video')));
+
+  // 综合判断是否为图片服务
+  const treatAsImage = isImageService || hasImageEndpoint || isDashscopeNonChatEndpoint
+    || looksLikeImageModel
+    || (isVolcengine && !serviceType && !endpoint);
+
+  // --- DashScope 图片 / 视频 / 分镜 ---
+  // 通义万象 / WAN 系列：API key 通过 compatible-mode chat 接口验证即可（同一 key 通用）
+  if (isDashscope && (isImageService || isVideoService || looksLikeImageModel || looksLikeVideoModel || isDashscopeNonChatEndpoint)) {
+    const chatUrl = base.replace(/\/(api\/v1|compatible-mode)\/.*$/, '') + '/compatible-mode/v1/chat/completions';
+    const body = { model: 'qwen-turbo', messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 };
+    console.log('[testConnection] DashScope 非文本服务，用 compatible chat 验证 key', { chatUrl, serviceType, model });
+    const res = await fetch(chatUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + opts.api_key },
+      body: JSON.stringify(body),
+    });
+    // 401/403 = key 无效，其他均视为联通
+    if (res.status === 401 || res.status === 403) {
+      const text = await res.text();
+      let errMsg = `API Key 无效 (${res.status})`;
+      try { const j = JSON.parse(text); errMsg = j.error?.message || j.message || errMsg; } catch {}
+      throw new Error(errMsg);
+    }
+    return;
+  }
+
+  // --- 视频生成服务（非 DashScope）：通过 chat/completions 验证 key 合法性 ---
+  // 视频生成 API 调用代价高昂，无法直接测试；但同账号 chat 接口验证 key 有效性即可
+  if (isVideoService || looksLikeVideoModel) {
+    const chatPath = '/chat/completions';
+    const url = base + chatPath;
+    const body = { model: model || '', messages: [{ role: 'user', content: 'hi' }], max_tokens: 1 };
+    console.log('[testConnection] 视频服务，用 chat/completions 验证 key', { url, serviceType, model });
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (opts.api_key || '') },
+      body: JSON.stringify(body),
+    });
+    // 401/403 = key 无效；其他（400 模型不存在等）视为联通
+    if (res.status === 401 || res.status === 403) {
+      const text = await res.text();
+      let errMsg = `API Key 无效 (${res.status})`;
+      try { const j = JSON.parse(text); errMsg = j.error?.message || j.message || errMsg; } catch {}
+      throw new Error(errMsg);
+    }
+    return;
+  }
+
+  // --- OpenAI 兼容图片生成（volcengine、OpenAI DALL·E、其他）---
+  if (treatAsImage) {
+    endpoint = endpoint || '/images/generations';
+    const path = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+    const url = base + path;
+    const body = { model: model || '', prompt: 'test connectivity', n: 1 };
+    console.log('[testConnection] 图片服务', { url, serviceType, model, body });
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + (opts.api_key || ''),
+      },
+      body: JSON.stringify(body),
+    });
+    // 401/403 = key 无效；其他状态（含 400 参数错误、429 限流等）表示已联通
+    if (res.status === 401 || res.status === 403) {
+      const text = await res.text();
+      let errMsg = `API Key 无效 (${res.status})`;
+      try {
+        const j = JSON.parse(text);
+        errMsg = j.error?.message || j.message || errMsg;
+      } catch {}
+      throw new Error(errMsg);
+    }
+    if (!res.ok) {
+      // 其他 4xx/5xx：如果能解析出明确的 auth 错误才拒绝，否则视为联通
+      const text = await res.text();
+      let parsed = null;
+      try { parsed = JSON.parse(text); } catch {}
+      const msg = parsed?.error?.message || parsed?.message || '';
+      const lmsg = msg.toLowerCase();
+      const isAuthErr = lmsg.includes('unauthorized') || lmsg.includes('invalid api key')
+        || lmsg.includes('authentication') || lmsg.includes('forbidden');
+      if (isAuthErr) throw new Error(`API Key 无效: ${msg || res.status}`);
+      // 其他错误（如模型不支持某个 API 参数）说明网络通、key 有效
+      return;
+    }
+    return;
+  }
+
+  // --- OpenAI / 默认：chat completions ---
   endpoint = endpoint || '/chat/completions';
   const path = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
   const url = base + path;
@@ -247,6 +356,7 @@ async function testConnection(opts) {
     messages: [{ role: 'user', content: 'Hello' }],
     max_tokens: 5,
   };
+  console.log('[testConnection] 文本/chat 服务', { url, serviceType, model });
   const res = await fetch(url, {
     method: 'POST',
     headers: {
