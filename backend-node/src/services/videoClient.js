@@ -264,7 +264,7 @@ async function callDashScopeVideoApi(config, log, opts) {
  * @returns {Promise<{ task_id?: string, video_url?: string, error?: string }>}
  */
 async function callVideoApi(db, log, opts) {
-  const { prompt, model: preferredModel, duration, aspect_ratio, image_url, video_gen_id } = opts;
+  const { prompt, model: preferredModel, duration, aspect_ratio, resolution, seed, camera_fixed, watermark, image_url, video_gen_id } = opts;
   const config = getDefaultVideoConfig(db, preferredModel);
   if (!config) {
     throw new Error('未配置视频模型，请在「AI 配置」中添加 video 类型且已启用的配置');
@@ -288,9 +288,8 @@ async function callVideoApi(db, log, opts) {
   }
 
   const url = buildVideoUrl(config);
-  const dur = duration || 5;
+  const dur = duration ? Number(duration) : 5;
   const ratio = aspect_ratio || '16:9';
-  const promptText = prompt + `  --ratio ${ratio}  --dur ${dur}`;
 
   const isVolc = ['volces', 'volcengine', 'volc'].includes((config.provider || '').toLowerCase());
   const hasImage = !!(image_url && image_url.trim());
@@ -316,10 +315,17 @@ async function callVideoApi(db, log, opts) {
     }
   }
 
+  // ratio、duration 等作为独立顶层字段传入（火山引擎/ChatFire 官方接口格式）
   const body = {
     model,
-    content: [{ type: 'text', text: promptText }],
+    content: [{ type: 'text', text: prompt || '' }],
+    ratio,
+    duration: dur,
+    watermark: (watermark != null) ? Boolean(watermark) : false,
   };
+  if (resolution) body.resolution = resolution;
+  if (seed != null) body.seed = Number(seed);
+  if (camera_fixed != null) body.camera_fixed = Boolean(camera_fixed);
   if (volcTaskType) body.task_type = volcTaskType;
   if (hasImage && imageUrlForApi) {
     const imagePart = { type: 'image_url', image_url: { url: imageUrlForApi } };

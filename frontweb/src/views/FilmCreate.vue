@@ -163,6 +163,12 @@
             <el-option label="4:3" value="4:3" />
             <el-option label="21:9 宽银幕" value="21:9" />
           </el-select>
+          <el-select v-model="videoClipDuration" style="width: 105px" @change="saveProjectSettings">
+            <el-option label="4秒/段" :value="4" />
+            <el-option label="5秒/段" :value="5" />
+            <el-option label="8秒/段" :value="8" />
+            <el-option label="10秒/段" :value="10" />
+          </el-select>
           <el-select v-model="generationStyle" placeholder="图片/视频风格" clearable style="width: 160px" @change="saveProjectSettings">
             <el-option v-for="opt in generationStyleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
           </el-select>
@@ -727,8 +733,9 @@
         <div class="config-grid">
           <el-form-item label="分辨率">
             <el-select v-model="videoResolution" style="width: 160px">
-              <el-option label="1920x1080" value="1920x1080" />
-              <el-option label="1280x720" value="1280x720" />
+              <el-option label="480p" value="480p" />
+              <el-option label="720p" value="720p" />
+              <el-option label="1080p" value="1080p" />
             </el-select>
           </el-form-item>
           <el-form-item label="配乐">
@@ -1134,6 +1141,7 @@ const scriptStoryboardStyle = ref('')
 const scriptGenerating = ref(false)
 const generationStyle = ref('')
 const projectAspectRatio = ref('16:9')
+const videoClipDuration = ref(5)
 const generationStyleOptions = [
   { label: '日本动漫', value: 'anime style' },
   { label: '写实', value: 'realistic' },
@@ -1599,6 +1607,7 @@ async function loadDrama() {
     storyType.value = d.genre || ''
     generationStyle.value = d.style || ''
     projectAspectRatio.value = (d.metadata && d.metadata.aspect_ratio) ? d.metadata.aspect_ratio : '16:9'
+    videoClipDuration.value = (d.metadata && d.metadata.video_clip_duration) ? Number(d.metadata.video_clip_duration) : 5
     const list = d.episodes || []
     // 优先保持当前选中的集（按 id 在最新列表中查找），避免 AI 生成角色等操作后误切到其他集
     const currentId = selectedEpisodeId.value
@@ -1739,11 +1748,14 @@ async function saveScriptToBackend(content) {
 
 async function saveProjectSettings() {
   if (!store.dramaId) return
-  // Don't block UI
   dramaAPI.saveOutline(store.dramaId, {
     genre: storyType.value || undefined,
     style: generationStyle.value || undefined,
-    metadata: { story_style: storyStyle.value || undefined, aspect_ratio: projectAspectRatio.value || '16:9' }
+    metadata: {
+      story_style: storyStyle.value || undefined,
+      aspect_ratio: projectAspectRatio.value || '16:9',
+      video_clip_duration: videoClipDuration.value || 5,
+    }
   }).catch(e => console.error('Settings auto-save failed', e))
 }
 
@@ -2713,7 +2725,9 @@ async function onGenerateSbVideo(sb) {
       reference_image_urls: absoluteUrl ? [absoluteUrl] : undefined,
       model: undefined,
       style: getSelectedStyle(),
-      aspect_ratio: projectAspectRatio.value
+      aspect_ratio: projectAspectRatio.value,
+      resolution: videoResolution.value || undefined,
+      duration: videoClipDuration.value || undefined,
     })
     if (res?.task_id) {
       const pollRes = await pollTask(res.task_id, () => loadStoryboardMedia())
@@ -3102,7 +3116,9 @@ async function runOneClickPipeline() {
           reference_image_urls: absoluteUrl ? [absoluteUrl] : undefined,
           model: undefined,
           style,
-          aspect_ratio: projectAspectRatio.value
+          aspect_ratio: projectAspectRatio.value,
+          resolution: videoResolution.value || undefined,
+          duration: videoClipDuration.value || undefined,
         })
         if (res?.task_id) {
           const result = await pollTaskWithPause(res.task_id, () => loadStoryboardMedia())
@@ -3316,7 +3332,9 @@ async function runRepairPipeline() {
           image_url: absoluteUrl || undefined,
           reference_image_urls: absoluteUrl ? [absoluteUrl] : undefined,
           model: undefined,
-          aspect_ratio: projectAspectRatio.value
+          aspect_ratio: projectAspectRatio.value,
+          resolution: videoResolution.value || undefined,
+          duration: videoClipDuration.value || undefined,
         })
         if (res?.task_id) {
           const result = await pollTaskWithPause(res.task_id, () => loadStoryboardMedia())

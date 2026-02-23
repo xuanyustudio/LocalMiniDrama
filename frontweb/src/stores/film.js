@@ -6,7 +6,7 @@ export const useFilmStore = defineStore('film', () => {
   const currentEpisode = ref(null)
   const storyInput = ref('')
   const scriptContent = ref('')
-  const videoResolution = ref('1920x1080')
+  const videoResolution = ref('720p')
   const videoProgress = ref(0)
   const videoStatus = ref('idle') // idle | generating | done | error
 

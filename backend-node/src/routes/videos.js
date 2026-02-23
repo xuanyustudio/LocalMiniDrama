@@ -34,6 +34,10 @@ function routes(db, log) {
         const model = body.model ?? null;
         const duration = body.duration ?? null;
         const aspectRatio = body.aspect_ratio ?? null;
+        const resolution = body.resolution ?? null;
+        const seed = body.seed != null ? Number(body.seed) : null;
+        const cameraFixed = body.camera_fixed != null ? (body.camera_fixed ? 1 : 0) : null;
+        const watermark = body.watermark != null ? (body.watermark ? 1 : 0) : 0;
         const imageUrl = body.image_url ?? null;
         // 首尾帧：支持 URL 或本地路径（与 Go 一致，存到 first_frame_url / last_frame_url）
         const firstFrameUrl = body.first_frame_url ?? body.first_frame_local_path ?? null;
@@ -44,9 +48,9 @@ function routes(db, log) {
             ? JSON.stringify(body.reference_image_urls.slice(0, 10))
             : null;
         db.prepare(
-          `INSERT INTO video_generations (drama_id, storyboard_id, provider, prompt, model, duration, aspect_ratio, image_url, first_frame_url, last_frame_url, reference_image_urls, status, task_id, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?)`
-        ).run(dramaId, storyboardId, provider, prompt, model, duration, aspectRatio, imageUrl, firstFrameUrl, lastFrameUrl, refImagesJson, task.id, now, now);
+          `INSERT INTO video_generations (drama_id, storyboard_id, provider, prompt, model, duration, aspect_ratio, resolution, seed, camera_fixed, watermark, image_url, first_frame_url, last_frame_url, reference_image_urls, status, task_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?)`
+        ).run(dramaId, storyboardId, provider, prompt, model, duration, aspectRatio, resolution, seed, cameraFixed, watermark, imageUrl, firstFrameUrl, lastFrameUrl, refImagesJson, task.id, now, now);
         const videoGenId = db.prepare('SELECT last_insert_rowid() as id').get().id;
         setImmediate(() => {
           videoService.processVideoGeneration(db, log, videoGenId);
