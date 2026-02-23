@@ -425,8 +425,9 @@ console.log("==c 用户提示词：",userPrompt);
   });
 
   setImmediate(() => {
-    // 传入 imageRatio 覆盖默认配置，以便 saveStoryboards 生成 VideoPrompt 时使用正确的比例
-    const runCfg = { ...cfg, style: { ...(cfg?.style || {}), default_video_ratio: imageRatio } };
+    // 传入 imageRatio 同时覆盖 default_video_ratio 和 default_image_ratio，
+    // 确保分镜图/视频提示词、场景提取提示词都使用项目设定的比例
+    const runCfg = { ...cfg, style: { ...(cfg?.style || {}), default_video_ratio: imageRatio, default_image_ratio: imageRatio } };
     // 如果 model 为 null，则传 undefined，让 generateText 内部去兜底找默认配置
     processStoryboardGeneration(db, log, runCfg, task.id, String(episodeId), model || undefined, finalStyle, userPrompt, systemPrompt);
   });

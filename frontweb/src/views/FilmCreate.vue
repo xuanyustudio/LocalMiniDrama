@@ -156,6 +156,13 @@
           class="story-textarea"
         />
         <div class="one-click-actions">
+          <el-select v-model="projectAspectRatio" style="width: 130px" @change="saveProjectSettings">
+            <el-option label="16:9 横屏" value="16:9" />
+            <el-option label="9:16 竖屏" value="9:16" />
+            <el-option label="1:1 方形" value="1:1" />
+            <el-option label="4:3" value="4:3" />
+            <el-option label="21:9 宽银幕" value="21:9" />
+          </el-select>
           <el-select v-model="generationStyle" placeholder="图片/视频风格" clearable style="width: 160px" @change="saveProjectSettings">
             <el-option v-for="opt in generationStyleOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
           </el-select>
@@ -1126,6 +1133,7 @@ const scriptLanguage = ref('zh')
 const scriptStoryboardStyle = ref('')
 const scriptGenerating = ref(false)
 const generationStyle = ref('')
+const projectAspectRatio = ref('16:9')
 const generationStyleOptions = [
   { label: '日本动漫', value: 'anime style' },
   { label: '写实', value: 'realistic' },
@@ -1590,6 +1598,7 @@ async function loadDrama() {
     storyStyle.value = (d.metadata && d.metadata.story_style) ? d.metadata.story_style : ''
     storyType.value = d.genre || ''
     generationStyle.value = d.style || ''
+    projectAspectRatio.value = (d.metadata && d.metadata.aspect_ratio) ? d.metadata.aspect_ratio : '16:9'
     const list = d.episodes || []
     // 优先保持当前选中的集（按 id 在最新列表中查找），避免 AI 生成角色等操作后误切到其他集
     const currentId = selectedEpisodeId.value
@@ -1686,7 +1695,7 @@ async function saveScriptToBackend(content) {
       description: storyInput.value?.trim() || trimmed.slice(0, 200),
       genre: storyType.value || undefined,
       style: generationStyle.value || undefined,
-      metadata: { story_style: storyStyle.value || undefined }
+      metadata: { story_style: storyStyle.value || undefined, aspect_ratio: projectAspectRatio.value || '16:9' }
     })
     store.setDrama(drama)
     dramaId = drama.id
@@ -1721,7 +1730,7 @@ async function saveScriptToBackend(content) {
       summary: storyInput.value.trim(),
       genre: storyType.value || undefined,
       style: generationStyle.value || undefined,
-      metadata: { story_style: storyStyle.value || undefined }
+      metadata: { story_style: storyStyle.value || undefined, aspect_ratio: projectAspectRatio.value || '16:9' }
     }).catch(() => {})
   }
   await loadDrama()
@@ -1734,7 +1743,7 @@ async function saveProjectSettings() {
   dramaAPI.saveOutline(store.dramaId, {
     genre: storyType.value || undefined,
     style: generationStyle.value || undefined,
-    metadata: { story_style: storyStyle.value || undefined }
+    metadata: { story_style: storyStyle.value || undefined, aspect_ratio: projectAspectRatio.value || '16:9' }
   }).catch(e => console.error('Settings auto-save failed', e))
 }
 
@@ -1770,7 +1779,7 @@ async function onGenerateStory() {
           summary: text,
           genre: storyType.value || undefined,
           style: generationStyle.value || undefined,
-          metadata: { story_style: storyStyle.value || undefined }
+          metadata: { story_style: storyStyle.value || undefined, aspect_ratio: projectAspectRatio.value || '16:9' }
         }).catch(() => {})
       }
     } catch (e) {
@@ -2703,7 +2712,8 @@ async function onGenerateSbVideo(sb) {
       image_url: absoluteUrl || undefined,
       reference_image_urls: absoluteUrl ? [absoluteUrl] : undefined,
       model: undefined,
-      style: getSelectedStyle()
+      style: getSelectedStyle(),
+      aspect_ratio: projectAspectRatio.value
     })
     if (res?.task_id) {
       const pollRes = await pollTask(res.task_id, () => loadStoryboardMedia())
@@ -2734,7 +2744,8 @@ async function onGenerateStoryboard() {
       model: undefined,
       style: getSelectedStyle(),
       storyboard_count: storyboardCount.value || undefined,
-      video_duration: videoDuration.value || undefined
+      video_duration: videoDuration.value || undefined,
+      aspect_ratio: projectAspectRatio.value
     })
     const taskId = res?.task_id ?? (typeof res === 'string' ? res : null)
     if (taskId) await pollTask(taskId, () => loadDrama())
@@ -3026,7 +3037,7 @@ async function runOneClickPipeline() {
     await checkPause()
     pipelineCurrentStep.value = '正在生成分镜...'
     try {
-      const res = await dramaAPI.generateStoryboard(episodeId, { style })
+      const res = await dramaAPI.generateStoryboard(episodeId, { style, aspect_ratio: projectAspectRatio.value })
       const taskId = res?.task_id ?? (typeof res === 'string' ? res : null)
       if (taskId) {
         const result = await pollTaskWithPause(taskId, () => loadDrama())
@@ -3090,7 +3101,8 @@ async function runOneClickPipeline() {
           image_url: absoluteUrl || undefined,
           reference_image_urls: absoluteUrl ? [absoluteUrl] : undefined,
           model: undefined,
-          style
+          style,
+          aspect_ratio: projectAspectRatio.value
         })
         if (res?.task_id) {
           const result = await pollTaskWithPause(res.task_id, () => loadStoryboardMedia())
@@ -3247,7 +3259,7 @@ async function runRepairPipeline() {
       await checkPause()
       pipelineCurrentStep.value = '正在生成分镜...'
       try {
-        const res = await dramaAPI.generateStoryboard(episodeId)
+        const res = await dramaAPI.generateStoryboard(episodeId, { aspect_ratio: projectAspectRatio.value })
         const taskId = res?.task_id ?? (typeof res === 'string' ? res : null)
         if (taskId) {
           const result = await pollTaskWithPause(taskId, () => loadDrama())
@@ -3303,7 +3315,8 @@ async function runRepairPipeline() {
           prompt: sb.video_prompt,
           image_url: absoluteUrl || undefined,
           reference_image_urls: absoluteUrl ? [absoluteUrl] : undefined,
-          model: undefined
+          model: undefined,
+          aspect_ratio: projectAspectRatio.value
         })
         if (res?.task_id) {
           const result = await pollTaskWithPause(res.task_id, () => loadStoryboardMedia())

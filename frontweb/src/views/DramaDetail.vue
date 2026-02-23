@@ -44,6 +44,17 @@
                 </el-select>
               </el-form-item>
             </el-col>
+            <el-col :span="12">
+              <el-form-item label="画面比例">
+                <el-select v-model="infoForm.aspect_ratio" style="width: 100%" @change="saveInfo">
+                  <el-option label="16:9 横屏（默认）" value="16:9" />
+                  <el-option label="9:16 竖屏（短视频）" value="9:16" />
+                  <el-option label="1:1 方形" value="1:1" />
+                  <el-option label="4:3 传统横屏" value="4:3" />
+                  <el-option label="21:9 宽银幕" value="21:9" />
+                </el-select>
+              </el-form-item>
+            </el-col>
             <el-col :span="24">
               <el-form-item label="故事梗概">
                 <el-input v-model="infoForm.description" type="textarea" :rows="3" placeholder="一句话描述故事梗概" @blur="saveInfo" />
@@ -811,7 +822,7 @@ const loading = ref(false)
 const drama = ref(null)
 const episodes = ref([])
 
-const infoForm = reactive({ title: '', description: '', genre: '', style: '' })
+const infoForm = reactive({ title: '', description: '', genre: '', style: '', aspect_ratio: '16:9' })
 
 function assetImageUrl(item) {
   if (!item) return ''
@@ -835,6 +846,7 @@ async function loadDrama() {
     infoForm.description = d.description || ''
     infoForm.genre = d.genre || ''
     infoForm.style = d.style || ''
+    infoForm.aspect_ratio = d.metadata?.aspect_ratio || '16:9'
   } catch (e) {
     ElMessage.error(e.message || '加载失败')
   } finally {
@@ -848,7 +860,7 @@ function saveInfo() {
   infoSaveTimer = setTimeout(async () => {
     try {
       await dramaAPI.update(dramaId, { title: infoForm.title, description: infoForm.description })
-      await dramaAPI.saveOutline(dramaId, { genre: infoForm.genre || undefined, style: infoForm.style || undefined })
+      await dramaAPI.saveOutline(dramaId, { genre: infoForm.genre || undefined, style: infoForm.style || undefined, metadata: { aspect_ratio: infoForm.aspect_ratio || '16:9' } })
     } catch (e) {
       console.error('saveInfo failed', e)
     }

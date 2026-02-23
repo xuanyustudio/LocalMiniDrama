@@ -107,10 +107,15 @@ html.light .library-item-desc { color: var(--text-muted) !important; }
 html.light .library-empty { color: var(--text-subtle) !important; }
 
 /* storyboard */
-html.light .sb-card {
+html.light .sb-card,
+html.light .storyboard-row {
   background: var(--bg-card) !important;
   border-color: var(--border-color) !important;
 }
+html.light .sb-panel {
+  border-color: var(--border-color) !important;
+}
+html.light .sb-panel-title { color: var(--text-bright) !important; }
 html.light .sb-video-placeholder {
   background: var(--bg-inner) !important;
   border-color: var(--border-color) !important;
@@ -124,8 +129,7 @@ html.light .block-header {
 }
 
 /* textarea / input overrides */
-html.light .story-textarea textarea,
-html.light .el-textarea__inner {
+html.light .story-textarea textarea {
   background: var(--bg-inner) !important;
   color: var(--text-primary) !important;
   border-color: var(--border-color) !important;
@@ -167,6 +171,7 @@ html.light .el-dialog__header { border-bottom-color: var(--border-color) !import
 html.light .el-dialog__title { color: var(--text-bright) !important; }
 
 html.light .el-input__wrapper,
+html.light .el-textarea,
 html.light .el-textarea__wrapper {
   background: var(--bg-inner) !important;
   box-shadow: 0 0 0 1px var(--border-color) !important;

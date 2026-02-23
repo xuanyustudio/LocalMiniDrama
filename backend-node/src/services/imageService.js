@@ -58,6 +58,22 @@ const imageClient = require('./imageClient');
 const taskService = require('./taskService');
 const uploadService = require('./uploadService');
 
+/**
+ * 将 aspect_ratio（如 "9:16"）转换为图片生成 size 字符串（如 "720*1280"）
+ * DashScope/Wan 用 W*H 格式，OpenAI 用 WxH 格式；统一返回 W*H，callDashScopeImageApi 内部会调 dashScopeSize 做最终校验
+ */
+function aspectRatioToSize(aspectRatio) {
+  const map = {
+    '16:9':  '1280*720',
+    '9:16':  '720*1280',
+    '1:1':   '1024*1024',
+    '4:3':   '1024*768',
+    '3:4':   '768*1024',
+    '21:9':  '1344*576',
+  };
+  return map[aspectRatio] || null;
+}
+
 function mergePromptWithStyle(prompt, style) {
   const base = (prompt || '').toString().trim();
   const styleText = (style || '').toString().trim();
@@ -189,10 +205,30 @@ async function processImageGeneration(db, log, imageGenId) {
     const storageLocalPath = path.isAbsolute(cfg.storage?.local_path)
       ? cfg.storage.local_path
       : path.join(process.cwd(), cfg.storage?.local_path || './data/storage');
+
+    // 若记录里没有 size，从 drama.metadata.aspect_ratio 推导
+    let imageSize = row.size || null;
+    if (!imageSize && row.drama_id) {
+      try {
+        const dramaRow = db.prepare('SELECT metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(row.drama_id);
+        if (dramaRow && dramaRow.metadata) {
+          const meta = typeof dramaRow.metadata === 'string' ? JSON.parse(dramaRow.metadata) : dramaRow.metadata;
+          if (meta && meta.aspect_ratio) {
+            imageSize = aspectRatioToSize(meta.aspect_ratio);
+          }
+        }
+      } catch (_) {}
+    }
+    // 兜底：使用全局配置的 default_image_ratio
+    if (!imageSize) {
+      const cfgRatio = cfg?.style?.default_image_ratio;
+      if (cfgRatio) imageSize = aspectRatioToSize(cfgRatio);
+    }
+
     const result = await imageClient.callImageApi(db, log, {
       prompt: row.prompt,
       model: row.model,
-      size: row.size,
+      size: imageSize,
       quality: row.quality,
       drama_id: row.drama_id,
       character_id: row.character_id,
