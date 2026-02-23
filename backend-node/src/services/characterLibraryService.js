@@ -54,8 +54,11 @@ function generateCharacterImage(db, log, cfg, characterId, modelName, style) {
 function listLibraryItems(db, query) {
   let sql = 'FROM character_libraries WHERE deleted_at IS NULL';
   const params = [];
-  // drama_id 过滤：传了就只看本剧；不传看全部（素材库全量视图）
-  if (query.drama_id != null && query.drama_id !== '') {
+  if (query.global === '1' || query.global === 1) {
+    // 仅全局素材库（drama_id IS NULL）
+    sql += ' AND drama_id IS NULL';
+  } else if (query.drama_id != null && query.drama_id !== '') {
+    // 本剧资源库
     sql += ' AND drama_id = ?';
     params.push(Number(query.drama_id));
   }

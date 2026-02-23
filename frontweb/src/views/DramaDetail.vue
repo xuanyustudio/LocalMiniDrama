@@ -23,7 +23,7 @@
       <!-- 基本信息 + 设置 -->
       <section class="section card">
         <div class="section-title">剧集信息</div>
-        <el-form :model="infoForm" label-width="90px" label-position="left" class="info-form">
+        <el-form :model="infoForm" label-width="110px" label-position="left" class="info-form">
           <el-row :gutter="24">
             <el-col :span="12">
               <el-form-item label="标题">
@@ -43,8 +43,10 @@
                   <el-option label="像素风" value="pixel art" />
                 </el-select>
               </el-form-item>
+            </el-col>
+            <el-col :span="24">
               <el-form-item label="故事梗概">
-                <el-input v-model="infoForm.description" type="textarea" :rows="2" placeholder="一句话描述故事" @blur="saveInfo" />
+                <el-input v-model="infoForm.description" type="textarea" :rows="3" placeholder="一句话描述故事梗概" @blur="saveInfo" />
               </el-form-item>
             </el-col>
           </el-row>
@@ -179,8 +181,21 @@
     </main>
 
     <!-- 编辑角色 -->
-    <el-dialog v-model="editCharVisible" title="编辑角色库" width="440px" @close="editCharForm = null">
+    <el-dialog v-model="editCharVisible" title="编辑角色库" width="480px" @close="editCharForm = null">
       <el-form v-if="editCharForm" label-width="80px">
+        <el-form-item label="图片">
+          <div class="lib-img-editor">
+            <div class="lib-img-thumb" @click="openPreview(assetImageUrl(editCharForm))">
+              <img v-if="editCharForm.image_url || editCharForm.local_path" :src="assetImageUrl(editCharForm)" />
+              <div v-else class="lib-img-empty"><el-icon><PictureFilled /></el-icon></div>
+            </div>
+            <div class="lib-img-btns">
+              <el-button size="small" :loading="editCharForm.imgUploading" @click="charFileRef.click()">上传图片</el-button>
+              <el-button size="small" type="primary" :loading="editCharForm.imgGenerating" @click="doGenerateLibImg(editCharForm, (editCharForm.name + (editCharForm.description ? ', ' + editCharForm.description : '')), characterLibraryAPI, loadCharList)">AI 生成</el-button>
+            </div>
+          </div>
+          <input ref="charFileRef" type="file" accept="image/*" style="display:none" @change="e => doUploadLibImg(e, editCharForm, characterLibraryAPI, loadCharList)" />
+        </el-form-item>
         <el-form-item label="名称"><el-input v-model="editCharForm.name" /></el-form-item>
         <el-form-item label="分类"><el-input v-model="editCharForm.category" placeholder="可选" /></el-form-item>
         <el-form-item label="描述"><el-input v-model="editCharForm.description" type="textarea" :rows="3" placeholder="可选" /></el-form-item>
@@ -193,8 +208,21 @@
     </el-dialog>
 
     <!-- 编辑场景 -->
-    <el-dialog v-model="editSceneVisible" title="编辑场景库" width="440px" @close="editSceneForm = null">
+    <el-dialog v-model="editSceneVisible" title="编辑场景库" width="480px" @close="editSceneForm = null">
       <el-form v-if="editSceneForm" label-width="80px">
+        <el-form-item label="图片">
+          <div class="lib-img-editor">
+            <div class="lib-img-thumb" @click="openPreview(assetImageUrl(editSceneForm))">
+              <img v-if="editSceneForm.image_url || editSceneForm.local_path" :src="assetImageUrl(editSceneForm)" />
+              <div v-else class="lib-img-empty"><el-icon><PictureFilled /></el-icon></div>
+            </div>
+            <div class="lib-img-btns">
+              <el-button size="small" :loading="editSceneForm.imgUploading" @click="sceneFileRef.click()">上传图片</el-button>
+              <el-button size="small" type="primary" :loading="editSceneForm.imgGenerating" @click="doGenerateLibImg(editSceneForm, ([editSceneForm.location, editSceneForm.time, editSceneForm.description].filter(Boolean).join(', ')), sceneLibraryAPI, loadSceneList)">AI 生成</el-button>
+            </div>
+          </div>
+          <input ref="sceneFileRef" type="file" accept="image/*" style="display:none" @change="e => doUploadLibImg(e, editSceneForm, sceneLibraryAPI, loadSceneList)" />
+        </el-form-item>
         <el-form-item label="地点"><el-input v-model="editSceneForm.location" /></el-form-item>
         <el-form-item label="时间"><el-input v-model="editSceneForm.time" placeholder="如：白天/夜晚" /></el-form-item>
         <el-form-item label="分类"><el-input v-model="editSceneForm.category" placeholder="可选" /></el-form-item>
@@ -208,8 +236,21 @@
     </el-dialog>
 
     <!-- 编辑道具 -->
-    <el-dialog v-model="editPropVisible" title="编辑道具库" width="440px" @close="editPropForm = null">
+    <el-dialog v-model="editPropVisible" title="编辑道具库" width="480px" @close="editPropForm = null">
       <el-form v-if="editPropForm" label-width="80px">
+        <el-form-item label="图片">
+          <div class="lib-img-editor">
+            <div class="lib-img-thumb" @click="openPreview(assetImageUrl(editPropForm))">
+              <img v-if="editPropForm.image_url || editPropForm.local_path" :src="assetImageUrl(editPropForm)" />
+              <div v-else class="lib-img-empty"><el-icon><PictureFilled /></el-icon></div>
+            </div>
+            <div class="lib-img-btns">
+              <el-button size="small" :loading="editPropForm.imgUploading" @click="propFileRef.click()">上传图片</el-button>
+              <el-button size="small" type="primary" :loading="editPropForm.imgGenerating" @click="doGenerateLibImg(editPropForm, (editPropForm.name + (editPropForm.description ? ', ' + editPropForm.description : '')), propLibraryAPI, loadPropList)">AI 生成</el-button>
+            </div>
+          </div>
+          <input ref="propFileRef" type="file" accept="image/*" style="display:none" @change="e => doUploadLibImg(e, editPropForm, propLibraryAPI, loadPropList)" />
+        </el-form-item>
         <el-form-item label="名称"><el-input v-model="editPropForm.name" /></el-form-item>
         <el-form-item label="分类"><el-input v-model="editPropForm.category" placeholder="可选" /></el-form-item>
         <el-form-item label="描述"><el-input v-model="editPropForm.description" type="textarea" :rows="3" placeholder="可选" /></el-form-item>
@@ -280,17 +321,76 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, VideoPlay, Plus, Delete, Sunny, Moon } from '@element-plus/icons-vue'
+import { ArrowLeft, VideoPlay, Plus, Delete, Sunny, Moon, PictureFilled } from '@element-plus/icons-vue'
 import { useTheme } from '@/composables/useTheme'
 import { dramaAPI } from '@/api/drama'
 import { characterLibraryAPI } from '@/api/characterLibrary'
 import { sceneLibraryAPI } from '@/api/sceneLibrary'
 import { propLibraryAPI } from '@/api/propLibrary'
+import { uploadAPI } from '@/api/upload'
+import { imagesAPI } from '@/api/images'
+import { taskAPI } from '@/api/task'
 
 const route = useRoute()
 const { isDark, toggle: toggleTheme } = useTheme()
 const router = useRouter()
 const dramaId = Number(route.params.id)
+
+// 图片编辑 – 文件输入 refs（各资源类型独立）
+const charFileRef  = ref(null)
+const sceneFileRef = ref(null)
+const propFileRef  = ref(null)
+
+// 共享：上传图片到库条目
+async function doUploadLibImg(event, form, api, reloadFn) {
+  const file = event.target?.files?.[0]
+  if (event.target) event.target.value = ''
+  if (!file || !form?.id) return
+  form.imgUploading = true
+  try {
+    const res = await uploadAPI.uploadImage(file)
+    const data = res?.data ?? res
+    const url = data?.url || data?.path || data?.local_path
+    if (!url) { ElMessage.error('上传未返回地址'); return }
+    form.image_url = url
+    form.local_path = data?.local_path ?? null
+    await api.update(form.id, { image_url: url, local_path: null })
+    reloadFn()
+    ElMessage.success('图片已更新')
+  } catch (e) { ElMessage.error(e.message || '上传失败') }
+  finally { form.imgUploading = false }
+}
+
+// 共享：AI 生成图片到库条目
+async function doGenerateLibImg(form, prompt, api, reloadFn) {
+  if (!prompt?.trim()) { ElMessage.warning('请先填写名称或描述'); return }
+  form.imgGenerating = true
+  try {
+    const res = await imagesAPI.create({ prompt: prompt.trim(), drama_id: dramaId || null })
+    const imgData = res?.data ?? res
+    const taskId = imgData?.task_id
+    if (!taskId) throw new Error('未返回任务ID')
+    let task = null
+    for (let i = 0; i < 300; i++) {
+      await new Promise(r => setTimeout(r, 1500))
+      const tr = await taskAPI.get(taskId)
+      task = tr?.data ?? tr
+      if (task.status === 'completed') break
+      if (task.status === 'failed') throw new Error(task.error || '生成失败')
+    }
+    if (!task || task.status !== 'completed') throw new Error('生成超时')
+    const result = task.result
+    const imageUrl = result?.image_url
+    const localPath = result?.local_path ?? null
+    if (!imageUrl && !localPath) throw new Error('未获取到图片地址')
+    form.image_url = imageUrl || ''
+    form.local_path = localPath
+    await api.update(form.id, { image_url: imageUrl || null, local_path: localPath })
+    reloadFn()
+    ElMessage.success('AI 图片已生成')
+  } catch (e) { ElMessage.error(e.message || '生成失败') }
+  finally { form.imgGenerating = false }
+}
 
 const loading = ref(false)
 const drama = ref(null)
@@ -421,10 +521,16 @@ async function loadCharList() {
 }
 function onCharKwInput() { if (charKwTimer) clearTimeout(charKwTimer); charKwTimer = setTimeout(() => { charPage.value = 1; loadCharList() }, 300) }
 const editCharVisible = ref(false), editCharForm = ref(null), editCharSaving = ref(false)
-function openEditChar(item) { editCharForm.value = { id: item.id, name: item.name ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '' }; editCharVisible.value = true }
+function openEditChar(item) {
+  editCharForm.value = { id: item.id, name: item.name ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '', image_url: item.image_url ?? '', local_path: item.local_path ?? null, imgUploading: false, imgGenerating: false }
+  editCharVisible.value = true
+}
 async function saveChar() {
   if (!editCharForm.value?.id) return; editCharSaving.value = true
-  try { await characterLibraryAPI.update(editCharForm.value.id, { name: editCharForm.value.name, category: editCharForm.value.category || null, description: editCharForm.value.description || null, tags: editCharForm.value.tags || null }); ElMessage.success('已保存'); editCharVisible.value = false; loadCharList() } catch (e) { ElMessage.error(e.message || '保存失败') } finally { editCharSaving.value = false }
+  try {
+    await characterLibraryAPI.update(editCharForm.value.id, { name: editCharForm.value.name, category: editCharForm.value.category || null, description: editCharForm.value.description || null, tags: editCharForm.value.tags || null, image_url: editCharForm.value.image_url || null, local_path: editCharForm.value.local_path ?? null })
+    ElMessage.success('已保存'); editCharVisible.value = false; loadCharList()
+  } catch (e) { ElMessage.error(e.message || '保存失败') } finally { editCharSaving.value = false }
 }
 async function deleteChar(item) {
   try { await ElMessageBox.confirm(`确定删除「${(item.name || '未命名').slice(0, 20)}」？`, '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) } catch { return }
@@ -443,10 +549,16 @@ async function loadSceneList() {
 }
 function onSceneKwInput() { if (sceneKwTimer) clearTimeout(sceneKwTimer); sceneKwTimer = setTimeout(() => { scenePage.value = 1; loadSceneList() }, 300) }
 const editSceneVisible = ref(false), editSceneForm = ref(null), editSceneSaving = ref(false)
-function openEditScene(item) { editSceneForm.value = { id: item.id, location: item.location ?? '', time: item.time ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '' }; editSceneVisible.value = true }
+function openEditScene(item) {
+  editSceneForm.value = { id: item.id, location: item.location ?? '', time: item.time ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '', image_url: item.image_url ?? '', local_path: item.local_path ?? null, imgUploading: false, imgGenerating: false }
+  editSceneVisible.value = true
+}
 async function saveScene() {
   if (!editSceneForm.value?.id) return; editSceneSaving.value = true
-  try { await sceneLibraryAPI.update(editSceneForm.value.id, { location: editSceneForm.value.location, time: editSceneForm.value.time || null, category: editSceneForm.value.category || null, description: editSceneForm.value.description || null, tags: editSceneForm.value.tags || null }); ElMessage.success('已保存'); editSceneVisible.value = false; loadSceneList() } catch (e) { ElMessage.error(e.message || '保存失败') } finally { editSceneSaving.value = false }
+  try {
+    await sceneLibraryAPI.update(editSceneForm.value.id, { location: editSceneForm.value.location, time: editSceneForm.value.time || null, category: editSceneForm.value.category || null, description: editSceneForm.value.description || null, tags: editSceneForm.value.tags || null, image_url: editSceneForm.value.image_url || null, local_path: editSceneForm.value.local_path ?? null })
+    ElMessage.success('已保存'); editSceneVisible.value = false; loadSceneList()
+  } catch (e) { ElMessage.error(e.message || '保存失败') } finally { editSceneSaving.value = false }
 }
 async function deleteScene(item) {
   const n = (item.location || item.time || '未命名').slice(0, 20)
@@ -466,10 +578,16 @@ async function loadPropList() {
 }
 function onPropKwInput() { if (propKwTimer) clearTimeout(propKwTimer); propKwTimer = setTimeout(() => { propPage.value = 1; loadPropList() }, 300) }
 const editPropVisible = ref(false), editPropForm = ref(null), editPropSaving = ref(false)
-function openEditProp(item) { editPropForm.value = { id: item.id, name: item.name ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '' }; editPropVisible.value = true }
+function openEditProp(item) {
+  editPropForm.value = { id: item.id, name: item.name ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '', image_url: item.image_url ?? '', local_path: item.local_path ?? null, imgUploading: false, imgGenerating: false }
+  editPropVisible.value = true
+}
 async function saveProp() {
   if (!editPropForm.value?.id) return; editPropSaving.value = true
-  try { await propLibraryAPI.update(editPropForm.value.id, { name: editPropForm.value.name, category: editPropForm.value.category || null, description: editPropForm.value.description || null, tags: editPropForm.value.tags || null }); ElMessage.success('已保存'); editPropVisible.value = false; loadPropList() } catch (e) { ElMessage.error(e.message || '保存失败') } finally { editPropSaving.value = false }
+  try {
+    await propLibraryAPI.update(editPropForm.value.id, { name: editPropForm.value.name, category: editPropForm.value.category || null, description: editPropForm.value.description || null, tags: editPropForm.value.tags || null, image_url: editPropForm.value.image_url || null, local_path: editPropForm.value.local_path ?? null })
+    ElMessage.success('已保存'); editPropVisible.value = false; loadPropList()
+  } catch (e) { ElMessage.error(e.message || '保存失败') } finally { editPropSaving.value = false }
 }
 async function deleteProp(item) {
   try { await ElMessageBox.confirm(`确定删除「${(item.name || '未命名').slice(0, 20)}」？`, '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) } catch { return }
@@ -501,7 +619,7 @@ async function loadImportList() {
     const api = importType.value === 'char' ? characterLibraryAPI
       : importType.value === 'scene' ? sceneLibraryAPI : propLibraryAPI
     // 不传 drama_id，获取全局素材库（所有记录）
-    const res = await api.list({ page: importPage.value, page_size: importPageSize.value, keyword: importKw.value || undefined })
+    const res = await api.list({ page: importPage.value, page_size: importPageSize.value, keyword: importKw.value || undefined, global: 1 })
     importList.value = res?.items ?? []
     importTotal.value = res?.pagination?.total ?? 0
   } catch { importList.value = [] } finally { importLoading.value = false }
@@ -615,6 +733,13 @@ onMounted(() => {
 .library-item-actions { display: flex; gap: 8px; }
 .library-empty { text-align: center; color: #71717a; padding: 40px 20px; }
 .library-pagination { margin-top: 12px; display: flex; justify-content: center; }
+
+/* 编辑弹框内图片区 */
+.lib-img-editor { display: flex; align-items: center; gap: 14px; }
+.lib-img-thumb { width: 88px; height: 88px; border-radius: 8px; overflow: hidden; cursor: zoom-in; background: var(--bg-inner, #1c1c1e); border: 1px solid var(--border-color, #27272a); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.lib-img-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.lib-img-empty { color: var(--text-faint, #52525b); font-size: 26px; }
+.lib-img-btns { display: flex; flex-direction: column; gap: 8px; }
 
 /* 图片预览 */
 .image-preview-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 9999; cursor: zoom-out; }

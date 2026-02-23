@@ -117,8 +117,21 @@
       <template #footer><el-button @click="showCharLibrary = false">关闭</el-button></template>
     </el-dialog>
     <!-- 编辑公共角色 -->
-    <el-dialog v-model="showEditCharLibrary" title="编辑公共角色" width="440px" @close="editCharLibraryForm = null">
+    <el-dialog v-model="showEditCharLibrary" title="编辑素材角色" width="480px" @close="editCharLibraryForm = null">
       <el-form v-if="editCharLibraryForm" label-width="80px">
+        <el-form-item label="图片">
+          <div class="lib-img-editor">
+            <div class="lib-img-thumb" @click="openImagePreview(assetImageUrl(editCharLibraryForm))">
+              <img v-if="editCharLibraryForm.image_url || editCharLibraryForm.local_path" :src="assetImageUrl(editCharLibraryForm)" />
+              <div v-else class="lib-img-empty"><el-icon><PictureFilled /></el-icon></div>
+            </div>
+            <div class="lib-img-btns">
+              <el-button size="small" :loading="editCharLibraryForm.imgUploading" @click="charLibFileRef.click()">上传图片</el-button>
+              <el-button size="small" type="primary" :loading="editCharLibraryForm.imgGenerating" @click="doGenerateLibImg(editCharLibraryForm, (editCharLibraryForm.name + (editCharLibraryForm.description ? ', ' + editCharLibraryForm.description : '')), characterLibraryAPI, loadCharLibraryList)">AI 生成</el-button>
+            </div>
+          </div>
+          <input ref="charLibFileRef" type="file" accept="image/*" style="display:none" @change="e => doUploadLibImg(e, editCharLibraryForm, characterLibraryAPI, loadCharLibraryList)" />
+        </el-form-item>
         <el-form-item label="名称"><el-input v-model="editCharLibraryForm.name" placeholder="角色名称" /></el-form-item>
         <el-form-item label="分类"><el-input v-model="editCharLibraryForm.category" placeholder="可选" /></el-form-item>
         <el-form-item label="描述"><el-input v-model="editCharLibraryForm.description" type="textarea" :rows="3" placeholder="可选" /></el-form-item>
@@ -158,8 +171,21 @@
       <template #footer><el-button @click="showSceneLibrary = false">关闭</el-button></template>
     </el-dialog>
     <!-- 编辑公共场景 -->
-    <el-dialog v-model="showEditSceneLibrary" title="编辑公共场景" width="440px" @close="editSceneLibraryForm = null">
+    <el-dialog v-model="showEditSceneLibrary" title="编辑素材场景" width="480px" @close="editSceneLibraryForm = null">
       <el-form v-if="editSceneLibraryForm" label-width="80px">
+        <el-form-item label="图片">
+          <div class="lib-img-editor">
+            <div class="lib-img-thumb" @click="openImagePreview(assetImageUrl(editSceneLibraryForm))">
+              <img v-if="editSceneLibraryForm.image_url || editSceneLibraryForm.local_path" :src="assetImageUrl(editSceneLibraryForm)" />
+              <div v-else class="lib-img-empty"><el-icon><PictureFilled /></el-icon></div>
+            </div>
+            <div class="lib-img-btns">
+              <el-button size="small" :loading="editSceneLibraryForm.imgUploading" @click="sceneLibFileRef.click()">上传图片</el-button>
+              <el-button size="small" type="primary" :loading="editSceneLibraryForm.imgGenerating" @click="doGenerateLibImg(editSceneLibraryForm, ([editSceneLibraryForm.location, editSceneLibraryForm.time, editSceneLibraryForm.description].filter(Boolean).join(', ')), sceneLibraryAPI, loadSceneLibraryList)">AI 生成</el-button>
+            </div>
+          </div>
+          <input ref="sceneLibFileRef" type="file" accept="image/*" style="display:none" @change="e => doUploadLibImg(e, editSceneLibraryForm, sceneLibraryAPI, loadSceneLibraryList)" />
+        </el-form-item>
         <el-form-item label="地点"><el-input v-model="editSceneLibraryForm.location" placeholder="场景地点" /></el-form-item>
         <el-form-item label="时间"><el-input v-model="editSceneLibraryForm.time" placeholder="如：白天/夜晚" /></el-form-item>
         <el-form-item label="分类"><el-input v-model="editSceneLibraryForm.category" placeholder="可选" /></el-form-item>
@@ -200,8 +226,21 @@
       <template #footer><el-button @click="showPropLibrary = false">关闭</el-button></template>
     </el-dialog>
     <!-- 编辑公共道具 -->
-    <el-dialog v-model="showEditPropLibrary" title="编辑公共道具" width="440px" @close="editPropLibraryForm = null">
+    <el-dialog v-model="showEditPropLibrary" title="编辑素材道具" width="480px" @close="editPropLibraryForm = null">
       <el-form v-if="editPropLibraryForm" label-width="80px">
+        <el-form-item label="图片">
+          <div class="lib-img-editor">
+            <div class="lib-img-thumb" @click="openImagePreview(assetImageUrl(editPropLibraryForm))">
+              <img v-if="editPropLibraryForm.image_url || editPropLibraryForm.local_path" :src="assetImageUrl(editPropLibraryForm)" />
+              <div v-else class="lib-img-empty"><el-icon><PictureFilled /></el-icon></div>
+            </div>
+            <div class="lib-img-btns">
+              <el-button size="small" :loading="editPropLibraryForm.imgUploading" @click="propLibFileRef.click()">上传图片</el-button>
+              <el-button size="small" type="primary" :loading="editPropLibraryForm.imgGenerating" @click="doGenerateLibImg(editPropLibraryForm, (editPropLibraryForm.name + (editPropLibraryForm.description ? ', ' + editPropLibraryForm.description : '')), propLibraryAPI, loadPropLibraryList)">AI 生成</el-button>
+            </div>
+          </div>
+          <input ref="propLibFileRef" type="file" accept="image/*" style="display:none" @change="e => doUploadLibImg(e, editPropLibraryForm, propLibraryAPI, loadPropLibraryList)" />
+        </el-form-item>
         <el-form-item label="名称"><el-input v-model="editPropLibraryForm.name" placeholder="道具名称" /></el-form-item>
         <el-form-item label="分类"><el-input v-model="editPropLibraryForm.category" placeholder="可选" /></el-form-item>
         <el-form-item label="描述"><el-input v-model="editPropLibraryForm.description" type="textarea" :rows="3" placeholder="可选" /></el-form-item>
@@ -255,9 +294,69 @@ import { characterLibraryAPI } from '@/api/characterLibrary'
 import { sceneLibraryAPI } from '@/api/sceneLibrary'
 import { propLibraryAPI } from '@/api/propLibrary'
 import AIConfigContent from '@/components/AIConfigContent.vue'
+import { uploadAPI } from '@/api/upload'
+import { imagesAPI } from '@/api/images'
+import { taskAPI } from '@/api/task'
 
 const router = useRouter()
 const { isDark, toggle: toggleTheme } = useTheme()
+
+// 库编辑图片 – 文件输入 refs
+const charLibFileRef  = ref(null)
+const sceneLibFileRef = ref(null)
+const propLibFileRef  = ref(null)
+
+// 共享：上传图片
+async function doUploadLibImg(event, form, api, reloadFn) {
+  const file = event.target?.files?.[0]
+  if (event.target) event.target.value = ''
+  if (!file || !form?.id) return
+  form.imgUploading = true
+  try {
+    const res = await uploadAPI.uploadImage(file)
+    const data = res?.data ?? res
+    const url = data?.url || data?.path || data?.local_path
+    if (!url) { ElMessage.error('上传未返回地址'); return }
+    form.image_url = url
+    form.local_path = data?.local_path ?? null
+    await api.update(form.id, { image_url: url, local_path: null })
+    reloadFn()
+    ElMessage.success('图片已更新')
+  } catch (e) { ElMessage.error(e.message || '上传失败') }
+  finally { form.imgUploading = false }
+}
+
+// 共享：AI 生成图片
+async function doGenerateLibImg(form, prompt, api, reloadFn) {
+  if (!prompt?.trim()) { ElMessage.warning('请先填写名称或描述'); return }
+  form.imgGenerating = true
+  try {
+    const res = await imagesAPI.create({ prompt: prompt.trim(), drama_id: null })
+    const imgData = res?.data ?? res
+    const taskId = imgData?.task_id
+    if (!taskId) throw new Error('未返回任务ID')
+    let task = null
+    for (let i = 0; i < 300; i++) {
+      await new Promise(r => setTimeout(r, 1500))
+      const tr = await taskAPI.get(taskId)
+      task = tr?.data ?? tr
+      if (task.status === 'completed') break
+      if (task.status === 'failed') throw new Error(task.error || '生成失败')
+    }
+    if (!task || task.status !== 'completed') throw new Error('生成超时')
+    const result = task.result
+    const imageUrl = result?.image_url
+    const localPath = result?.local_path ?? null
+    if (!imageUrl && !localPath) throw new Error('未获取到图片地址')
+    form.image_url = imageUrl || ''
+    form.local_path = localPath
+    await api.update(form.id, { image_url: imageUrl || null, local_path: localPath })
+    reloadFn()
+    ElMessage.success('AI 图片已生成')
+  } catch (e) { ElMessage.error(e.message || '生成失败') }
+  finally { form.imgGenerating = false }
+}
+
 const loading = ref(false)
 const dramas = ref([])
 const total = ref(0)
@@ -293,7 +392,7 @@ let charLibraryKeywordTimer = null
 async function loadCharLibraryList() {
   charLibraryLoading.value = true
   try {
-    const res = await characterLibraryAPI.list({ page: charLibraryPage.value, page_size: charLibraryPageSize.value, keyword: charLibraryKeyword.value || undefined })
+    const res = await characterLibraryAPI.list({ page: charLibraryPage.value, page_size: charLibraryPageSize.value, keyword: charLibraryKeyword.value || undefined, global: 1 })
     charLibraryList.value = res?.items ?? []
     const p = res?.pagination ?? {}
     charLibraryTotal.value = p.total ?? 0
@@ -306,14 +405,14 @@ function debouncedLoadCharLibrary() {
   charLibraryKeywordTimer = setTimeout(() => { charLibraryPage.value = 1; loadCharLibraryList() }, 300)
 }
 function openEditCharLibrary(item) {
-  editCharLibraryForm.value = { id: item.id, name: item.name ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '' }
+  editCharLibraryForm.value = { id: item.id, name: item.name ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '', image_url: item.image_url ?? '', local_path: item.local_path ?? null, imgUploading: false, imgGenerating: false }
   showEditCharLibrary.value = true
 }
 async function submitEditCharLibrary() {
   if (!editCharLibraryForm.value?.id) return
   editCharLibrarySaving.value = true
   try {
-    await characterLibraryAPI.update(editCharLibraryForm.value.id, { name: editCharLibraryForm.value.name, category: editCharLibraryForm.value.category || null, description: editCharLibraryForm.value.description || null, tags: editCharLibraryForm.value.tags || null })
+    await characterLibraryAPI.update(editCharLibraryForm.value.id, { name: editCharLibraryForm.value.name, category: editCharLibraryForm.value.category || null, description: editCharLibraryForm.value.description || null, tags: editCharLibraryForm.value.tags || null, image_url: editCharLibraryForm.value.image_url || null, local_path: editCharLibraryForm.value.local_path ?? null })
     ElMessage.success('已保存')
     showEditCharLibrary.value = false
     loadCharLibraryList()
@@ -340,7 +439,7 @@ let sceneLibraryKeywordTimer = null
 async function loadSceneLibraryList() {
   sceneLibraryLoading.value = true
   try {
-    const res = await sceneLibraryAPI.list({ page: sceneLibraryPage.value, page_size: sceneLibraryPageSize.value, keyword: sceneLibraryKeyword.value || undefined })
+    const res = await sceneLibraryAPI.list({ page: sceneLibraryPage.value, page_size: sceneLibraryPageSize.value, keyword: sceneLibraryKeyword.value || undefined, global: 1 })
     sceneLibraryList.value = res?.items ?? []
     const p = res?.pagination ?? {}
     sceneLibraryTotal.value = p.total ?? 0
@@ -353,14 +452,14 @@ function debouncedLoadSceneLibrary() {
   sceneLibraryKeywordTimer = setTimeout(() => { sceneLibraryPage.value = 1; loadSceneLibraryList() }, 300)
 }
 function openEditSceneLibrary(item) {
-  editSceneLibraryForm.value = { id: item.id, location: item.location ?? '', time: item.time ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '' }
+  editSceneLibraryForm.value = { id: item.id, location: item.location ?? '', time: item.time ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '', image_url: item.image_url ?? '', local_path: item.local_path ?? null, imgUploading: false, imgGenerating: false }
   showEditSceneLibrary.value = true
 }
 async function submitEditSceneLibrary() {
   if (!editSceneLibraryForm.value?.id) return
   editSceneLibrarySaving.value = true
   try {
-    await sceneLibraryAPI.update(editSceneLibraryForm.value.id, { location: editSceneLibraryForm.value.location, time: editSceneLibraryForm.value.time || null, category: editSceneLibraryForm.value.category || null, description: editSceneLibraryForm.value.description || null, tags: editSceneLibraryForm.value.tags || null })
+    await sceneLibraryAPI.update(editSceneLibraryForm.value.id, { location: editSceneLibraryForm.value.location, time: editSceneLibraryForm.value.time || null, category: editSceneLibraryForm.value.category || null, description: editSceneLibraryForm.value.description || null, tags: editSceneLibraryForm.value.tags || null, image_url: editSceneLibraryForm.value.image_url || null, local_path: editSceneLibraryForm.value.local_path ?? null })
     ElMessage.success('已保存')
     showEditSceneLibrary.value = false
     loadSceneLibraryList()
@@ -388,7 +487,7 @@ let propLibraryKeywordTimer = null
 async function loadPropLibraryList() {
   propLibraryLoading.value = true
   try {
-    const res = await propLibraryAPI.list({ page: propLibraryPage.value, page_size: propLibraryPageSize.value, keyword: propLibraryKeyword.value || undefined })
+    const res = await propLibraryAPI.list({ page: propLibraryPage.value, page_size: propLibraryPageSize.value, keyword: propLibraryKeyword.value || undefined, global: 1 })
     propLibraryList.value = res?.items ?? []
     const p = res?.pagination ?? {}
     propLibraryTotal.value = p.total ?? 0
@@ -401,14 +500,14 @@ function debouncedLoadPropLibrary() {
   propLibraryKeywordTimer = setTimeout(() => { propLibraryPage.value = 1; loadPropLibraryList() }, 300)
 }
 function openEditPropLibrary(item) {
-  editPropLibraryForm.value = { id: item.id, name: item.name ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '' }
+  editPropLibraryForm.value = { id: item.id, name: item.name ?? '', category: item.category ?? '', description: item.description ?? '', tags: item.tags ?? '', image_url: item.image_url ?? '', local_path: item.local_path ?? null, imgUploading: false, imgGenerating: false }
   showEditPropLibrary.value = true
 }
 async function submitEditPropLibrary() {
   if (!editPropLibraryForm.value?.id) return
   editPropLibrarySaving.value = true
   try {
-    await propLibraryAPI.update(editPropLibraryForm.value.id, { name: editPropLibraryForm.value.name, category: editPropLibraryForm.value.category || null, description: editPropLibraryForm.value.description || null, tags: editPropLibraryForm.value.tags || null })
+    await propLibraryAPI.update(editPropLibraryForm.value.id, { name: editPropLibraryForm.value.name, category: editPropLibraryForm.value.category || null, description: editPropLibraryForm.value.description || null, tags: editPropLibraryForm.value.tags || null, image_url: editPropLibraryForm.value.image_url || null, local_path: editPropLibraryForm.value.local_path ?? null })
     ElMessage.success('已保存')
     showEditPropLibrary.value = false
     loadPropLibraryList()
@@ -693,6 +792,13 @@ html.light .btn-theme {
 
 /* 公共库弹窗 */
 :global(.library-dialog .el-dialog__body) { padding-top: 8px; }
+
+/* 编辑弹框内图片区 */
+.lib-img-editor { display: flex; align-items: center; gap: 14px; }
+.lib-img-thumb { width: 88px; height: 88px; border-radius: 8px; overflow: hidden; cursor: zoom-in; background: var(--bg-inner, #1c1c1e); border: 1px solid var(--border-color, #27272a); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.lib-img-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.lib-img-empty { color: var(--text-faint, #52525b); font-size: 26px; }
+.lib-img-btns { display: flex; flex-direction: column; gap: 8px; }
 .library-toolbar { margin-bottom: 12px; }
 .library-list {
   min-height: 200px;

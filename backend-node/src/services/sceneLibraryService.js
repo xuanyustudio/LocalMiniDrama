@@ -22,7 +22,9 @@ function rowToItem(r) {
 function listLibraryItems(db, query) {
   let sql = 'FROM scene_libraries WHERE deleted_at IS NULL';
   const params = [];
-  if (query.drama_id != null && query.drama_id !== '') {
+  if (query.global === '1' || query.global === 1) {
+    sql += ' AND drama_id IS NULL';
+  } else if (query.drama_id != null && query.drama_id !== '') {
     sql += ' AND drama_id = ?';
     params.push(Number(query.drama_id));
   }
