@@ -1,0 +1,227 @@
+/* =====================================================
+   暗色模式（默认）— html.dark 或无类名时生效
+   ===================================================== */
+:root,
+html.dark {
+  --bg-page:       #0f0f12;
+  --bg-card:       #18181b;
+  --bg-inner:      #1c1c1e;
+  --bg-hover:      #27272a;
+  --border-color:  #27272a;
+  --border-muted:  #3f3f46;
+  --text-primary:  #e4e4e7;
+  --text-bright:   #fafafa;
+  --text-muted:    #a1a1aa;
+  --text-subtle:   #71717a;
+  --text-faint:    #52525b;
+  --shadow:        0 2px 12px rgba(0,0,0,.4);
+}
+
+/* =====================================================
+   亮色模式 — html.light 时生效
+   ===================================================== */
+html.light {
+  --bg-page:       #f4f4f5;
+  --bg-card:       #ffffff;
+  --bg-inner:      #fafafa;
+  --bg-hover:      #f0f0f1;
+  --border-color:  #e4e4e7;
+  --border-muted:  #d4d4d8;
+  --text-primary:  #18181b;
+  --text-bright:   #09090b;
+  --text-muted:    #52525b;
+  --text-subtle:   #71717a;
+  --text-faint:    #a1a1aa;
+  --shadow:        0 2px 12px rgba(0,0,0,.08);
+}
+
+/* ── 通用基础 ── */
+html, body, #app, .app {
+  background: var(--bg-page) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ── 各页面结构 ── */
+html.light .film-list,
+html.light .film-create,
+html.light .drama-detail {
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+
+/* header */
+html.light .header {
+  background: var(--bg-card) !important;
+  border-bottom-color: var(--border-color) !important;
+}
+html.light .logo { color: var(--text-bright) !important; }
+html.light .page-title { color: var(--text-muted) !important; }
+
+/* card / section */
+html.light .card,
+html.light .section.card {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+html.light .section-title { color: var(--text-bright) !important; }
+
+/* project card (FilmList) */
+html.light .project-card {
+  background: var(--bg-inner) !important;
+  border-color: var(--border-color) !important;
+}
+html.light .project-card:hover { border-color: var(--el-color-primary) !important; }
+html.light .project-title { color: var(--text-bright) !important; }
+html.light .project-desc { color: var(--text-muted) !important; }
+html.light .project-meta { color: var(--text-faint) !important; }
+
+/* episode card */
+html.light .episode-card {
+  background: var(--bg-inner) !important;
+  border-color: var(--border-color) !important;
+}
+html.light .episode-title { color: var(--text-bright) !important; }
+html.light .episode-num,
+html.light .episode-preview { color: var(--text-muted) !important; }
+
+/* quick-nav */
+html.light .quick-nav {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+html.light .nav-item:hover { background: var(--bg-hover) !important; }
+html.light .nav-label { color: var(--text-primary) !important; }
+html.light .nav-sub-item:hover { background: var(--bg-hover) !important; }
+
+/* asset / library items */
+html.light .asset-cover {
+  background: var(--bg-inner) !important;
+  border-color: var(--border-color) !important;
+}
+html.light .library-item {
+  background: var(--bg-inner) !important;
+  border-color: var(--border-color) !important;
+}
+html.light .library-item-name { color: var(--text-bright) !important; }
+html.light .library-item-desc { color: var(--text-muted) !important; }
+html.light .library-empty { color: var(--text-subtle) !important; }
+
+/* storyboard */
+html.light .sb-card {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+html.light .sb-video-placeholder {
+  background: var(--bg-inner) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* collapse / blocks */
+html.light .resource-block,
+html.light .block-header {
+  background: var(--bg-inner) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* textarea / input overrides */
+html.light .story-textarea textarea,
+html.light .el-textarea__inner {
+  background: var(--bg-inner) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* progress / pipeline */
+html.light .pipeline-panel {
+  background: var(--bg-inner) !important;
+  border-color: var(--border-color) !important;
+}
+html.light .pipeline-error-item { color: #dc2626 !important; }
+
+/* ── Element Plus 亮色覆盖 ── */
+html.light {
+  --el-bg-color: var(--bg-card);
+  --el-bg-color-page: var(--bg-page);
+  --el-bg-color-overlay: var(--bg-card);
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-primary);
+  --el-text-color-secondary: var(--text-muted);
+  --el-text-color-placeholder: var(--text-faint);
+  --el-border-color: var(--border-color);
+  --el-border-color-light: var(--border-muted);
+  --el-border-color-lighter: var(--border-muted);
+  --el-fill-color: var(--bg-inner);
+  --el-fill-color-blank: var(--bg-card);
+  --el-fill-color-light: var(--bg-hover);
+  --el-fill-color-lighter: var(--bg-hover);
+  --el-mask-color: rgba(255,255,255,.7);
+}
+
+html.light .el-card,
+html.light .el-dialog {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+html.light .el-dialog__header { border-bottom-color: var(--border-color) !important; }
+html.light .el-dialog__title { color: var(--text-bright) !important; }
+
+html.light .el-input__wrapper,
+html.light .el-textarea__wrapper {
+  background: var(--bg-inner) !important;
+  box-shadow: 0 0 0 1px var(--border-color) !important;
+}
+html.light .el-input__inner,
+html.light .el-textarea__inner {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+}
+
+html.light .el-select-dropdown {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+html.light .el-select-dropdown__item { color: var(--text-primary) !important; }
+html.light .el-select-dropdown__item.hover,
+html.light .el-select-dropdown__item:hover { background: var(--bg-hover) !important; }
+
+html.light .el-collapse-item__header,
+html.light .el-collapse-item__wrap {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+html.light .el-table,
+html.light .el-table__header-wrapper,
+html.light .el-table tr {
+  background: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+html.light .el-table td,
+html.light .el-table th { border-color: var(--border-color) !important; }
+
+html.light .el-pagination { color: var(--text-primary) !important; }
+html.light .el-pager li { background: var(--bg-inner) !important; color: var(--text-primary) !important; }
+
+html.light .el-radio-button__inner {
+  background: var(--bg-inner) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+html.light .el-radio-button__original-radio:checked + .el-radio-button__inner {
+  background: var(--el-color-primary) !important;
+  color: #fff !important;
+}
+
+html.light .el-message-box {
+  background: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+html.light .el-message-box__title { color: var(--text-bright) !important; }
+html.light .el-message-box__content { color: var(--text-primary) !important; }
+
+/* 标签、小字 */
+html.light span, html.light label, html.light p {
+  color: inherit;
+}

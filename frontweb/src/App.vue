@@ -15,7 +15,8 @@ html, body, #app, .app {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  background: var(--bg-page, #0f0f12);
-  color: var(--text-primary, #e4e4e7);
+  background: var(--bg-page);
+  color: var(--text-primary);
+  transition: background 0.25s, color 0.25s;
 }
 </style>

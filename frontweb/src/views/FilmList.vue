@@ -17,6 +17,10 @@
         </div>
         <!-- 右侧操作区 -->
         <div class="header-actions">
+          <el-button class="btn-theme" :title="isDark ? '切换到白天模式' : '切换到暗色模式'" @click="toggleTheme">
+            <el-icon><Sunny v-if="isDark" /><Moon v-else /></el-icon>
+            {{ isDark ? '白天' : '暗色' }}
+          </el-button>
           <el-button class="btn-settings" @click="showAiConfigDialog = true">
             <el-icon><Setting /></el-icon>AI配置
           </el-button>
@@ -244,7 +248,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, Setting, Plus, User, PictureFilled, Box } from '@element-plus/icons-vue'
+import { Edit, Delete, Setting, Plus, User, PictureFilled, Box, Sunny, Moon } from '@element-plus/icons-vue'
+import { useTheme } from '@/composables/useTheme'
 import { dramaAPI } from '@/api/drama'
 import { characterLibraryAPI } from '@/api/characterLibrary'
 import { sceneLibraryAPI } from '@/api/sceneLibrary'
@@ -252,6 +257,7 @@ import { propLibraryAPI } from '@/api/propLibrary'
 import AIConfigContent from '@/components/AIConfigContent.vue'
 
 const router = useRouter()
+const { isDark, toggle: toggleTheme } = useTheme()
 const loading = ref(false)
 const dramas = ref([])
 const total = ref(0)
@@ -571,6 +577,25 @@ onMounted(loadList)
   --el-button-hover-text-color: #c7d2fe;
   --el-button-active-bg-color: rgba(99, 102, 241, 0.3);
   --el-button-active-border-color: rgba(99, 102, 241, 0.7);
+}
+
+/* 主题切换按钮 */
+.btn-theme {
+  --el-button-bg-color: rgba(148, 163, 184, 0.1);
+  --el-button-border-color: rgba(148, 163, 184, 0.3);
+  --el-button-text-color: #94a3b8;
+  --el-button-hover-bg-color: rgba(148, 163, 184, 0.2);
+  --el-button-hover-border-color: rgba(148, 163, 184, 0.5);
+  --el-button-hover-text-color: #cbd5e1;
+  transition: all 0.2s;
+}
+html.light .btn-theme {
+  --el-button-bg-color: rgba(99, 102, 241, 0.08);
+  --el-button-border-color: rgba(99, 102, 241, 0.3);
+  --el-button-text-color: #6366f1;
+  --el-button-hover-bg-color: rgba(99, 102, 241, 0.15);
+  --el-button-hover-border-color: rgba(99, 102, 241, 0.5);
+  --el-button-hover-text-color: #4f46e5;
 }
 
 /* AI配置按钮 —— 琥珀调 */

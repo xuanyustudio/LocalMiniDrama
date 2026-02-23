@@ -13,6 +13,10 @@
           <el-icon><Plus /></el-icon>
           新建项目
         </el-button>
+        <el-button class="btn-theme" :title="isDark ? '切换到白天模式' : '切换到暗色模式'" @click="toggleTheme">
+          <el-icon><Sunny v-if="isDark" /><Moon v-else /></el-icon>
+          {{ isDark ? '白天' : '暗色' }}
+        </el-button>
         <el-button class="btn-ai-config" @click="showAiConfigDialog = true">
           <el-icon><Setting /></el-icon>
           AI配置
@@ -1072,7 +1076,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowUp, ArrowDown, ArrowLeft, Setting, Plus, Minus } from '@element-plus/icons-vue'
+import { ArrowUp, ArrowDown, ArrowLeft, Setting, Plus, Minus, Sunny, Moon } from '@element-plus/icons-vue'
+import { useTheme } from '@/composables/useTheme'
 import { useFilmStore } from '@/stores/film'
 import { dramaAPI } from '@/api/drama'
 import { generationAPI } from '@/api/generation'
@@ -1093,6 +1098,7 @@ import AIConfigContent from '@/components/AIConfigContent.vue'
 const route = useRoute()
 const router = useRouter()
 const store = useFilmStore()
+const { isDark, toggle: toggleTheme } = useTheme()
 const { videoResolution: storeVideoResolution } = storeToRefs(store)
 
 function goList() {
@@ -3409,6 +3415,23 @@ onMounted(() => {
 }
 .btn-back-drama {
   margin-left: auto;
+}
+.btn-theme {
+  --el-button-bg-color: rgba(148, 163, 184, 0.1);
+  --el-button-border-color: rgba(148, 163, 184, 0.3);
+  --el-button-text-color: #94a3b8;
+  --el-button-hover-bg-color: rgba(148, 163, 184, 0.2);
+  --el-button-hover-border-color: rgba(148, 163, 184, 0.5);
+  --el-button-hover-text-color: #cbd5e1;
+  transition: all 0.2s;
+}
+html.light .btn-theme {
+  --el-button-bg-color: rgba(99, 102, 241, 0.08);
+  --el-button-border-color: rgba(99, 102, 241, 0.3);
+  --el-button-text-color: #6366f1;
+  --el-button-hover-bg-color: rgba(99, 102, 241, 0.15);
+  --el-button-hover-border-color: rgba(99, 102, 241, 0.5);
+  --el-button-hover-text-color: #4f46e5;
 }
 /* 左侧快捷目录 */
 .quick-nav {

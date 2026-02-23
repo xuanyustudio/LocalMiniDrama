@@ -5,6 +5,10 @@
         <h1 class="logo" @click="router.push('/')">LocalMiniDrama.ai</h1>
         <span class="page-title">{{ drama?.title || '剧集管理' }}</span>
         <div class="header-actions">
+          <el-button class="btn-theme" :title="isDark ? '切换到白天模式' : '切换到暗色模式'" @click="toggleTheme">
+            <el-icon><Sunny v-if="isDark" /><Moon v-else /></el-icon>
+            {{ isDark ? '白天' : '暗色' }}
+          </el-button>
           <el-button @click="router.push('/')">
             <el-icon><ArrowLeft /></el-icon>返回列表
           </el-button>
@@ -59,9 +63,20 @@
         <div v-if="episodes.length === 0" class="empty-tip">暂无分集，点击「新增一集」开始创作</div>
         <div v-else class="episode-grid">
           <div v-for="ep in episodes" :key="ep.id" class="episode-card" @click="goEpisode(ep.id)">
-            <div class="episode-num">第 {{ ep.episode_number ?? ep.number ?? '?' }} 集</div>
+            <div class="episode-card-header">
+              <span class="episode-num">第 {{ ep.episode_number ?? ep.number ?? '?' }} 集</span>
+              <el-button
+                size="small"
+                type="danger"
+                plain
+                circle
+                :icon="Delete"
+                :loading="deletingEpisodeId === ep.id"
+                @click.stop="onDeleteEpisode(ep)"
+              />
+            </div>
             <div class="episode-title">{{ ep.title || '未命名' }}</div>
-            <div class="episode-meta">{{ ep.updated_at ? formatDate(ep.updated_at) : '' }}</div>
+            <div class="episode-preview">{{ (ep.script_content || '').slice(0, 20) || '暂无剧本' }}</div>
           </div>
         </div>
       </section>
@@ -265,13 +280,15 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, VideoPlay, Plus } from '@element-plus/icons-vue'
+import { ArrowLeft, VideoPlay, Plus, Delete, Sunny, Moon } from '@element-plus/icons-vue'
+import { useTheme } from '@/composables/useTheme'
 import { dramaAPI } from '@/api/drama'
 import { characterLibraryAPI } from '@/api/characterLibrary'
 import { sceneLibraryAPI } from '@/api/sceneLibrary'
 import { propLibraryAPI } from '@/api/propLibrary'
 
 const route = useRoute()
+const { isDark, toggle: toggleTheme } = useTheme()
 const router = useRouter()
 const dramaId = Number(route.params.id)
 
@@ -332,6 +349,36 @@ function goEpisode(epId) {
 }
 
 const addingEpisode = ref(false)
+const deletingEpisodeId = ref(null)
+
+async function onDeleteEpisode(ep) {
+  const label = `第 ${ep.episode_number ?? '?'} 集「${ep.title || '未命名'}」`
+  try {
+    await ElMessageBox.confirm(`确定删除 ${label}？此操作不可恢复。`, '删除确认', {
+      type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'
+    })
+  } catch { return }
+  deletingEpisodeId.value = ep.id
+  try {
+    const remaining = episodes.value
+      .filter((e) => e.id !== ep.id)
+      .map((e, i) => ({
+        episode_number: e.episode_number ?? i + 1,
+        title: e.title || '第' + (e.episode_number ?? i + 1) + '集',
+        script_content: e.script_content || '',
+        description: e.description ?? null,
+        duration: e.duration ?? 0,
+      }))
+    await dramaAPI.saveEpisodes(dramaId, remaining)
+    ElMessage.success(`${label} 已删除`)
+    await loadDrama()
+  } catch (e) {
+    ElMessage.error(e.message || '删除失败')
+  } finally {
+    deletingEpisodeId.value = null
+  }
+}
+
 async function onAddEpisode() {
   addingEpisode.value = true
   try {
@@ -548,9 +595,10 @@ onMounted(() => {
 .episode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 .episode-card { background: #1c1c1e; border: 1px solid #27272a; border-radius: 8px; padding: 16px; cursor: pointer; transition: border-color 0.2s; }
 .episode-card:hover { border-color: var(--el-color-primary); }
-.episode-num { font-size: 0.8rem; color: #71717a; margin-bottom: 4px; }
-.episode-title { font-weight: 500; color: #fafafa; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.episode-meta { font-size: 0.75rem; color: #52525b; }
+.episode-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.episode-num { font-size: 0.8rem; color: #71717a; }
+.episode-title { font-weight: 500; color: #fafafa; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.episode-preview { font-size: 0.78rem; color: #71717a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* 资源库 */
 .library-toolbar { margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
@@ -571,4 +619,23 @@ onMounted(() => {
 /* 图片预览 */
 .image-preview-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 9999; cursor: zoom-out; }
 .image-preview-img { max-width: 90vw; max-height: 90vh; border-radius: 8px; object-fit: contain; }
+
+/* 主题切换按钮 */
+.btn-theme {
+  --el-button-bg-color: rgba(148, 163, 184, 0.1);
+  --el-button-border-color: rgba(148, 163, 184, 0.3);
+  --el-button-text-color: #94a3b8;
+  --el-button-hover-bg-color: rgba(148, 163, 184, 0.2);
+  --el-button-hover-border-color: rgba(148, 163, 184, 0.5);
+  --el-button-hover-text-color: #cbd5e1;
+  transition: all 0.2s;
+}
+html.light .btn-theme {
+  --el-button-bg-color: rgba(99, 102, 241, 0.08);
+  --el-button-border-color: rgba(99, 102, 241, 0.3);
+  --el-button-text-color: #6366f1;
+  --el-button-hover-bg-color: rgba(99, 102, 241, 0.15);
+  --el-button-hover-border-color: rgba(99, 102, 241, 0.5);
+  --el-button-hover-text-color: #4f46e5;
+}
 </style>

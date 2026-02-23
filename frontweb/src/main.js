@@ -1,4 +1,7 @@
 import { createApp } from 'vue'
+import './styles/theme.css'
+// 初始化主题（必须在挂载前执行）
+import './composables/useTheme.js'
 import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
