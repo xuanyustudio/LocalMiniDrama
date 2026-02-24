@@ -150,7 +150,7 @@ async function generateSingleFrame(db, log, cfg, sb, scene, characterNames, mode
 }
 
 async function processFramePromptGeneration(db, log, taskId, storyboardId, frameType, panelCount, model) {
-  const cfg = loadConfig();
+  let cfg = loadConfig();
   taskService.updateTaskStatus(db, taskId, 'processing', 0, '正在生成帧提示词...');
 
   const sb = loadStoryboard(db, storyboardId);
@@ -159,6 +159,32 @@ async function processFramePromptGeneration(db, log, taskId, storyboardId, frame
     log.error('Frame prompt: storyboard not found', { storyboard_id: storyboardId });
     return;
   }
+
+  // 通过 storyboard → episode → drama 链路读取项目 style 和 aspect_ratio
+  try {
+    const epRow = db.prepare(
+      'SELECT drama_id FROM episodes WHERE id = (SELECT episode_id FROM storyboards WHERE id = ? AND deleted_at IS NULL) AND deleted_at IS NULL'
+    ).get(Number(storyboardId));
+    if (epRow && epRow.drama_id) {
+      const dramaRow = db.prepare('SELECT style, metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(epRow.drama_id);
+      if (dramaRow) {
+        const styleOverrides = {};
+        if (dramaRow.style && String(dramaRow.style).trim()) {
+          styleOverrides.default_style = String(dramaRow.style).trim();
+        }
+        if (dramaRow.metadata) {
+          const meta = typeof dramaRow.metadata === 'string' ? JSON.parse(dramaRow.metadata) : dramaRow.metadata;
+          if (meta && meta.aspect_ratio) {
+            styleOverrides.default_image_ratio = meta.aspect_ratio;
+            styleOverrides.default_video_ratio = meta.aspect_ratio;
+          }
+        }
+        if (Object.keys(styleOverrides).length > 0) {
+          cfg = { ...cfg, style: { ...(cfg?.style || {}), ...styleOverrides } };
+        }
+      }
+    }
+  } catch (_) {}
 
   const scene = loadScene(db, sb.scene_id);
   const characterNames = loadStoryboardCharacterNames(db, storyboardId);

@@ -1,5 +1,6 @@
 // 角色库：与 Go character_library_service 对齐
 const imageClient = require('./imageClient');
+const { aspectRatioToSize } = require('./imageService');
 
 function appendPrompt(base, extra) {
   const add = (extra || '').toString().trim();
@@ -47,13 +48,19 @@ function generateCharacterImage(db, log, cfg, characterId, modelName, style) {
     ? String(effectiveCfg.style.default_role_ratio)
     : (effectiveCfg?.style?.default_image_ratio ? 'image ratio: ' + effectiveCfg.style.default_image_ratio : '');
   prompt = appendPrompt(prompt, ratioText);
-  console.log('characters generateCharacterImage prompt', prompt);
+  // 根据项目 aspect_ratio 动态计算图片尺寸，兜底 1920x1920
+  let imageSize = null;
+  try {
+    const meta = drama.metadata ? (typeof drama.metadata === 'string' ? JSON.parse(drama.metadata) : drama.metadata) : null;
+    if (meta && meta.aspect_ratio) imageSize = aspectRatioToSize(meta.aspect_ratio);
+  } catch (_) {}
+  imageSize = imageSize || '1920x1920';
   const imageGen = imageClient.createAndGenerateImage(db, log, {
     drama_id: charRow.drama_id,
     character_id: charRow.id,
     prompt,
     model: modelName || undefined,
-    size: '2560x1440',
+    size: imageSize,
     quality: 'standard',
     provider: 'openai',
   });

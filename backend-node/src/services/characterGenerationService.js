@@ -8,22 +8,41 @@ async function processCharacterGeneration(db, cfg, log, taskID, req) {
   taskService.updateTaskStatus(db, taskID, 'processing', 0, '正在生成角色...');
   const count = req.count || 5;
   let outlineText = req.outline || '';
-  if (!outlineText) {
-    const drama = db.prepare('SELECT id, title, description, genre FROM dramas WHERE id = ? AND deleted_at IS NULL').get(Number(req.drama_id));
-    if (!drama) {
-      taskService.updateTaskStatus(db, taskID, 'failed', 0, '剧本信息不存在');
-      return;
+
+  // 读取剧的 style 和 metadata.aspect_ratio，覆盖全局 cfg
+  let effectiveCfg = cfg;
+  const dramaRow = db.prepare('SELECT id, title, description, genre, style, metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(Number(req.drama_id));
+  if (!dramaRow) {
+    taskService.updateTaskStatus(db, taskID, 'failed', 0, '剧本信息不存在');
+    return;
+  }
+  try {
+    const styleOverrides = {};
+    if (dramaRow.style && String(dramaRow.style).trim()) {
+      styleOverrides.default_style = String(dramaRow.style).trim();
     }
+    if (dramaRow.metadata) {
+      const meta = typeof dramaRow.metadata === 'string' ? JSON.parse(dramaRow.metadata) : dramaRow.metadata;
+      if (meta && meta.aspect_ratio) {
+        styleOverrides.default_image_ratio = meta.aspect_ratio;
+      }
+    }
+    if (Object.keys(styleOverrides).length > 0) {
+      effectiveCfg = { ...cfg, style: { ...(cfg?.style || {}), ...styleOverrides } };
+    }
+  } catch (_) {}
+
+  if (!outlineText) {
     outlineText = promptI18n.formatUserPrompt(
-      cfg,
+      effectiveCfg,
       'drama_info_template',
-      drama.title || '',
-      drama.description || '',
-      drama.genre || ''
+      dramaRow.title || '',
+      dramaRow.description || '',
+      dramaRow.genre || ''
     );
   }
-  const userPrompt = promptI18n.formatUserPrompt(cfg, 'character_request', outlineText, count);
-  const systemPrompt = promptI18n.getCharacterExtractionPrompt(cfg);
+  const userPrompt = promptI18n.formatUserPrompt(effectiveCfg, 'character_request', outlineText, count);
+  const systemPrompt = promptI18n.getCharacterExtractionPrompt(effectiveCfg);
   const temperature = req.temperature != null ? req.temperature : 0.7;
 
   let text;

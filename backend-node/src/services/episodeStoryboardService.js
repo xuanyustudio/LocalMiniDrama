@@ -345,12 +345,19 @@ function generateStoryboard(db, log, episodeId, model, style, storyboardCount, v
     throw new Error('剧集不存在或无权限访问');
   }
 
-  // 获取剧集风格（如果未指定，则从 drama 中获取）
-  const drama = db.prepare('SELECT style FROM dramas WHERE id = ?').get(episode.drama_id);
+  // 获取剧集风格和比例（如果未指定，则从 drama 中获取）
+  const drama = db.prepare('SELECT style, metadata FROM dramas WHERE id = ?').get(episode.drama_id);
   const finalStyle = style || (drama && drama.style) || 'realistic';
-  
-  // 图片比例
-  const imageRatio = aspectRatio || cfg?.style?.default_video_ratio || '16:9';
+
+  // 图片比例：优先用传入值，再从 drama.metadata 读，最后兜底全局配置
+  let dramaAspectRatio = null;
+  try {
+    if (drama && drama.metadata) {
+      const meta = typeof drama.metadata === 'string' ? JSON.parse(drama.metadata) : drama.metadata;
+      if (meta && meta.aspect_ratio) dramaAspectRatio = meta.aspect_ratio;
+    }
+  } catch (_) {}
+  const imageRatio = aspectRatio || dramaAspectRatio || cfg?.style?.default_video_ratio || '16:9';
 
   let scriptContent = (episode.script_content && String(episode.script_content).trim())
     ? String(episode.script_content)

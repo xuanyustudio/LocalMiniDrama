@@ -46,6 +46,11 @@ function setupRouter(cfg, db, log) {
   r.get('/dramas', drama.listDramas);
   r.post('/dramas', drama.createDrama);
   r.get('/dramas/stats', drama.getDramaStats);
+  // 导出/导入（放在 :id 路由前，避免被 :id 捕获）
+  r.get('/dramas/:id/export', drama.exportDrama);
+  const multer = require('multer');
+  const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 500 * 1024 * 1024 } });
+  r.post('/dramas/import', importUpload.single('file'), drama.importDrama);
   r.put('/dramas/:id/outline', drama.saveOutline);
   r.get('/dramas/:id/characters', drama.getCharacters);
   r.put('/dramas/:id/characters', drama.saveCharacters);

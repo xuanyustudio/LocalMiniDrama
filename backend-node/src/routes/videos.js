@@ -33,7 +33,17 @@ function routes(db, log) {
         }
         const model = body.model ?? null;
         const duration = body.duration ?? null;
-        const aspectRatio = body.aspect_ratio ?? null;
+        // aspect_ratio 未传时从 drama.metadata 读取项目设定比例
+        let aspectRatio = body.aspect_ratio ?? null;
+        if (!aspectRatio && dramaId) {
+          try {
+            const dramaRow = db.prepare('SELECT metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(dramaId);
+            if (dramaRow && dramaRow.metadata) {
+              const meta = typeof dramaRow.metadata === 'string' ? JSON.parse(dramaRow.metadata) : dramaRow.metadata;
+              if (meta && meta.aspect_ratio) aspectRatio = meta.aspect_ratio;
+            }
+          } catch (_) {}
+        }
         const resolution = body.resolution ?? null;
         const seed = body.seed != null ? Number(body.seed) : null;
         const cameraFixed = body.camera_fixed != null ? (body.camera_fixed ? 1 : 0) : null;

@@ -9,6 +9,10 @@ const request = axios.create({
 
 request.interceptors.response.use(
   (response) => {
+    // blob 类型直接返回原始数据，不做 JSON 解包
+    if (response.config?.responseType === 'blob') {
+      return response.data
+    }
     const res = response.data
     if (res.success !== false) {
       return res.data !== undefined ? res.data : res

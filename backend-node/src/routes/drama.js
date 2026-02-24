@@ -1,6 +1,8 @@
 const dramaService = require('../services/dramaService');
 const propService = require('../services/propService');
 const response = require('../response');
+const dramaExportService = require('../services/dramaExportService');
+const dramaImportService = require('../services/dramaImportService');
 
 function createDrama(db, log) {
   return (req, res) => {
@@ -152,6 +154,39 @@ function downloadEpisodeVideo(db) {
   };
 }
 
+function exportDrama(db, cfg, log) {
+  return (req, res) => {
+    try {
+      const { buffer, title } = dramaExportService.exportDrama(db, cfg, log, req.params.id);
+      const safeName = (title || 'drama').replace(/[^\w\u4e00-\u9fff\-]/g, '_').slice(0, 50);
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(safeName)}.zip`);
+      res.send(buffer);
+    } catch (err) {
+      log.error('Export drama failed', { error: err.message });
+      response.internalError(res, err.message || '导出失败');
+    }
+  };
+}
+
+function importDrama(db, cfg, log) {
+  return (req, res) => {
+    try {
+      if (!req.file || !req.file.buffer) {
+        return response.badRequest(res, '请上传 ZIP 文件');
+      }
+      const result = dramaImportService.importDrama(db, cfg, log, req.file.buffer);
+      response.created(res, result);
+    } catch (err) {
+      log.error('Import drama failed', { error: err.message });
+      if (err.message && (err.message.includes('格式') || err.message.includes('缺少') || err.message.includes('损坏'))) {
+        return response.badRequest(res, err.message);
+      }
+      response.internalError(res, err.message || '导入失败');
+    }
+  };
+}
+
 function generateStoryboard(db, log) {
   return async (req, res) => {
     const body = req.body || {};
@@ -191,5 +226,7 @@ module.exports = function dramaRoutes(db, cfg, log) {
     finalizeEpisode: finalizeEpisode(db, log, cfg),
     downloadEpisodeVideo: downloadEpisodeVideo(db),
     generateStoryboard: generateStoryboard(db, log),
+    exportDrama: exportDrama(db, cfg, log),
+    importDrama: importDrama(db, cfg, log),
   };
 };

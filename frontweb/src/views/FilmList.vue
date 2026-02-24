@@ -27,6 +27,10 @@
           <el-button class="btn-settings" @click="showAiConfigDialog = true">
             <el-icon><Setting /></el-icon>AI配置
           </el-button>
+          <el-button class="btn-import" :loading="importing" @click="triggerImport">
+            <el-icon><Upload /></el-icon>导入项目
+          </el-button>
+          <input ref="importFileInput" type="file" accept=".zip" style="display:none" @change="onImportFile" />
           <el-button type="primary" class="btn-new" @click="goNewProject">
             <el-icon><Plus /></el-icon>新建项目
           </el-button>
@@ -52,6 +56,7 @@
             @click="openProject(d.id)"
           >
             <div class="project-card-actions" @click.stop>
+              <el-button size="small" circle :icon="Download" title="导出项目" :loading="exportingId === d.id" @click="onExport(d)" />
               <el-button size="small" circle :icon="Edit" title="编辑" @click="openEditDialog(d)" />
               <el-button size="small" type="danger" plain circle :icon="Delete" title="删除" @click="onDelete(d)" />
             </div>
@@ -316,7 +321,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, Setting, Plus, User, PictureFilled, Box, Sunny, Moon, ChatDotSquare } from '@element-plus/icons-vue'
+import { Edit, Delete, Setting, Plus, User, PictureFilled, Box, Sunny, Moon, ChatDotSquare, Download, Upload } from '@element-plus/icons-vue'
 import { useTheme } from '@/composables/useTheme'
 import { dramaAPI } from '@/api/drama'
 import { characterLibraryAPI } from '@/api/characterLibrary'
@@ -551,6 +556,9 @@ async function onDeletePropLibrary(item) {
 const showNewDialog = ref(false)
 const newForm = ref({ title: '', description: '', aspect_ratio: '16:9' })
 const newSaving = ref(false)
+const exportingId = ref(null)
+const importing = ref(false)
+const importFileInput = ref(null)
 
 const showEditDialog = ref(false)
 const editForm = ref({ id: null, title: '', description: '' })
@@ -663,6 +671,50 @@ async function submitEdit() {
 
 function openProject(id) {
   router.push('/drama/' + id)
+}
+
+async function onExport(d) {
+  if (exportingId.value) return
+  exportingId.value = d.id
+  try {
+    const blob = await dramaAPI.exportDrama(d.id)
+    const url = URL.createObjectURL(blob instanceof Blob ? blob : new Blob([blob], { type: 'application/zip' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${d.title || 'drama'}.zip`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    ElMessage.error(e.message || '导出失败')
+  } finally {
+    exportingId.value = null
+  }
+}
+
+function triggerImport() {
+  importFileInput.value?.click()
+}
+
+async function onImportFile(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  e.target.value = ''
+  if (!file.name.endsWith('.zip')) {
+    ElMessage.error('请选择 .zip 格式的文件')
+    return
+  }
+  importing.value = true
+  try {
+    const data = await dramaAPI.importDrama(file)
+    ElMessage.success(`导入成功：${data?.title || '项目'}`) 
+    loadList()
+  } catch (e) {
+    const msg = e.response?.data?.message || e.message || '导入失败'
+    ElMessage.error(msg)
+  } finally {
+    importing.value = false
+  }
 }
 
 async function onDelete(d) {

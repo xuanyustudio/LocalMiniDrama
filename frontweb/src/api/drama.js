@@ -51,5 +51,13 @@ export const dramaAPI = {
   },
   extractEpisodeCharacters(episodeId) {
     return request.post(`/episodes/${episodeId}/characters/extract`)
+  },
+  exportDrama(id) {
+    return request.get(`/dramas/${id}/export`, { responseType: 'blob' })
+  },
+  importDrama(file) {
+    const form = new FormData()
+    form.append('file', file)
+    return request.post('/dramas/import', form, { headers: { 'Content-Type': 'multipart/form-data' } })
   }
 }
