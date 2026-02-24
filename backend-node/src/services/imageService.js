@@ -63,13 +63,15 @@ const uploadService = require('./uploadService');
  * DashScope/Wan 用 W*H 格式，OpenAI 用 WxH 格式；统一返回 W*H，callDashScopeImageApi 内部会调 dashScopeSize 做最终校验
  */
 function aspectRatioToSize(aspectRatio) {
+  // 统一用 WxH（小写 x）格式：DashScope 的 dashScopeSize() 会把 x 转成 * 并自动缩放
+  // 各尺寸均 >= 3,686,400 像素，满足 ChatFire/OpenAI 兼容接口的最低像素要求
   const map = {
-    '16:9':  '1280*720',
-    '9:16':  '720*1280',
-    '1:1':   '1024*1024',
-    '4:3':   '1024*768',
-    '3:4':   '768*1024',
-    '21:9':  '1344*576',
+    '16:9':  '2560x1440',
+    '9:16':  '1440x2560',
+    '1:1':   '1920x1920',
+    '4:3':   '2240x1680',
+    '3:4':   '1680x2240',
+    '21:9':  '2940x1260',
   };
   return map[aspectRatio] || null;
 }
@@ -355,4 +357,5 @@ module.exports = {
   getBackgroundsForEpisode,
   upload,
   processImageGeneration,
+  aspectRatioToSize,
 };

@@ -23,7 +23,28 @@ async function processPropExtraction(db, log, taskId, episodeId) {
   }
 
   const loadConfig = require('../config').loadConfig;
-  const cfg = loadConfig();
+  let cfg = loadConfig();
+  // 用项目的 aspect_ratio 和 style 覆盖全局配置，使 image_prompt 使用正确比例和风格
+  try {
+    const dramaRow = db.prepare('SELECT style, metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(episode.drama_id);
+    if (dramaRow) {
+      const styleOverrides = {};
+      if (dramaRow.style && String(dramaRow.style).trim()) {
+        styleOverrides.default_style = String(dramaRow.style).trim();
+        styleOverrides.default_prop_style = '';
+      }
+      if (dramaRow.metadata) {
+        const meta = typeof dramaRow.metadata === 'string' ? JSON.parse(dramaRow.metadata) : dramaRow.metadata;
+        if (meta && meta.aspect_ratio) {
+          styleOverrides.default_prop_ratio = meta.aspect_ratio;
+          styleOverrides.default_image_ratio = meta.aspect_ratio;
+        }
+      }
+      if (Object.keys(styleOverrides).length > 0) {
+        cfg = { ...cfg, style: { ...(cfg?.style || {}), ...styleOverrides } };
+      }
+    }
+  } catch (_) {}
   const promptTemplate = promptI18n.getPropExtractionPrompt(cfg);
   const prompt = promptTemplate.replace('%s', String(scriptContent).trim());
 
@@ -73,7 +94,22 @@ async function processPropExtraction(db, log, taskId, episodeId) {
     const existing = db.prepare(
       'SELECT id FROM props WHERE drama_id = ? AND name = ? AND deleted_at IS NULL'
     ).get(dramaId, name);
-    if (existing) continue;
+    if (existing) {
+      // 重新提取时更新描述和提示词（保留已有图片）
+      const now = new Date().toISOString();
+      db.prepare(
+        'UPDATE props SET type = ?, description = ?, prompt = ?, updated_at = ? WHERE id = ?'
+      ).run(
+        (p.type && String(p.type).trim()) || null,
+        (p.description && String(p.description).trim()) || null,
+        (p.image_prompt && String(p.image_prompt).trim()) || null,
+        now,
+        existing.id
+      );
+      const updated = propService.getById(db, existing.id);
+      if (updated) createdProps.push(updated);
+      continue;
+    }
 
     const prop = propService.create(db, log, {
       drama_id: dramaId,

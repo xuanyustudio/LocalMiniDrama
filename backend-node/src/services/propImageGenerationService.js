@@ -4,6 +4,7 @@ const taskService = require('./taskService');
 const imageClient = require('./imageClient');
 const propService = require('./propService');
 const uploadService = require('./uploadService');
+const { aspectRatioToSize } = require('./imageService');
 
 function appendPrompt(base, extra) {
   const add = (extra || '').toString().trim();
@@ -38,7 +39,18 @@ async function processPropImageGeneration(db, log, taskId, propId, opts) {
   if (!styleOverride) {
     style = appendPrompt(style, cfg?.style?.default_prop_style || '');
   }
-  const imageSize = cfg?.style?.default_image_size || '1024x1024';
+  // 优先用项目 aspect_ratio 推导尺寸；兜底 1920x1920（满足 ≥3,686,400 像素要求）
+  let imageSize = null;
+  if (prop.drama_id) {
+    try {
+      const dramaRow = db.prepare('SELECT metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(prop.drama_id);
+      if (dramaRow && dramaRow.metadata) {
+        const meta = typeof dramaRow.metadata === 'string' ? JSON.parse(dramaRow.metadata) : dramaRow.metadata;
+        if (meta && meta.aspect_ratio) imageSize = aspectRatioToSize(meta.aspect_ratio);
+      }
+    } catch (_) {}
+  }
+  if (!imageSize) imageSize = cfg?.style?.default_image_size || '1920x1920';
   const fullPrompt = appendPrompt(String(prop.prompt).trim(), style);
   // 与角色/场景一致：使用前端「图片生成模型」选择的 model；未传时用 YAML default_image_provider 兜底
   const model = (opts && opts.model) ? String(opts.model).trim() || null : null;

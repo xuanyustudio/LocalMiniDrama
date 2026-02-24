@@ -135,14 +135,27 @@ async function processBackgroundExtraction(db, cfg, log, taskID, episodeId, mode
 }
 
 function extractBackgroundsForEpisode(db, cfg, log, episodeId, model, style, language) {
-  const episode = db.prepare('SELECT id, script_content FROM episodes WHERE id = ? AND deleted_at IS NULL').get(Number(episodeId));
+  const episode = db.prepare('SELECT id, drama_id, script_content FROM episodes WHERE id = ? AND deleted_at IS NULL').get(Number(episodeId));
   if (!episode) throw new Error('episode not found');
   if (!episode.script_content || !String(episode.script_content).trim()) {
     throw new Error('episode has no script content');
   }
+  // 读取项目的 aspect_ratio，覆盖全局 cfg 中的 default_image_ratio，使 promptI18n 生成正确比例的提示词
+  let runCfg = cfg;
+  if (episode.drama_id) {
+    try {
+      const dramaRow = db.prepare('SELECT metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(episode.drama_id);
+      if (dramaRow && dramaRow.metadata) {
+        const meta = typeof dramaRow.metadata === 'string' ? JSON.parse(dramaRow.metadata) : dramaRow.metadata;
+        if (meta && meta.aspect_ratio) {
+          runCfg = { ...cfg, style: { ...(cfg?.style || {}), default_image_ratio: meta.aspect_ratio } };
+        }
+      }
+    } catch (_) {}
+  }
   const task = taskService.createTask(db, log, 'background_extraction', String(episodeId));
   setImmediate(() => {
-    processBackgroundExtraction(db, cfg, log, task.id, episodeId, model, style, language).catch((err) => {
+    processBackgroundExtraction(db, runCfg, log, task.id, episodeId, model, style, language).catch((err) => {
       log.error('processBackgroundExtraction fatal', { error: err.message, task_id: task.id });
     });
   });

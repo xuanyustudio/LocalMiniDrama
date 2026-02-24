@@ -412,12 +412,14 @@ async function callImageApi(db, log, opts) {
   }
 
   const url = buildImageUrl(config);
+  const isVolc = ['volces', 'volcengine', 'volc'].includes(provider);
   const body = {
     model,
     prompt: prompt || '',
     n: 1,
     ...(size ? { size } : {}),
     ...(quality ? { quality } : {}),
+    ...(isVolc ? { watermark: false } : {}),
   };
   log.info('Image API request', { url: url.slice(0, 60), model, image_gen_id });
   const res = await fetch(url, {

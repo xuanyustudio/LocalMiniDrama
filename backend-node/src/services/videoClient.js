@@ -50,6 +50,22 @@ function buildQueryUrl(config, taskId) {
   return base + ep;
 }
 
+// 火山引擎常见显示名 → API 端点 ID 映射（API 只认小写+日期后缀格式）
+const VOLC_MODEL_ALIASES = {
+  'doubao-seedance-1.0-pro-fast':  'doubao-seedance-1-0-pro-250528',
+  'doubao-seedance-1.0-pro':       'doubao-seedance-1-0-pro-250528',
+  'doubao-seedance-1-0-pro':       'doubao-seedance-1-0-pro-250528',
+  'doubao-seedance-1.0-lite':      'doubao-seedance-1-0-lite-250428',
+  'doubao-seedance-1-0-lite':      'doubao-seedance-1-0-lite-250428',
+  'doubao-seedance-1.5-pro':       'doubao-seedance-1-5-pro-251215',
+  'doubao-seedance-1-5-pro':       'doubao-seedance-1-5-pro-251215',
+};
+
+function normalizeVolcModel(name) {
+  if (!name) return name;
+  return VOLC_MODEL_ALIASES[name.toLowerCase()] || name;
+}
+
 function getModelFromConfig(config, preferredModel) {
   const models = Array.isArray(config.model) ? config.model : (config.model != null ? [config.model] : []);
   if (preferredModel && models.includes(preferredModel)) return preferredModel;
@@ -292,6 +308,8 @@ async function callVideoApi(db, log, opts) {
   const ratio = aspect_ratio || '16:9';
 
   const isVolc = ['volces', 'volcengine', 'volc'].includes((config.provider || '').toLowerCase());
+  // 火山引擎 model 名称标准化（把显示名转成 API 端点 ID）
+  const finalModel = isVolc ? normalizeVolcModel(model) : model;
   const hasImage = !!(image_url && image_url.trim());
   // 火山引擎：doubao-seedance-1-5-pro 不支持 r2v，必须显式传 task_type；单图用 i2v 且不用 reference_image 避免被识别为 r2v
   const volcTaskType = isVolc ? (hasImage ? 'i2v' : 't2v') : null;
@@ -317,7 +335,7 @@ async function callVideoApi(db, log, opts) {
 
   // ratio、duration 等作为独立顶层字段传入（火山引擎/ChatFire 官方接口格式）
   const body = {
-    model,
+    model: finalModel,
     content: [{ type: 'text', text: prompt || '' }],
     ratio,
     duration: dur,

@@ -17,8 +17,17 @@ function generateCharacterImage(db, log, cfg, characterId, modelName, style) {
     'SELECT id, drama_id, name, appearance, description FROM characters WHERE id = ? AND deleted_at IS NULL'
   ).get(Number(characterId));
   if (!charRow) return { ok: false, error: 'character not found' };
-  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
+  const drama = db.prepare('SELECT id, metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
   if (!drama) return { ok: false, error: 'unauthorized' };
+
+  // 用项目的 aspect_ratio 覆盖全局 cfg 中的 default_image_ratio
+  let effectiveCfg = cfg;
+  try {
+    const meta = drama.metadata ? (typeof drama.metadata === 'string' ? JSON.parse(drama.metadata) : drama.metadata) : null;
+    if (meta && meta.aspect_ratio) {
+      effectiveCfg = { ...cfg, style: { ...(cfg?.style || {}), default_image_ratio: meta.aspect_ratio } };
+    }
+  } catch (_) {}
 
   let prompt = '';
   if (charRow.appearance && String(charRow.appearance).trim()) {
@@ -29,14 +38,14 @@ function generateCharacterImage(db, log, cfg, characterId, modelName, style) {
     prompt = charRow.name || '';
   }
   const styleOverride = (style && String(style).trim()) || '';
-  const styleText = styleOverride || (cfg?.style?.default_style || '');
+  const styleText = styleOverride || (effectiveCfg?.style?.default_style || '');
   prompt = appendPrompt(prompt, styleText);
   if (!styleOverride) {
-    prompt = appendPrompt(prompt, cfg?.style?.default_role_style || '');
+    prompt = appendPrompt(prompt, effectiveCfg?.style?.default_role_style || '');
   }
-  const ratioText = cfg?.style?.default_role_ratio
-    ? String(cfg.style.default_role_ratio)
-    : (cfg?.style?.default_image_ratio ? 'image ratio: ' + cfg.style.default_image_ratio : '');
+  const ratioText = effectiveCfg?.style?.default_role_ratio
+    ? String(effectiveCfg.style.default_role_ratio)
+    : (effectiveCfg?.style?.default_image_ratio ? 'image ratio: ' + effectiveCfg.style.default_image_ratio : '');
   prompt = appendPrompt(prompt, ratioText);
   console.log('characters generateCharacterImage prompt', prompt);
   const imageGen = imageClient.createAndGenerateImage(db, log, {
