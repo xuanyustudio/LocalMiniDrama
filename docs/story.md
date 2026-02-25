@@ -1,6 +1,6 @@
 # 关于作者 & 开发碎碎念
 
-**导航：[项目主页](README.md) | [English](README.en.md) | 作者故事**
+**导航：[项目主页](../README.md) | [English](en.md) | 作者故事**
 
 ---
 
@@ -68,10 +68,10 @@
 
 有任何建议、交流、合作欢迎加微信：
 
-<img src="项目截图/wx.jpg" alt="微信二维码" width="220" />
+<img src="../项目截图/wx.jpg" alt="微信二维码" width="220" />
 
 ---
 
 ## 📄 License
 
-[MIT](LICENSE)
+[MIT](../LICENSE)

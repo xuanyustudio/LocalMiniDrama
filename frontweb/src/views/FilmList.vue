@@ -40,15 +40,39 @@
 
     <main class="main">
       <div v-loading="loading" class="projects-wrap">
-        <div v-if="!loading && dramas.length === 0" class="empty">
-          <p class="empty-title">暂无项目</p>
-          <p class="empty-desc">点击「新建项目」开始创建第一个 AI 视频项目</p>
-          <el-button type="primary" @click="goNewProject">
-            <el-icon><Plus /></el-icon>
-            新建项目
-          </el-button>
-        </div>
-        <div v-else class="project-grid">
+        <div class="project-grid">
+          <!-- 操作卡片：始终作为第一个格子 -->
+          <div class="project-card action-card">
+            <div class="action-card-inner">
+              <h3 class="action-card-title">快速开始</h3>
+              <div class="action-card-buttons">
+                <el-button type="primary" size="large" class="action-btn action-btn-new" @click="goNewProject">
+                  <el-icon><Plus /></el-icon>新建短剧项目
+                </el-button>
+                <el-button size="large" class="action-btn action-btn-import" :loading="importing" @click="triggerImport">
+                  <el-icon><Upload /></el-icon>导入短剧项目
+                </el-button>
+              </div>
+              <div v-if="exampleList.length > 0" class="action-card-example">
+                <div class="example-hint">
+                  <el-icon class="example-hint-icon"><QuestionFilled /></el-icon>
+                  <span class="example-hint-text">新手？试试导入示例项目快速体验</span>
+                </div>
+                <div class="example-list">
+                  <el-button
+                    v-for="ex in exampleList"
+                    :key="ex.filename"
+                    size="small"
+                    class="example-btn"
+                    :loading="importingExample === ex.filename"
+                    @click="onImportExample(ex)"
+                  >
+                    <el-icon><FolderOpened /></el-icon>{{ ex.name }}
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </div>
           <div
             v-for="d in dramas"
             :key="d.id"
@@ -321,7 +345,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, Setting, Plus, User, PictureFilled, Box, Sunny, Moon, ChatDotSquare, Download, Upload } from '@element-plus/icons-vue'
+import { Edit, Delete, Setting, Plus, User, PictureFilled, Box, Sunny, Moon, ChatDotSquare, Download, Upload, QuestionFilled, FolderOpened } from '@element-plus/icons-vue'
 import { useTheme } from '@/composables/useTheme'
 import { dramaAPI } from '@/api/drama'
 import { characterLibraryAPI } from '@/api/characterLibrary'
@@ -560,6 +584,29 @@ const exportingId = ref(null)
 const importing = ref(false)
 const importFileInput = ref(null)
 
+const exampleList = ref([])
+const importingExample = ref(null)
+
+function loadExamples() {
+  dramaAPI.listExamples()
+    .then(res => { exampleList.value = Array.isArray(res) ? res : (res?.data ?? []) })
+    .catch(() => { exampleList.value = [] })
+}
+
+async function onImportExample(ex) {
+  importingExample.value = ex.filename
+  try {
+    const data = await dramaAPI.importExample(ex.filename)
+    ElMessage.success(`示例导入成功：${data?.title || ex.name}`)
+    loadList()
+  } catch (e) {
+    const msg = e.response?.data?.message || e.message || '导入失败'
+    ElMessage.error(msg)
+  } finally {
+    importingExample.value = null
+  }
+}
+
 const showEditDialog = ref(false)
 const editForm = ref({ id: null, title: '', description: '' })
 const editSaving = ref(false)
@@ -736,7 +783,10 @@ async function onDelete(d) {
   }
 }
 
-onMounted(loadList)
+onMounted(() => {
+  loadList()
+  loadExamples()
+})
 </script>
 
 <style scoped>
@@ -882,6 +932,88 @@ html.light .btn-wechat {
 .project-card:hover {
   border-color: var(--el-color-primary);
   background: #1c1c1e;
+}
+
+/* 操作卡片 */
+.action-card {
+  cursor: default;
+  border-style: dashed;
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.action-card:hover {
+  border-color: rgba(99, 102, 241, 0.55);
+  background: rgba(99, 102, 241, 0.08);
+}
+.action-card-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.action-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #a5b4fc;
+  margin: 0;
+}
+.action-card-buttons {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+}
+.action-btn {
+  min-width: 150px;
+}
+.action-btn-new {
+  --el-button-bg-color: var(--el-color-primary);
+}
+.action-btn-import {
+  --el-button-bg-color: rgba(99, 102, 241, 0.12);
+  --el-button-border-color: rgba(99, 102, 241, 0.35);
+  --el-button-text-color: #a5b4fc;
+  --el-button-hover-bg-color: rgba(99, 102, 241, 0.22);
+  --el-button-hover-border-color: rgba(99, 102, 241, 0.55);
+  --el-button-hover-text-color: #c7d2fe;
+}
+.action-card-example {
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid rgba(99, 102, 241, 0.15);
+}
+.example-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.example-hint-icon {
+  color: #a5b4fc;
+  font-size: 15px;
+}
+.example-hint-text {
+  font-size: 0.8rem;
+  color: #71717a;
+}
+.example-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.example-btn {
+  --el-button-bg-color: rgba(34, 197, 94, 0.1);
+  --el-button-border-color: rgba(34, 197, 94, 0.3);
+  --el-button-text-color: #4ade80;
+  --el-button-hover-bg-color: rgba(34, 197, 94, 0.2);
+  --el-button-hover-border-color: rgba(34, 197, 94, 0.5);
+  --el-button-hover-text-color: #22c55e;
 }
 .project-card-body {
   padding-right: 56px;

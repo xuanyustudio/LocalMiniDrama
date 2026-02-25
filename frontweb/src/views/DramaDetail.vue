@@ -75,7 +75,13 @@
         </div>
         <div v-if="episodes.length === 0" class="empty-tip">暂无分集，点击「新增一集」开始创作</div>
         <div v-else class="episode-grid">
-          <div v-for="ep in episodes" :key="ep.id" class="episode-card" @click="goEpisode(ep.id)">
+          <div
+            v-for="ep in episodes"
+            :key="ep.id"
+            class="episode-card"
+            title="点击进入制作页"
+            @click="goEpisode(ep.id)"
+          >
             <div class="episode-card-header">
               <span class="episode-num">第 {{ ep.episode_number ?? ep.number ?? '?' }} 集</span>
               <el-button
@@ -95,6 +101,10 @@
                 <span class="ep-stat-num">{{ ep.storyboards?.length ?? 0 }}</span> 分镜
               </span>
               <span v-if="ep.status" class="ep-stat ep-stat--status" :class="'ep-status--' + ep.status">{{ epStatusLabel(ep.status) }}</span>
+            </div>
+            <div class="episode-enter">
+              <el-icon class="episode-enter-icon"><VideoPlay /></el-icon>
+              进入制作
             </div>
           </div>
         </div>
@@ -1143,8 +1153,45 @@ onMounted(() => {
 
 /* 分集卡片 */
 .episode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-.episode-card { background: #1c1c1e; border: 1px solid #27272a; border-radius: 8px; padding: 16px; cursor: pointer; transition: border-color 0.2s; }
-.episode-card:hover { border-color: var(--el-color-primary); }
+.episode-card {
+  background: #1c1c1e;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s, background 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+.episode-card:hover {
+  border-color: var(--el-color-primary);
+  background: #232326;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+}
+.episode-card:hover .episode-enter {
+  color: var(--el-color-primary);
+  opacity: 1;
+}
+.episode-card:hover .episode-enter-icon {
+  transform: translateX(3px);
+}
+.episode-enter {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #27272a;
+  font-size: 0.78rem;
+  color: #52525b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.7;
+  transition: color 0.2s, opacity 0.2s;
+}
+.episode-enter-icon {
+  font-size: 0.85rem;
+  transition: transform 0.2s;
+}
 .episode-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .episode-num { font-size: 0.8rem; color: #71717a; }
 .episode-title { font-weight: 500; color: #fafafa; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1236,6 +1283,11 @@ onMounted(() => {
 .res-tab--drama.active { color: #a78bfa; font-size: 14px; font-weight: 600; }
 .res-tab--drama.active::after { background: #a78bfa; }
 
+html.light .episode-card { background: #f9f9fb; border-color: #e4e4e7; }
+html.light .episode-card:hover { background: #f0f0f5; border-color: var(--el-color-primary); box-shadow: 0 6px 20px rgba(0,0,0,0.10); }
+html.light .episode-enter { border-top-color: #e4e4e7; color: #a1a1aa; }
+html.light .episode-card:hover .episode-enter { color: var(--el-color-primary); }
+html.light .episode-title { color: #18181b; }
 html.light .res-tab:hover { background: rgba(0,0,0,0.04); }
 html.light .res-tab--lib.active { color: #2563eb; }
 html.light .res-tab--lib.active::after { background: #2563eb; }

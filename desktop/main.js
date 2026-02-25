@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -77,6 +77,7 @@ function waitForServer(port, maxWait = 15000) {
 }
 
 function createWindow(port) {
+  Menu.setApplicationMenu(null);
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -100,6 +101,9 @@ function startBackend() {
   process.env.WEB_DIST_PATH = getWebDistPath();
   if (app.isPackaged) {
     process.env.LOG_FILE = path.join(backendCwd, 'logs', 'app.log');
+    process.env.EXAMPLE_DRAMA_PATH = path.join(process.resourcesPath, 'example_drama');
+  } else {
+    process.env.EXAMPLE_DRAMA_PATH = path.join(__dirname, '..', 'example_drama');
   }
   process.chdir(backendCwd);
 

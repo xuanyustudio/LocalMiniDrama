@@ -16,6 +16,7 @@
     "prepare-backend": "node scripts/copy-backend.js"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "better-sqlite3": "^11.6.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",
@@ -47,6 +48,11 @@
       {
         "from": "frontweb-dist",
         "to": "frontweb/dist",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../example_drama",
+        "to": "example_drama",
         "filter": ["**/*"]
       }
     ],

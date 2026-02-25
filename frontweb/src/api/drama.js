@@ -59,5 +59,11 @@ export const dramaAPI = {
     const form = new FormData()
     form.append('file', file)
     return request.post('/dramas/import', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
+  listExamples() {
+    return request.get('/dramas/examples')
+  },
+  importExample(filename) {
+    return request.post('/dramas/import-example', { filename })
   }
 }

@@ -187,6 +187,60 @@ function importDrama(db, cfg, log) {
   };
 }
 
+function getExampleDramaDir() {
+  const path = require('path');
+  const fs = require('fs');
+  if (process.env.EXAMPLE_DRAMA_PATH && fs.existsSync(process.env.EXAMPLE_DRAMA_PATH)) {
+    return process.env.EXAMPLE_DRAMA_PATH;
+  }
+  const devPath = path.join(__dirname, '..', '..', '..', 'example_drama');
+  if (fs.existsSync(devPath)) return devPath;
+  return null;
+}
+
+function listExamples(log) {
+  return (_req, res) => {
+    const fs = require('fs');
+    const dir = getExampleDramaDir();
+    if (!dir) return response.success(res, []);
+    try {
+      const files = fs.readdirSync(dir).filter(f => f.endsWith('.zip'));
+      const items = files.map(f => {
+        const name = f.replace(/\.zip$/, '');
+        return { filename: f, name };
+      });
+      response.success(res, items);
+    } catch (err) {
+      log.error('List examples failed', { error: err.message });
+      response.success(res, []);
+    }
+  };
+}
+
+function importExample(db, cfg, log) {
+  return (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const filename = req.body?.filename;
+    if (!filename) return response.badRequest(res, '请指定示例文件名');
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return response.badRequest(res, '文件名不合法');
+    }
+    const dir = getExampleDramaDir();
+    if (!dir) return response.badRequest(res, '示例目录不存在');
+    const filePath = path.join(dir, filename);
+    if (!fs.existsSync(filePath)) return response.notFound(res, '示例文件不存在');
+    try {
+      const buffer = fs.readFileSync(filePath);
+      const result = dramaImportService.importDrama(db, cfg, log, buffer);
+      response.created(res, result);
+    } catch (err) {
+      log.error('Import example failed', { error: err.message });
+      response.internalError(res, err.message || '导入示例失败');
+    }
+  };
+}
+
 function generateStoryboard(db, log) {
   return async (req, res) => {
     const body = req.body || {};
@@ -228,5 +282,7 @@ module.exports = function dramaRoutes(db, cfg, log) {
     generateStoryboard: generateStoryboard(db, log),
     exportDrama: exportDrama(db, cfg, log),
     importDrama: importDrama(db, cfg, log),
+    listExamples: listExamples(log),
+    importExample: importExample(db, cfg, log),
   };
 };
