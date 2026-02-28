@@ -1,0 +1,35 @@
+{
+  "appId": "com.localminidrama.desktop",
+  "productName": "LocalMiniDrama",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "main.js",
+    "package.json",
+    "backend-app/**/*",
+    "node_modules/**/*"
+  ],
+  "asarUnpack": [
+    "node_modules/better-sqlite3/**"
+  ],
+  "extraResources": [
+    {
+      "from": "frontweb-dist",
+      "to": "frontweb/dist",
+      "filter": ["**/*"]
+    }
+  ],
+  "mac": {
+    "target": [
+      { "target": "dmg", "arch": ["x64", "arm64"] }
+    ],
+    "category": "public.app-category.entertainment",
+    "icon": null,
+    "identity": null
+  },
+  "dmg": {
+    "title": "${productName} Lite ${version}",
+    "artifactName": "${productName}-Lite-${version}-mac-${arch}.dmg"
+  }
+}

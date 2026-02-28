@@ -12,6 +12,7 @@
     "pack": "npm run prepare-backend && npm run build:front && npm run copy-front && electron-builder --dir",
     "dist": "npm run prepare-backend && npm run build:front && npm run copy-front && electron-builder --win",
     "dist:cn": "node scripts/dist-cn.js",
+    "dist:mac": "bash dist-mac.sh",
     "postinstall": "node scripts/copy-backend.js && electron-rebuild",
     "prepare-backend": "node scripts/copy-backend.js"
   },
