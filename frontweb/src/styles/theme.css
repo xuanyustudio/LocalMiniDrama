@@ -239,3 +239,200 @@ html.light span, html.light label, html.light p {
   font-size: 12px;
   line-height: 1.7;
 }
+
+/* =====================================================
+   亮色模式增强 — 更现代的视觉效果
+   ===================================================== */
+
+/* 主色改为紫色系 */
+html.light {
+  --el-color-primary: #7c3aed;
+  --el-color-primary-light-3: #a78bfa;
+  --el-color-primary-light-5: #c4b5fd;
+  --el-color-primary-light-7: #ddd6fe;
+  --el-color-primary-light-8: #ede9fe;
+  --el-color-primary-light-9: #f5f3ff;
+  --el-color-primary-dark-2: #6d28d9;
+}
+
+/* 卡片升级 */
+html.light .card,
+html.light .el-card {
+  box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04) !important;
+  border-color: #e8e8ef !important;
+  border-radius: 14px !important;
+}
+
+/* 页面标题区美化 */
+html.light .header {
+  background: linear-gradient(135deg, #ffffff 0%, #faf9ff 100%) !important;
+  border-bottom: 1px solid #e8e8ef !important;
+  box-shadow: 0 1px 8px rgba(0,0,0,.05) !important;
+}
+
+/* Logo 加紫色渐变 */
+html.light .logo {
+  background: linear-gradient(135deg, #7c3aed, #a78bfa) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+
+/* 项目卡片美化 */
+html.light .project-card {
+  background: #ffffff !important;
+  border: 1px solid #e8e8ef !important;
+  border-radius: 14px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05), 0 6px 20px rgba(0,0,0,.04) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+html.light .project-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(124,58,237,.12), 0 12px 32px rgba(124,58,237,.06) !important;
+  border-color: #a78bfa !important;
+}
+
+/* 操作卡片（快速开始）美化 */
+html.light .action-card {
+  background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%) !important;
+  border: 2px dashed #c4b5fd !important;
+}
+html.light .action-card:hover {
+  border-color: #a78bfa !important;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%) !important;
+}
+html.light .action-card-title {
+  color: #7c3aed !important;
+}
+
+/* Section card 美化 */
+html.light .section.card {
+  border-radius: 14px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05), 0 6px 20px rgba(0,0,0,.03) !important;
+}
+
+/* 资源库 library-item 美化 */
+html.light .library-item {
+  background: #fafafa !important;
+  border: 1px solid #ebebf0 !important;
+  border-radius: 10px !important;
+  transition: box-shadow 0.15s, border-color 0.15s !important;
+}
+html.light .library-item:hover {
+  box-shadow: 0 2px 8px rgba(124,58,237,.1) !important;
+  border-color: #c4b5fd !important;
+}
+
+/* Storyboard 卡片 */
+html.light .sb-card,
+html.light .storyboard-row {
+  border-radius: 12px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05) !important;
+}
+
+/* 表格美化 */
+html.light .el-table {
+  border-radius: 10px !important;
+  overflow: hidden !important;
+}
+html.light .el-table th.el-table__cell {
+  background: #f8f7ff !important;
+  color: #4c1d95 !important;
+  font-weight: 600 !important;
+}
+html.light .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: #fdfcff !important;
+}
+
+/* 按钮通用圆角 */
+html.light .el-button {
+  border-radius: 8px !important;
+}
+html.light .el-button--primary {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+  border-color: transparent !important;
+  box-shadow: 0 2px 8px rgba(124,58,237,.25) !important;
+}
+html.light .el-button--primary:hover {
+  background: linear-gradient(135deg, #6d28d9, #5b21b6) !important;
+  box-shadow: 0 4px 12px rgba(124,58,237,.35) !important;
+}
+
+/* 输入框 */
+html.light .el-input__wrapper {
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 1px #ddd6fe !important;
+  transition: box-shadow 0.2s !important;
+}
+html.light .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #a78bfa !important;
+}
+html.light .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 2px #7c3aed !important;
+}
+html.light .el-textarea__wrapper {
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 1px #ddd6fe !important;
+}
+html.light .el-textarea__wrapper:hover {
+  box-shadow: 0 0 0 1px #a78bfa !important;
+}
+
+/* 对话框 */
+html.light .el-dialog {
+  border-radius: 16px !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,.12) !important;
+}
+
+/* 分集卡片 */
+html.light .episode-card {
+  border-radius: 12px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06) !important;
+  transition: transform 0.15s, box-shadow 0.15s !important;
+}
+html.light .episode-card:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px rgba(124,58,237,.1) !important;
+  border-color: #a78bfa !important;
+}
+
+/* page bg 更细腻 */
+html.light {
+  --bg-page: #f4f2fa;
+}
+html.light html, html.light body, html.light #app, html.light .app {
+  background: #f4f2fa !important;
+}
+
+/* 资产管理 header banner */
+html.light .asset-cover {
+  border-radius: 10px !important;
+  overflow: hidden !important;
+}
+
+/* el-tabs 美化 */
+html.light .el-tabs__item {
+  color: #71717a !important;
+  font-weight: 500 !important;
+}
+html.light .el-tabs__item.is-active {
+  color: #7c3aed !important;
+  font-weight: 600 !important;
+}
+html.light .el-tabs__active-bar {
+  background: #7c3aed !important;
+  border-radius: 2px !important;
+}
+html.light .el-tabs__nav-wrap::after {
+  background: #ebebf0 !important;
+}
+
+/* 导航 tab（按钮型）美化 */
+html.light .el-radio-button__inner {
+  border-radius: 8px !important;
+}
+
+/* 页面整体内容区最大宽度限制样式 */
+html.light .main {
+  padding-top: 28px !important;
+}

@@ -1138,6 +1138,15 @@ onMounted(() => {
 <style scoped>
 .drama-detail { min-height: 100vh; background: #0f0f12; color: #e4e4e7; }
 .header { background: #18181b; border-bottom: 1px solid #27272a; padding: 12px 24px; }
+html.light .drama-detail .header {
+  background: linear-gradient(135deg, #ffffff 0%, #faf5ff 100%) !important;
+}
+html.light .drama-detail .logo {
+  background: linear-gradient(135deg, #7c3aed, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 .header-inner { max-width: min(1200px, 96vw); margin: 0 auto; display: flex; align-items: center; gap: 16px; }
 .logo { font-size: 1.2rem; font-weight: 600; color: #fafafa; margin: 0; cursor: pointer; }
 .page-title { color: #a1a1aa; font-size: 0.95rem; }

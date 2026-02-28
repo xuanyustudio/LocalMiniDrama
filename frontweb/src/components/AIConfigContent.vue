@@ -1,21 +1,24 @@
 <template>
   <div class="ai-config-content">
-    <div class="content-actions">
-      <el-button type="primary" @click="openAdd">
-        <el-icon><Plus /></el-icon>
-        添加配置
-      </el-button>
-      <el-button type="success" plain @click="openOneKeyTongyi">
-        <el-icon><MagicStick /></el-icon>
-        一键配置通义
-      </el-button>
-      <el-button type="success" plain @click="openOneKeyVolc">
-        <el-icon><MagicStick /></el-icon>
-        一键配置火山
-      </el-button>
-    </div>
-    <p class="default-tip">每种服务类型仅有一个默认配置：文本用于生成故事；文本生成图片用于角色/场景/道具图；分镜图片生成用于分镜图（支持参考图）；视频用于生成视频。</p>
-    <el-table v-loading="loading" :data="list" stripe style="width: 100%">
+    <el-tabs v-model="activeTab" class="config-tabs">
+      <el-tab-pane label="AI 配置" name="configs">
+        <div class="tab-content">
+          <div class="content-actions">
+            <el-button type="primary" @click="openAdd">
+              <el-icon><Plus /></el-icon>
+              添加配置
+            </el-button>
+            <el-button type="success" plain @click="openOneKeyTongyi">
+              <el-icon><MagicStick /></el-icon>
+              一键配置通义
+            </el-button>
+            <el-button type="success" plain @click="openOneKeyVolc">
+              <el-icon><MagicStick /></el-icon>
+              一键配置火山
+            </el-button>
+          </div>
+          <p class="default-tip">每种服务类型仅有一个默认配置：文本用于生成故事；文本生成图片用于角色/场景/道具图；分镜图片生成用于分镜图（支持参考图）；视频用于生成视频。</p>
+          <el-table v-loading="loading" :data="list" stripe style="width: 100%">
       <el-table-column prop="name" label="名称" min-width="120" />
       <el-table-column prop="service_type" label="类型" width="100">
         <template #default="{ row }">
@@ -44,6 +47,14 @@
         </template>
       </el-table-column>
     </el-table>
+        </div>
+      </el-tab-pane>
+      <el-tab-pane label="高级设置（提示词）" name="prompts">
+        <div class="tab-content">
+          <PromptEditor />
+        </div>
+      </el-tab-pane>
+    </el-tabs>
 
     <!-- 添加/编辑 -->
     <el-dialog
@@ -107,6 +118,7 @@
               :key="p.id"
               :label="p.name"
               :value="p.id"
+              :class="p.id === '__custom__' ? 'provider-custom-option' : ''"
             />
           </el-select>
         </el-form-item>
@@ -347,7 +359,9 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, MagicStick, QuestionFilled } from '@element-plus/icons-vue'
 import { aiAPI } from '@/api/ai'
+import PromptEditor from '@/components/PromptEditor.vue'
 
+const activeTab = ref('configs')
 const loading = ref(false)
 const list = ref([])
 const dialogVisible = ref(false)
@@ -471,15 +485,19 @@ function getBaseUrlForProvider(provider) {
   return 'https://api.chatfire.site/v1'
 }
 
-/** 当前服务类型下的预设厂商列表（编辑时若当前 provider 不在列表则补一项） */
+const CUSTOM_PROVIDER_SENTINEL = '__custom__'
+
+/** 当前服务类型下的预设厂商列表（编辑时若当前 provider 不在列表则补一项；末尾始终附一项自定义入口） */
 const availableProviderOptions = computed(() => {
   const st = form.value.service_type || 'text'
   const listByType = providerConfigs[st] || []
   const current = form.value.provider
-  if (editingId.value && current && !listByType.some((p) => p.id === current)) {
-    return [{ id: current, name: current + ' (当前)', models: [] }, ...listByType]
+  let result = [...listByType]
+  if (editingId.value && current && current !== CUSTOM_PROVIDER_SENTINEL && !listByType.some((p) => p.id === current)) {
+    result = [{ id: current, name: current + ' (当前)', models: [] }, ...result]
   }
-  return listByType
+  result.push({ id: CUSTOM_PROVIDER_SENTINEL, name: '✏️ 自定义（直接输入厂商名）', models: [] })
+  return result
 })
 
 /** 当前厂商的预设模型列表（用于追加预设模型） */
@@ -492,6 +510,13 @@ const availableModels = computed(() => {
 })
 
 function onProviderChange(providerId) {
+  if (providerId === CUSTOM_PROVIDER_SENTINEL) {
+    form.value.provider = ''
+    form.value.base_url = ''
+    form.value.modelText = ''
+    form.value.default_model = ''
+    return
+  }
   const st = form.value.service_type || 'text'
   const p = (providerConfigs[st] || []).find((x) => x.id === providerId)
   if (!p) {
@@ -727,9 +752,25 @@ async function submitOneKeyVolc() {
 onMounted(() => loadList())
 </script>
 
+<style>
+.provider-custom-option {
+  border-top: 1px solid var(--el-border-color-light, #e4e7ed);
+  margin-top: 4px;
+  padding-top: 4px;
+  color: var(--el-color-primary, #409eff) !important;
+  font-style: italic;
+}
+</style>
+
 <style scoped>
 .ai-config-content {
   padding: 0;
+}
+.config-tabs {
+  margin-top: -4px;
+}
+.tab-content {
+  padding-top: 16px;
 }
 .content-actions {
   display: flex;

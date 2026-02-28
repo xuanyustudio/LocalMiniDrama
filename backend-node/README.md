@@ -2,7 +2,7 @@
 
 **Node.js + Express + SQLite · 纯 JavaScript · 无 TypeScript**
 
-→ [项目主页](../README.md) | [快速开始](../docs/quickstart.md) | [AI 配置](../docs/configuration.md)
+→ [项目主页](../README.md) | [快速开始](../docs/quickstart.md) | [AI 配置](../docs/configuration.md) | [版本历史](../docs/changelog.md) | [作者故事](../docs/story.md) | [English](../docs/en.md)
 
 ---
 

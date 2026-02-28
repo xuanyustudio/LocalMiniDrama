@@ -32,10 +32,11 @@ function goList() {
 <style scoped>
 .ai-config {
   min-height: 100vh;
-  background: #f5f6fa;
+  background: var(--bg-page);
 }
 .header {
-  background: #fff;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 .header-inner {
@@ -51,23 +52,24 @@ function goList() {
   font-weight: 600;
   margin: 0;
   cursor: pointer;
-  color: #303133;
+  color: var(--text-bright);
 }
 .logo:hover {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 .page-title {
   flex: 1;
   font-size: 16px;
-  color: #606266;
+  color: var(--text-muted);
 }
 .main {
   max-width: 1200px;
   margin: 24px auto;
   padding: 0 24px;
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 8px;
   padding: 20px;
+  border: 1px solid var(--border-color);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 </style>

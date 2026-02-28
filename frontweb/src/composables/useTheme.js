@@ -1,7 +1,7 @@
 import { ref, watchEffect } from 'vue'
 
 const STORAGE_KEY = 'lmd-theme'
-const isDark = ref(localStorage.getItem(STORAGE_KEY) !== 'light')
+const isDark = ref(localStorage.getItem(STORAGE_KEY) === 'dark')
 
 function apply() {
   if (isDark.value) {

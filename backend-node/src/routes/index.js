@@ -18,6 +18,7 @@ const videoRoutes = require('./videos');
 const videoMergeRoutes = require('./videoMerges');
 const assetRoutes = require('./assets');
 const audioRoutes = require('./audio');
+const promptOverridesRoutes = require('./promptOverrides');
 
 function setupRouter(cfg, db, log) {
   const r = express.Router();
@@ -41,6 +42,7 @@ function setupRouter(cfg, db, log) {
   const videoMerges = videoMergeRoutes(db, log);
   const assets = assetRoutes(db, log);
   const audio = audioRoutes(db, log);
+  const promptOverrides = promptOverridesRoutes.routes(db, log);
 
   // ---------- dramas ----------
   r.get('/dramas', drama.listDramas);
@@ -219,6 +221,21 @@ function setupRouter(cfg, db, log) {
   // ---------- settings ----------
   r.get('/settings/language', settings.getLanguage);
   r.put('/settings/language', settings.updateLanguage);
+
+  // ---------- prompt overrides ----------
+  r.get('/settings/prompts', promptOverrides.list);
+  r.put('/settings/prompts/:key', promptOverrides.update);
+  r.delete('/settings/prompts/:key', promptOverrides.reset);
+
+  // 启动时将已有的覆盖加载到 promptI18n 内存缓存
+  try {
+    const promptI18n = require('../services/promptI18n');
+    const promptOverridesService = require('../services/promptOverridesService');
+    const saved = promptOverridesService.listOverrides(db);
+    promptI18n.loadOverridesIntoCache(saved);
+  } catch (e) {
+    console.warn('Failed to load prompt overrides:', e.message);
+  }
 
   return r;
 }

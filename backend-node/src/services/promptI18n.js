@@ -1,3 +1,20 @@
+// 内存覆盖缓存：key => body（仅存可编辑部分，不含锁定的 JSON 格式要求）
+const _overrideCache = {};
+
+function loadOverridesIntoCache(overrides) {
+  for (const o of overrides) {
+    _overrideCache[o.key] = o.content;
+  }
+}
+
+function setOverrideInMemory(key, content) {
+  _overrideCache[key] = content;
+}
+
+function clearOverrideInMemory(key) {
+  delete _overrideCache[key];
+}
+
 // 与 Go application/services/prompt_i18n.go 对齐：提示词与语言
 function getLanguage(cfg) {
   return (cfg?.app?.language || 'zh').toLowerCase();
@@ -30,6 +47,10 @@ Requirements:
 Output Format:
 **CRITICAL: Return ONLY a valid JSON array. Do NOT include any markdown code blocks, explanations, or other text. Start directly with [ and end with ].**
 Each element is a character object containing the above fields.`;
+  }
+  const _charOverride = _overrideCache['character_extraction'];
+  if (_charOverride) {
+    return _charOverride + `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n输出格式：\n**重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**\n每个元素是一个角色对象，包含上述字段。`;
   }
   return `你是一个专业的角色分析师，擅长从剧本中提取和分析角色信息。
 
@@ -107,6 +128,10 @@ function getStoryboardSystemPrompt(cfg) {
 - Each shot must have clear action and result
 - Shot types must match storytelling rhythm (don't use same shot type continuously)
 - Emotion intensity must accurately reflect script atmosphere changes`;
+  }
+  const _sbOverride = _overrideCache['storyboard_system'];
+  if (_sbOverride) {
+    return _sbOverride + `\n\n**重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**\n\n【重要提示】\n- 镜头数量必须与剧本中的独立动作数量匹配（不允许合并或减少）\n- 每个镜头必须有明确的动作和结果\n- 景别选择必须符合叙事节奏（不要连续使用同一景别）\n- 情绪强度必须准确反映剧本氛围变化`;
   }
   return `【角色】你是一位资深影视分镜师，精通罗伯特·麦基的镜头拆解理论，擅长构建情绪节奏。
 
@@ -241,6 +266,11 @@ function getStoryboardUserPromptSuffix(cfg) {
 
 **Output**: JSON with "storyboards" array. Each item: shot_number, title, shot_type, angle, time, location, scene_id, movement, action, dialogue, result, atmosphere, emotion, duration, bgm_prompt, sound_effect, characters (array of IDs), is_primary. Return ONLY valid JSON, no markdown.`;
   }
+  const _sbUserLocked = `\n\n【输出格式】请以JSON格式输出，包含 "storyboards" 数组。每个镜头包含：shot_number, title, shot_type, angle, time, location, scene_id, movement, action, dialogue, result, atmosphere, emotion, duration, bgm_prompt, sound_effect, characters, is_primary。**必须只返回纯JSON，不要markdown。**`;
+  const _sbUserOverride = _overrideCache['storyboard_user_suffix'];
+  if (_sbUserOverride) {
+    return '\n\n' + _sbUserOverride + _sbUserLocked;
+  }
   return `
 
 【分镜要素】每个镜头聚焦单一动作，描述要详尽具体：
@@ -283,6 +313,11 @@ Return a JSON object containing:
 - prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
 - description: Simplified Chinese description (for reference)`;
   }
+  const _ffLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n输出格式：\n返回一个JSON对象，包含：\n- prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）\n- description：简化的中文描述（供参考）`;
+  const _ffOverride = _overrideCache['first_frame_prompt'];
+  if (_ffOverride) {
+    return _ffOverride + _ffLocked;
+  }
   return `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
 
 重要：这是镜头的首帧 - 一个完全静态的画面，展示动作发生之前的初始状态。
@@ -322,6 +357,11 @@ Return a JSON object containing:
 - prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
 - description: Simplified Chinese description (for reference)`;
   }
+  const _kfLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n输出格式：\n返回一个JSON对象，包含：\n- prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）\n- description：简化的中文描述（供参考）`;
+  const _kfOverride = _overrideCache['key_frame_prompt'];
+  if (_kfOverride) {
+    return _kfOverride + _kfLocked;
+  }
   return `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
 
 重要：这是镜头的关键帧 - 捕捉动作最激烈、最精彩的瞬间。
@@ -360,6 +400,11 @@ Output Format:
 Return a JSON object containing:
 - prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
 - description: Simplified Chinese description (for reference)`;
+  }
+  const _lfLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n输出格式：\n返回一个JSON对象，包含：\n- prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）\n- description：简化的中文描述（供参考）`;
+  const _lfOverride = _overrideCache['last_frame_prompt'];
+  if (_lfOverride) {
+    return _lfOverride + _lfLocked;
   }
   return `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
 
@@ -405,6 +450,11 @@ JSON array, each object containing:
 - image_prompt: English image generation prompt (Focus on the object, isolated, detailed, cinematic lighting, high quality)
 
 Please return JSON array directly.`;
+  }
+  const _propLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n\n【输出格式】\nJSON数组，每个对象包含：\n- name: 道具名称\n- type: 类型 (如：武器/关键证物/日常用品/特殊装置)\n- description: 在剧中的作用和中文外观描述\n- image_prompt: 英文图片生成提示词 (Focus on the object, isolated, detailed, cinematic lighting, high quality)\n\n请直接返回JSON数组。`;
+  const _propOverride = _overrideCache['prop_extraction'];
+  if (_propOverride) {
+    return _propOverride + _propLocked;
   }
   return `请从以下剧本中提取关键道具。
 
@@ -452,6 +502,11 @@ function getSceneExtractionPrompt(cfg, style) {
 **CRITICAL: Return ONLY a valid JSON array. Do NOT include any markdown code blocks. Start directly with [ and end with ].**
 Each element: location, time, prompt (English image generation prompt for pure background).`;
   }
+  const _sceneLocked = `\n5. **风格要求**：${s}\n   - **图片比例**：${imageRatio}\n\n【输出格式】\n**重要：必须只返回纯JSON数组，不要包含任何markdown代码块。直接以 [ 开头，以 ] 结尾。**\n每个元素包含：location（地点）, time（时间）, prompt（完整的中文图片生成提示词，纯背景，明确说明无人物）。`;
+  const _sceneOverride = _overrideCache['scene_extraction'];
+  if (_sceneOverride) {
+    return _sceneOverride + _sceneLocked;
+  }
   return `【任务】从剧本中提取所有唯一的场景背景
 
 【要求】
@@ -479,6 +534,10 @@ Requirements:
 2. You may include scene descriptions, character actions and dialogue. Do NOT output shot numbers, scene headings like "INT./EXT.", or any screenplay formatting marks.
 3. Length: approximately 300–800 words (or 150–400 words for a very simple premise). Adjust based on the complexity of the premise.
 4. Output ONLY the script/story body. Do NOT add a title like "Script:" or "Story:", or any meta explanation before or after the text.`;
+  }
+  const _storyOverride = _overrideCache['story_expansion_system'];
+  if (_storyOverride) {
+    return _storyOverride;
   }
   return `你是一位专业的编剧。你的任务是根据用户提供的故事梗概（可能很短），扩展成一段完整可用的短片剧本/故事正文。
 
@@ -539,4 +598,7 @@ module.exports = {
   getStoryboardUserPromptSuffix,
   getStoryExpansionSystemPrompt,
   buildStoryExpansionUserPrompt,
+  loadOverridesIntoCache,
+  setOverrideInMemory,
+  clearOverrideInMemory,
 };
