@@ -106,18 +106,17 @@ function getPromptDefinitions() {
     {
       key: 'prop_extraction',
       label: '道具提取提示词',
-      description: '控制 AI 如何从剧本中提取关键道具（%s 为剧本内容占位符，风格/比例和输出格式已锁定）',
-      default_body: `请从以下剧本中提取关键道具。
+      description: '控制 AI 如何从剧本中提取关键道具（系统提示词，剧本内容由系统自动传入；风格/比例和输出格式已锁定）',
+      default_body: `你是一位专业的剧本道具分析师，擅长从剧本中提取具有视觉特征的关键道具。
 
-【剧本内容】
-%s
+你的任务是根据提供的剧本内容，提取并整理所有对剧情有重要作用或有特殊视觉特征的关键道具。
 
-【要求】
+要求：
 1. 只提取对剧情发展有重要作用、或有特殊视觉特征的关键道具。
 2. 普通的生活用品（如普通的杯子、笔）如果无特殊剧情意义不需要提取。
 3. 如果道具有明确的归属者，请在描述中注明。
 4. "image_prompt"字段是用于AI生成图片的英文提示词，必须详细描述道具的外观、材质、颜色、风格。`,
-      locked_suffix: `\n- **风格要求**：[当前道具风格]\n- **图片比例**：[当前比例]\n\n【输出格式】\nJSON数组，每个对象包含：\n- name: 道具名称\n- type: 类型 (如：武器/关键证物/日常用品/特殊装置)\n- description: 在剧中的作用和中文外观描述\n- image_prompt: 英文图片生成提示词 (Focus on the object, isolated, detailed, cinematic lighting, high quality)\n\n请直接返回JSON数组。`,
+      locked_suffix: `\n- **风格要求**：[当前道具风格]\n- **图片比例**：[当前比例]\n\n【输出格式】\n**重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**\n每个对象包含：\n- name: 道具名称\n- type: 类型 (如：武器/关键证物/日常用品/特殊装置)\n- description: 在剧中的作用和中文外观描述\n- image_prompt: 英文图片生成提示词 (Focus on the object, isolated, detailed, cinematic lighting, high quality)`,
     },
     {
       key: 'storyboard_user_suffix',

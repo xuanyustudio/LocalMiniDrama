@@ -45,12 +45,13 @@ async function processPropExtraction(db, log, taskId, episodeId) {
       }
     }
   } catch (_) {}
-  const promptTemplate = promptI18n.getPropExtractionPrompt(cfg);
-  const prompt = promptTemplate.replace('%s', String(scriptContent).trim());
+  const systemPrompt = promptI18n.getPropExtractionPrompt(cfg);
+  const contentLabel = promptI18n.isEnglish(cfg) ? '[Script Content]\n' : '【剧本内容】\n';
+  const prompt = contentLabel + String(scriptContent).trim();
 
   let response;
   try {
-    response = await aiClient.generateText(db, log, 'text', prompt, '', {
+    response = await aiClient.generateText(db, log, 'text', prompt, systemPrompt, {
       max_tokens: 2000,
       temperature: 0.3,
     });

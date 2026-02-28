@@ -49,10 +49,10 @@ function routes(db, log) {
         const cameraFixed = body.camera_fixed != null ? (body.camera_fixed ? 1 : 0) : null;
         const watermark = body.watermark != null ? (body.watermark ? 1 : 0) : 0;
         const imageUrl = body.image_url ?? null;
-        // 首尾帧：支持 URL 或本地路径（与 Go 一致，存到 first_frame_url / last_frame_url）
+        // 首尾帧：支持 URL 或本地路径（sxy，存到 first_frame_url / last_frame_url）
         const firstFrameUrl = body.first_frame_url ?? body.first_frame_local_path ?? null;
         const lastFrameUrl = body.last_frame_url ?? body.last_frame_local_path ?? null;
-        // 多图模式：与 Go 一致，存 JSON 数组到 reference_image_urls
+        // 多图模式：sxy，存 JSON 数组到 reference_image_urls
         const refImagesJson =
           body.reference_image_urls && Array.isArray(body.reference_image_urls)
             ? JSON.stringify(body.reference_image_urls.slice(0, 10))

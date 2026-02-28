@@ -279,8 +279,8 @@
             </div>
             <div v-show="!propsBlockCollapsed" class="resource-block-body">
               <div class="asset-actions">
-                <el-button size="small" :loading="propsExtracting" :disabled="!currentEpisodeId" @click="onExtractProps">从剧本提取道具</el-button>
-                <el-button type="primary" size="small" :disabled="!dramaId" @click="showAddProp = true">添加道具</el-button>
+                <el-button type="primary" size="small" :loading="propsExtracting" :disabled="!currentEpisodeId" @click="onExtractProps">从剧本提取道具</el-button>
+                <el-button size="small" :disabled="!dramaId" @click="showAddProp = true">添加道具</el-button>
                 <el-button size="small" @click="showPropLibrary = true">本剧道具库</el-button>
               </div>
               <div class="asset-list asset-list-two">
@@ -3674,6 +3674,9 @@ html.light .btn-theme {
   margin: 0;
   color: #e4e4e7;
 }
+html.light .resource-block-title {
+  color: #18181b;
+}
 .resource-block-body {
   padding: 12px 14px 14px;
 }
@@ -3851,6 +3854,41 @@ html.light .btn-theme {
   font-size: 0.9rem;
   padding: 16px 0;
 }
+
+/* 亮色模式：资源卡片 */
+html.light .asset-item {
+  background: #ffffff;
+  border: 1px solid #e4e7ed;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.07);
+}
+html.light .asset-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+html.light .asset-cover {
+  background: #f3f4f6;
+}
+html.light .asset-name {
+  color: #18181b;
+}
+html.light .asset-desc,
+html.light .asset-desc-full,
+html.light .asset-item-left-right .asset-desc-full {
+  color: #6b7280;
+}
+html.light .cover-placeholder {
+  color: #9ca3af;
+  background: #f3f4f6;
+}
+html.light .cover-placeholder.error {
+  background: #fef2f2;
+  color: #dc2626;
+}
+html.light .empty-tip {
+  color: #9ca3af;
+}
+
 /* 分镜：每行一个，三列布局 */
 .storyboard-row {
   display: flex;

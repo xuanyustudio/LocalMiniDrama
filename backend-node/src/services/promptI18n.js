@@ -252,7 +252,7 @@ function formatUserPrompt(cfg, key, ...args) {
   return t.replace(/%[sd]/g, () => (args[i] != null ? String(args[i++]) : ''));
 }
 
-/** 分镜用户提示词后缀：详细输出格式与要求（与 Go 一致） */
+/** 分镜用户提示词后缀：详细输出格式与要求 */
 function getStoryboardUserPromptSuffix(cfg) {
   const lang = isEnglish(cfg) ? 'en' : 'zh';
   if (lang === 'en') {
@@ -424,15 +424,14 @@ Return a JSON object containing:
 - description：简化的中文描述（供参考）`;
 }
 
-/** 道具提取提示词（与 Go GetPropExtractionPrompt 一致） */
+/** 道具提取系统提示词（system prompt，剧本内容由 user prompt 单独传入） */
 function getPropExtractionPrompt(cfg) {
   const style = (cfg?.style?.default_style || '') + ', ' + (cfg?.style?.default_prop_style || '');
   const imageRatio = cfg?.style?.default_prop_ratio || cfg?.style?.default_image_ratio || '16:9';
   if (isEnglish(cfg)) {
-    return `Please extract key props from the following script.
+    return `You are a professional script prop analyst, skilled at extracting key props with visual characteristics from scripts.
 
-[Script Content]
-%s
+Your task is to extract and organize all key props that are important to the plot or have special visual characteristics from the provided script content.
 
 [Requirements]
 1. Extract ONLY key props that are important to the plot or have special visual characteristics.
@@ -443,25 +442,23 @@ function getPropExtractionPrompt(cfg) {
 - **Image Ratio**: ${imageRatio}
 
 [Output Format]
-JSON array, each object containing:
+**CRITICAL: Return ONLY a valid JSON array. Do NOT include any markdown code blocks, explanations, or other text. Start directly with [ and end with ].**
+Each object containing:
 - name: Prop Name
 - type: Type (e.g., Weapon/Key Item/Daily Item/Special Device)
 - description: Role in the drama and visual description
-- image_prompt: English image generation prompt (Focus on the object, isolated, detailed, cinematic lighting, high quality)
-
-Please return JSON array directly.`;
+- image_prompt: English image generation prompt (Focus on the object, isolated, detailed, cinematic lighting, high quality)`;
   }
-  const _propLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n\n【输出格式】\nJSON数组，每个对象包含：\n- name: 道具名称\n- type: 类型 (如：武器/关键证物/日常用品/特殊装置)\n- description: 在剧中的作用和中文外观描述\n- image_prompt: 英文图片生成提示词 (Focus on the object, isolated, detailed, cinematic lighting, high quality)\n\n请直接返回JSON数组。`;
+  const _propLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n\n【输出格式】\n**重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**\n每个对象包含：\n- name: 道具名称\n- type: 类型 (如：武器/关键证物/日常用品/特殊装置)\n- description: 在剧中的作用和中文外观描述\n- image_prompt: 英文图片生成提示词 (Focus on the object, isolated, detailed, cinematic lighting, high quality)`;
   const _propOverride = _overrideCache['prop_extraction'];
   if (_propOverride) {
     return _propOverride + _propLocked;
   }
-  return `请从以下剧本中提取关键道具。
+  return `你是一位专业的剧本道具分析师，擅长从剧本中提取具有视觉特征的关键道具。
 
-【剧本内容】
-%s
+你的任务是根据提供的剧本内容，提取并整理所有对剧情有重要作用或有特殊视觉特征的关键道具。
 
-【要求】
+要求：
 1. 只提取对剧情发展有重要作用、或有特殊视觉特征的关键道具。
 2. 普通的生活用品（如普通的杯子、笔）如果无特殊剧情意义不需要提取。
 3. 如果道具有明确的归属者，请在描述中注明。
@@ -470,13 +467,12 @@ Please return JSON array directly.`;
 - **图片比例**：${imageRatio}
 
 【输出格式】
-JSON数组，每个对象包含：
+**重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**
+每个对象包含：
 - name: 道具名称
 - type: 类型 (如：武器/关键证物/日常用品/特殊装置)
 - description: 在剧中的作用和中文外观描述
-- image_prompt: 英文图片生成提示词 (Focus on the object, isolated, detailed, cinematic lighting, high quality)
-
-请直接返回JSON数组。`;
+- image_prompt: 英文图片生成提示词 (Focus on the object, isolated, detailed, cinematic lighting, high quality)`;
 }
 
 function getSceneExtractionPrompt(cfg, style) {

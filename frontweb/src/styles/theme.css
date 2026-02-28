@@ -344,18 +344,33 @@ html.light .el-table--striped .el-table__body tr.el-table__row--striped td.el-ta
   background: #fdfcff !important;
 }
 
+/* 表格内 link 按钮颜色恢复（防被 tr color !important 覆盖） */
+html.light .el-table tr .el-button.is-link,
+html.light .el-table tr .el-button.is-link span {
+  color: var(--el-color-primary) !important;
+}
+html.light .el-table tr .el-button.is-link.el-button--danger,
+html.light .el-table tr .el-button.is-link.el-button--danger span {
+  color: var(--el-color-danger) !important;
+}
+
 /* 按钮通用圆角 */
 html.light .el-button {
   border-radius: 8px !important;
 }
-html.light .el-button--primary {
+html.light .el-button--primary:not(.is-link) {
   background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
   border-color: transparent !important;
   box-shadow: 0 2px 8px rgba(124,58,237,.25) !important;
 }
-html.light .el-button--primary:hover {
+html.light .el-button--primary:not(.is-link):hover {
   background: linear-gradient(135deg, #6d28d9, #5b21b6) !important;
   box-shadow: 0 4px 12px rgba(124,58,237,.35) !important;
+}
+html.light .el-button.is-link {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* 输入框 */

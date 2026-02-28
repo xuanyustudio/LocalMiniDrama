@@ -253,7 +253,7 @@ function batchGenerateCharacterImages(db, log, cfg, characterIds, modelName, sty
   if (ids.length === 0) return { ok: false, error: 'character_ids 不能为空' };
   if (ids.length > 10) return { ok: false, error: '单次最多生成10个角色' };
   log.info('Starting batch character image generation', { count: ids.length, model: modelName, character_ids: ids });
-  // 与 Go 一致：每个角色单独起一个“协程”，不阻塞响应
+  // sxy：每个角色单独起一个“协程”，不阻塞响应
   for (const characterId of ids) {
     const charId = characterId;
     setImmediate(() => {
