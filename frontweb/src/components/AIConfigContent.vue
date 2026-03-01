@@ -172,7 +172,7 @@
               </el-tooltip>
             </span>
           </template>
-          <el-input v-model="form.api_key" type="password" placeholder="API 密钥" show-password-on="click" />
+          <el-input v-model="form.api_key" type="password" placeholder="API 密钥" show-password />
         </el-form-item>
         <!-- 端点配置：视频必填（自定义厂商）；图片/分镜在使用代理或特殊厂商时填写 -->
         <template v-if="form.service_type !== 'text'">

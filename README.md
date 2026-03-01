@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # 🎬 LocalMiniDrama
 
@@ -95,9 +95,16 @@
 
 ### 方式一：下载 exe（推荐普通用户）
 
-前往 **[Releases](../../releases)** 下载最新版：
-- `LocalMiniDrama Setup x.x.x.exe` — 安装包版
-- `LocalMiniDrama x.x.x.exe` — 免安装便携版
+前往 **[Releases](../../releases)** 下载最新版，每次发布提供两个版本：
+
+| 文件名 | 说明 | 推荐人群 |
+|--------|------|----------|
+
+| `LocalMiniDrama x.x.x.exe` | 标准版免安装便携版 | 首次使用，含示例项目 |
+
+| `LocalMiniDrama-Lite-x.x.x.exe` | Lite 版免安装便携版 | 已熟悉使用，包体更小 |
+
+> **标准版 vs Lite 版**：标准版内置一个示例短剧项目，打开即可查看完整创作流程示例，适合新手上手参考；Lite 版不含示例数据，包体更小，适合已了解使用方式的用户。功能完全一致。
 
 双击运行 → 在软件「AI 配置」页填入你的 API Key → 开始创作。
 
