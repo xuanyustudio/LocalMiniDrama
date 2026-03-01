@@ -99,6 +99,206 @@ function parseDashScopeImageUrl(data) {
   return null;
 }
 
+// nano-banana size 转 aspectRatio（1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3 / 5:4 / 4:5 / 21:9 / auto）
+function nanoBananaAspectRatio(size) {
+  if (!size || typeof size !== 'string') return 'auto';
+  const s = String(size).trim().toLowerCase().replace(/\s/g, '');
+  const ratioSet = new Set(['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '5:4', '4:5', '21:9']);
+  if (ratioSet.has(s)) return s;
+  const match = s.match(/^(\d+)[x*](\d+)$/);
+  if (!match) return 'auto';
+  const w = parseInt(match[1], 10);
+  const h = parseInt(match[2], 10);
+  if (!w || !h) return 'auto';
+  const r = w / h;
+  if (r > 2) return '21:9';
+  if (r >= 1.6) return '16:9';
+  if (r >= 1.2) return '4:3';
+  if (r >= 0.9) return '1:1';
+  if (r >= 0.7) return '3:4';
+  if (r >= 0.55) return '4:5';
+  return '9:16';
+}
+
+/**
+ * 调用 NanoBanana 图片生成 API（异步任务轮询）
+ * 模型 → 端点：
+ *   nano-banana-2   → POST /api/v1/nanobanana/generate-2
+ *   nano-banana-pro → POST /api/v1/nanobanana/generate-pro
+ *   nano-banana     → POST /api/v1/nanobanana/generate（需 callBackUrl，用占位符）
+ * 结果轮询：GET /api/v1/nanobanana/record-info?taskId=xxx
+ */
+async function callNanoBananaImageApi(config, log, opts) {
+  const { prompt, model, size, image_gen_id, reference_image_urls, files_base_url, storage_local_path } = opts;
+  const base = (config.base_url || 'https://api.nanobananaapi.ai').replace(/\/$/, '');
+  const apiKey = config.api_key || '';
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer ' + apiKey,
+  };
+  // 解析参考图：本地路径 / localhost URL → base64，确保外部 API 可访问
+  const rawRefs = Array.isArray(reference_image_urls) ? reference_image_urls.filter(Boolean) : [];
+  const refs = rawRefs.map((r) => resolveImageRef(r, files_base_url, storage_local_path)).filter(Boolean);
+  const aspectRatio = nanoBananaAspectRatio(size);
+  const m = (model || 'nano-banana-2').toLowerCase();
+
+  // 标准 nano-banana 原生端点；若 config.endpoint 与这些不同，视为代理模式，直接使用配置的端点
+  const NATIVE_ENDPOINTS = new Set([
+    '/api/v1/nanobanana/generate-2',
+    '/api/v1/nanobanana/generate-pro',
+    '/api/v1/nanobanana/generate',
+  ]);
+  const cfgEp = config.endpoint ? (config.endpoint.startsWith('/') ? config.endpoint : '/' + config.endpoint) : '';
+  const isProxyMode = cfgEp && !NATIVE_ENDPOINTS.has(cfgEp);
+
+  let submitUrl;
+  let body;
+  if (isProxyMode) {
+    // 代理模式：用配置的 endpoint，不区分模型，通用结构
+    submitUrl = base + cfgEp;
+    body = {
+      prompt: prompt || '',
+      imageUrls: refs,
+      aspectRatio: aspectRatio === 'auto' ? '16:9' : aspectRatio,
+      resolution: '1K',
+    };
+  } else if (m === 'nano-banana-2') {
+    submitUrl = base + '/api/v1/nanobanana/generate-2';
+    body = {
+      prompt: prompt || '',
+      imageUrls: refs,
+      aspectRatio,
+      resolution: '1K',
+      outputFormat: 'jpg',
+    };
+  } else if (m === 'nano-banana-pro') {
+    submitUrl = base + '/api/v1/nanobanana/generate-pro';
+    body = {
+      prompt: prompt || '',
+      imageUrls: refs,
+      aspectRatio: aspectRatio === 'auto' ? '16:9' : aspectRatio,
+      resolution: '2K',
+    };
+  } else {
+    // nano-banana 基础模型：callBackUrl 为必填，提供占位 URL（服务端轮询结果）
+    submitUrl = base + '/api/v1/nanobanana/generate';
+    body = {
+      prompt: prompt || '',
+      type: refs.length > 0 ? 'IMAGETOIAMGE' : 'TEXTTOIAMGE',
+      imageUrls: refs,
+      image_size: (aspectRatio === 'auto' ? '16:9' : aspectRatio),
+      numImages: 1,
+      callBackUrl: 'https://placeholder.no-op/callback',
+    };
+  }
+
+  const bodyForLog = { ...body };
+  if (Array.isArray(bodyForLog.imageUrls)) {
+    bodyForLog.imageUrls = bodyForLog.imageUrls.map((u) => (u && u.startsWith('data:') ? '(base64)' : u));
+  }
+  log.info('NanoBanana Image API request', {
+    url: submitUrl,
+    model: m,
+    image_gen_id,
+    proxy_mode: isProxyMode,
+    auth_header_prefix: (headers.Authorization || '').slice(0, 20) + '…',
+    body_keys: Object.keys(body),
+    body_preview: JSON.stringify(bodyForLog).slice(0, 300),
+  });
+  const submitRes = await fetch(submitUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  const submitRaw = await submitRes.text();
+  if (!submitRes.ok) {
+    let errMsg = 'NanoBanana 图片生成请求失败: ' + submitRes.status;
+    try {
+      const errJson = JSON.parse(submitRaw);
+      const msg = errJson.msg || errJson.message || (errJson.error && (errJson.error.message || errJson.error));
+      if (msg) errMsg += ' - ' + String(msg).slice(0, 200);
+    } catch (_) {
+      if (submitRaw) errMsg += ' - ' + submitRaw.slice(0, 200);
+    }
+    log.error('NanoBanana submit failed', {
+      status: submitRes.status,
+      body: submitRaw.slice(0, 500),
+      image_gen_id,
+      submit_url: submitUrl,
+      auth_header_prefix: (headers.Authorization || '').slice(0, 20) + '…',
+    });
+    return { error: errMsg };
+  }
+  let submitData;
+  try {
+    submitData = JSON.parse(submitRaw);
+  } catch (e) {
+    return { error: 'NanoBanana 返回格式异常' };
+  }
+
+  // 兼容同步代理响应：部分代理直接返回图片 URL，无需轮询
+  const directImageUrl = submitData?.images?.[0]?.url
+    || submitData?.image?.url
+    || submitData?.image_url
+    || submitData?.data?.url
+    || submitData?.url;
+  if (directImageUrl) {
+    log.info('NanoBanana image (synchronous proxy response)', { image_gen_id });
+    return { image_url: directImageUrl };
+  }
+
+  const taskId = submitData?.data?.taskId || submitData?.request_id || submitData?.taskId;
+  if (!taskId) {
+    const msg = submitData?.msg || submitData?.message || '未返回任务ID';
+    log.warn('NanoBanana no taskId in response', { image_gen_id, raw_preview: submitRaw.slice(0, 300) });
+    return { error: 'NanoBanana 提交失败: ' + String(msg).slice(0, 200) };
+  }
+
+  // 构建轮询 URL：优先用配置的 query_endpoint，否则用默认
+  const DEFAULT_QUERY_EP = '/api/v1/nanobanana/record-info';
+  const cfgQEp = config.query_endpoint
+    ? (config.query_endpoint.startsWith('/') ? config.query_endpoint : '/' + config.query_endpoint)
+    : '';
+  const useQueryEp = cfgQEp && cfgQEp !== DEFAULT_QUERY_EP ? cfgQEp : DEFAULT_QUERY_EP;
+  function buildQueryUrl(tid) {
+    if (useQueryEp.includes('{taskId}')) return base + useQueryEp.replace('{taskId}', encodeURIComponent(tid));
+    return base + useQueryEp + '?taskId=' + encodeURIComponent(tid);
+  }
+
+  log.info('NanoBanana task submitted, polling…', { image_gen_id, task_id: taskId, query_ep: useQueryEp });
+  const maxAttempts = 60;
+  const intervalMs = 3000;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await new Promise((r) => setTimeout(r, intervalMs));
+    try {
+      const queryRes = await fetch(buildQueryUrl(taskId), {
+        method: 'GET',
+        headers,
+      });
+      if (!queryRes.ok) continue;
+      const queryData = JSON.parse(await queryRes.text());
+      const successFlag = queryData?.data?.successFlag;
+      if (successFlag === 1) {
+        const imageUrl = queryData?.data?.response?.resultImageUrl || queryData?.data?.response?.originImageUrl;
+        if (imageUrl) {
+          log.info('NanoBanana image completed', { image_gen_id, task_id: taskId });
+          return { image_url: imageUrl };
+        }
+        return { error: '未返回图片地址' };
+      }
+      if (successFlag === 2 || successFlag === 3) {
+        const errMsg = queryData?.data?.errorMessage || '任务失败';
+        log.warn('NanoBanana task failed', { image_gen_id, task_id: taskId, successFlag, error_message: errMsg });
+        return { error: 'NanoBanana 生成失败: ' + errMsg };
+      }
+      // successFlag === 0：生成中，继续轮询
+    } catch (e) {
+      log.warn('NanoBanana poll request failed', { attempt, error: e.message, image_gen_id });
+    }
+  }
+  return { error: 'NanoBanana 图片生成超时' };
+}
+
 // 通义千问 qwen-image 同步接口：仅支持单条 text，不支持参考图；parameters 仅 size/negative_prompt/prompt_extend/watermark
 function isQwenImageProvider(config, model) {
   const p = (config.provider || '').toLowerCase();
@@ -122,6 +322,51 @@ function qwenImageSize(size) {
   if (ratio >= 0.85) return '1328*1328';  // 1:1
   if (ratio >= 0.65) return '1104*1472';  // 3:4
   return '928*1664';                      // 9:16
+}
+
+/**
+ * 将参考图值解析为适合传给外部 API 的形式：
+ * - 本地相对路径（如 "characters/ig_xxx.jpg"）→ 读文件转 base64 data URL
+ * - localhost URL → 从 storageLocalPath 读文件转 base64 data URL
+ * - 公网 URL（非 localhost）→ 直接原样返回
+ *
+ * 调用方应优先传 local_path 而非 image_url，
+ * 以避免外部存储链接过期或第三方 API 无法访问的问题。
+ */
+function resolveImageRef(value, filesBaseUrl, storageLocalPath) {
+  if (!value || !String(value).trim()) return null;
+  const s = String(value).trim();
+  const baseUrl = (filesBaseUrl || '').replace(/\/$/, '');
+  const isLocalhost = baseUrl && /localhost|127\.0\.0\.1/i.test(baseUrl);
+
+  function toPublicUrl(v) {
+    if (!v || !String(v).trim()) return null;
+    const sv = String(v).trim();
+    if (sv.startsWith('http://') || sv.startsWith('https://')) return sv;
+    if (baseUrl) return baseUrl + '/' + sv.replace(/^\//, '');
+    return sv;
+  }
+
+  let relPath = null;
+  if (s.startsWith('http://') || s.startsWith('https://')) {
+    if (!isLocalhost || !storageLocalPath) return s;
+    const afterStatic = s.split('/static/')[1] || (baseUrl ? s.replace(baseUrl + '/', '').replace(baseUrl, '') : null);
+    if (afterStatic) relPath = afterStatic.replace(/^\//, '');
+    else return s;
+  } else if (storageLocalPath) {
+    relPath = s.replace(/^\//, '');
+  }
+  if (!relPath) return toPublicUrl(s);
+  const filePath = path.join(storageLocalPath, relPath);
+  try {
+    if (!fs.existsSync(filePath)) return toPublicUrl(s);
+    const buf = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.bmp': 'image/bmp' }[ext] || 'image/png';
+    return 'data:' + mime + ';base64,' + buf.toString('base64');
+  } catch (e) {
+    return toPublicUrl(s);
+  }
 }
 
 // 通义万象：支持参考图（角色/场景），content 为 [text, image, image, ...]；本地调试时参考图可转 base64
@@ -192,47 +437,11 @@ async function callDashScopeImageApi(config, log, opts) {
     }
   }
 
-  const baseUrl = (files_base_url || '').replace(/\/$/, '');
-  const isLocalhost = baseUrl && /localhost|127\.0\.0\.1/i.test(baseUrl);
-
-  function toPublicUrl(value) {
-    if (!value || !String(value).trim()) return null;
-    const s = String(value).trim();
-    if (s.startsWith('http://') || s.startsWith('https://')) return s;
-    if (baseUrl) return baseUrl + '/' + s.replace(/^\//, '');
-    return s;
-  }
-
-  function toImageInput(value) {
-    if (!value || !String(value).trim()) return null;
-    const s = String(value).trim();
-    let relPath = null;
-    if (s.startsWith('http://') || s.startsWith('https://')) {
-      if (!isLocalhost || !storage_local_path) return s;
-      const afterStatic = s.split('/static/')[1] || (baseUrl ? s.replace(baseUrl + '/', '').replace(baseUrl, '') : null);
-      if (afterStatic) relPath = afterStatic.replace(/^\//, '');
-      else return s;
-    } else if (storage_local_path) {
-      relPath = s.replace(/^\//, '');
-    }
-    if (!relPath) return toPublicUrl(s);
-    const filePath = path.join(storage_local_path, relPath);
-    try {
-      if (!fs.existsSync(filePath)) return toPublicUrl(s);
-      const buf = fs.readFileSync(filePath);
-      const ext = path.extname(filePath).toLowerCase();
-      const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.bmp': 'image/bmp' }[ext] || 'image/png';
-      return 'data:' + mime + ';base64,' + buf.toString('base64');
-    } catch (e) {
-      return toPublicUrl(s);
-    }
-  }
-
   const refs = Array.isArray(reference_image_urls) ? reference_image_urls.filter(Boolean) : [];
   const content = [{ text: prompt || '' }];
   const resolvedRefs = [];
   for (const ref of refs.slice(0, 10)) {
-    const img = toImageInput(ref);
+    const img = resolveImageRef(ref, files_base_url, storage_local_path);
     if (img) {
       content.push({ image: img });
       resolvedRefs.push(img.startsWith('data:') ? '(base64)' : img);
@@ -387,12 +596,13 @@ async function callImageApi(db, log, opts) {
     character_id,
     image_type,
     image_gen_id,
+    imageServiceType,
     reference_image_urls,
     files_base_url,
     storage_local_path,
   } = opts;
   const preferredProvider = preferred_provider ?? opts.preferredProvider;
-  const config = getDefaultImageConfig(db, preferredModel, preferredProvider);
+  const config = getDefaultImageConfig(db, preferredModel, preferredProvider, imageServiceType);
   if (!config) {
     throw new Error('未配置图片模型，请在「AI 配置」中添加 image 类型且已启用的配置');
   }
@@ -411,17 +621,45 @@ async function callImageApi(db, log, opts) {
     });
   }
 
+  if (provider === 'nano_banana') {
+    return callNanoBananaImageApi(config, log, {
+      prompt,
+      model,
+      size,
+      image_gen_id,
+      reference_image_urls: opts.reference_image_urls,
+      files_base_url: opts.files_base_url,
+      storage_local_path: opts.storage_local_path,
+    });
+  }
+
   const url = buildImageUrl(config);
   const isVolc = ['volces', 'volcengine', 'volc'].includes(provider);
+  // doubao-seedream 系列模型（含通过自定义代理使用的场景）：使用 volcengine 图片 API 规范
+  const isSeedream = /seedream|doubao/i.test(model);
+  // 解析参考图：本地路径/localhost URL → base64，公网 URL → 直接传
+  const rawRefs = Array.isArray(reference_image_urls) ? reference_image_urls.filter(Boolean) : [];
+  const resolvedRefs = rawRefs.map((r) => resolveImageRef(r, files_base_url, storage_local_path)).filter(Boolean);
+  if (resolvedRefs.length > 0) {
+    log.info('Image API request with reference images', {
+      url: url.slice(0, 60), model, image_gen_id,
+      ref_count: resolvedRefs.length,
+      ref_types: resolvedRefs.map((r) => (r.startsWith('data:') ? 'base64' : 'url')),
+    });
+  }
   const body = {
     model,
     prompt: prompt || '',
-    n: 1,
+    // doubao-seedream API 不使用 n，其他 OpenAI 兼容接口保留
+    ...(!isSeedream ? { n: 1 } : {}),
     ...(size ? { size } : {}),
     ...(quality ? { quality } : {}),
-    ...(isVolc ? { watermark: false } : {}),
+    // volcengine 原生或 doubao-seedream 模型均需关闭水印（默认为 true）
+    ...((isVolc || isSeedream) ? { watermark: false } : {}),
+    // 参考图字段：volcengine doubao-seedream API 规范使用 image（数组），见官方文档
+    ...(resolvedRefs.length > 0 ? { image: resolvedRefs } : {}),
   };
-  log.info('Image API request', { url: url.slice(0, 60), model, image_gen_id });
+  log.info('Image API request', { url: url.slice(0, 60), model, image_gen_id, has_ref_images: resolvedRefs.length > 0 });
   const res = await fetch(url, {
     method: 'POST',
     headers: {

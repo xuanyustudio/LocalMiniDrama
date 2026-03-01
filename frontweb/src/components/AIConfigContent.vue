@@ -8,6 +8,15 @@
               <el-icon><Plus /></el-icon>
               添加配置
             </el-button>
+            <el-button plain @click="exportConfigs">
+              <el-icon><Download /></el-icon>
+              导出配置
+            </el-button>
+            <el-button plain @click="triggerImport">
+              <el-icon><Upload /></el-icon>
+              导入配置
+            </el-button>
+            <input ref="importFileRef" type="file" accept=".json" style="display:none" @change="importConfigs" />
             <el-button type="success" plain @click="openOneKeyTongyi">
               <el-icon><MagicStick /></el-icon>
               一键配置通义
@@ -165,6 +174,45 @@
           </template>
           <el-input v-model="form.api_key" type="password" placeholder="API 密钥" show-password-on="click" />
         </el-form-item>
+        <!-- 端点配置：视频必填（自定义厂商）；图片/分镜在使用代理或特殊厂商时填写 -->
+        <template v-if="form.service_type !== 'text'">
+          <el-form-item>
+            <template #label>
+              <span class="form-label-tip">提交端点
+                <el-tooltip placement="top" popper-class="cfg-tip-popper">
+                  <template #content>
+                    <div class="cfg-tip-content">
+                      接口路径，追加在 Base URL 之后。<br>
+                      <b>预设厂商</b>（火山 / 通义 / NanoBanana）留空，系统自动推断。<br>
+                      <b>视频自定义厂商</b>必须填写，如 /v1/video/generations<br>
+                      <b>NanoBanana 代理</b>（如星衍云）填写代理路径，如 /fal-ai/nano-banana
+                    </div>
+                  </template>
+                  <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+                </el-tooltip>
+              </span>
+            </template>
+            <el-input v-model="form.endpoint" :placeholder="form.service_type === 'video' ? '自定义视频厂商必填，如 /v1/video/generations；预设厂商留空' : '代理或特殊厂商时填写，如 /fal-ai/nano-banana；预设厂商留空'" />
+          </el-form-item>
+          <el-form-item>
+            <template #label>
+              <span class="form-label-tip">查询端点
+                <el-tooltip placement="top" popper-class="cfg-tip-popper">
+                  <template #content>
+                    <div class="cfg-tip-content">
+                      查询任务状态的接口路径，{taskId} 会被替换为实际任务 ID。<br>
+                      <b>预设厂商</b>留空即可，由系统自动推断。<br>
+                      <b>视频自定义厂商</b>必须填写，如 /v1/video/tasks/{taskId}<br>
+                      <b>图片/NanoBanana</b> 代理若不支持轮询可留空
+                    </div>
+                  </template>
+                  <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+                </el-tooltip>
+              </span>
+            </template>
+            <el-input v-model="form.query_endpoint" placeholder="自定义视频厂商必填，如 /v1/video/tasks/{taskId}；预设厂商留空" />
+          </el-form-item>
+        </template>
         <el-form-item>
           <template #label>
             <span class="form-label-tip">模型列表
@@ -374,11 +422,12 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, MagicStick, QuestionFilled } from '@element-plus/icons-vue'
+import { Plus, MagicStick, QuestionFilled, Download, Upload } from '@element-plus/icons-vue'
 import { aiAPI } from '@/api/ai'
 import PromptEditor from '@/components/PromptEditor.vue'
 
 const activeTab = ref('configs')
+const importFileRef = ref(null)
 const loading = ref(false)
 const list = ref([])
 const dialogVisible = ref(false)
@@ -391,6 +440,8 @@ const form = ref({
   provider: '',
   base_url: '',
   api_key: '',
+  endpoint: '',
+  query_endpoint: '',
   modelText: '',
   default_model: '',
   priority: 0,
@@ -467,6 +518,7 @@ const providerConfigs = {
   ],
   image: [
     { id: 'volcengine', name: '火山引擎', models: ['doubao-seedream-4-5-251128', 'doubao-seedream-4-0-250828'] },
+    { id: 'nano_banana', name: 'NanoBanana', models: ['nano-banana-2', 'nano-banana-pro', 'nano-banana'] },
     { id: 'chatfire', name: 'Chatfire', models: ['nano-banana-pro', 'doubao-seedream-4-5-251128', 'qwen-image'] },
     { id: 'gemini', name: 'Google Gemini', models: ['gemini-3-pro-image-preview'] },
     { id: 'openai', name: 'OpenAI', models: ['dall-e-3', 'dall-e-2'] },
@@ -476,6 +528,7 @@ const providerConfigs = {
   storyboard_image: [
     { id: 'dashscope', name: '通义万象', models: ['wan2.6-image', 'qwen-image-edit-plus-2026-01-09', 'qwen-image-edit-plus', 'qwen-image-edit-max'] },
     { id: 'volcengine', name: '火山引擎', models: ['doubao-seedream-4-5-251128', 'doubao-seedream-4-0-250828'] },
+    { id: 'nano_banana', name: 'NanoBanana', models: ['nano-banana-2', 'nano-banana-pro', 'nano-banana'] },
     { id: 'chatfire', name: 'Chatfire', models: ['nano-banana-pro', 'doubao-seedream-4-5-251128', 'qwen-image'] },
     { id: 'openai', name: 'OpenAI', models: ['dall-e-3', 'dall-e-2'] }
   ],
@@ -500,6 +553,7 @@ function getBaseUrlForProvider(provider) {
   if (p === 'dashscope') return 'https://dashscope.aliyuncs.com'
   if (p === 'qwen_image') return 'https://dashscope.aliyuncs.com'
   if (p === 'qwen') return 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+  if (p === 'nano_banana') return 'https://api.nanobananaapi.ai'
   return 'https://api.chatfire.site/v1'
 }
 
@@ -601,6 +655,8 @@ function resetForm() {
     provider: '',
     base_url: '',
     api_key: '',
+    endpoint: '',
+    query_endpoint: '',
     modelText: '',
     default_model: '',
     priority: 0,
@@ -625,6 +681,8 @@ function openEdit(row) {
     provider: row.provider,
     base_url: row.base_url,
     api_key: row.api_key,
+    endpoint: row.endpoint || '',
+    query_endpoint: row.query_endpoint || '',
     modelText: modelList.join('\n'),
     default_model: defaultInList ? row.default_model : (modelList[0] || ''),
     priority: row.priority ?? 0,
@@ -647,6 +705,8 @@ async function submit() {
       provider: form.value.provider,
       base_url: form.value.base_url,
       api_key: form.value.api_key,
+      endpoint: form.value.endpoint || null,
+      query_endpoint: form.value.query_endpoint || null,
       model: modelList,
       default_model: defaultModel,
       priority: form.value.priority,
@@ -768,6 +828,69 @@ async function submitOneKeyVolc() {
   }
 }
 
+async function exportConfigs() {
+  try {
+    const configs = await aiAPI.list()
+    const exportData = configs.map(({ id, created_at, updated_at, ...rest }) => rest)
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `ai-configs-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success(`已导出 ${exportData.length} 条配置`)
+  } catch (e) {
+    ElMessage.error('导出失败')
+  }
+}
+
+function triggerImport() {
+  importFileRef.value?.click()
+}
+
+async function importConfigs(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  try {
+    const text = await file.text()
+    const configs = JSON.parse(text)
+    if (!Array.isArray(configs)) {
+      ElMessage.error('文件格式不正确，需要 JSON 数组')
+      return
+    }
+    let success = 0
+    let failed = 0
+    for (const cfg of configs) {
+      try {
+        const models = Array.isArray(cfg.model) ? cfg.model : (cfg.model ? [cfg.model] : [])
+        await aiAPI.create({
+          service_type: cfg.service_type,
+          name: cfg.name,
+          provider: cfg.provider,
+          base_url: cfg.base_url,
+          api_key: cfg.api_key || '',
+          endpoint: cfg.endpoint || null,
+          query_endpoint: cfg.query_endpoint || null,
+          model: models,
+          default_model: cfg.default_model || null,
+          priority: cfg.priority ?? 0,
+          is_default: !!cfg.is_default
+        })
+        success++
+      } catch (_) {
+        failed++
+      }
+    }
+    ElMessage.success(`导入完成：${success} 条成功${failed ? `，${failed} 条失败` : ''}`)
+    await loadList()
+  } catch (e) {
+    ElMessage.error('导入失败：' + (e.message || '文件解析错误'))
+  } finally {
+    event.target.value = ''
+  }
+}
+
 onMounted(() => loadList())
 </script>
 
@@ -849,6 +972,13 @@ code {
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 12px;
+  font-family: monospace;
+}
+.cfg-tip-content code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
   font-family: monospace;
 }
 .default-tip {

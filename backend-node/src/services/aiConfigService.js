@@ -86,6 +86,11 @@ function createConfig(db, log, req) {
       } else if (st === 'image' || st === 'storyboard_image') {
         endpoint = '/images/generations';
       }
+    } else if (p === 'nano_banana') {
+      if (st === 'image' || st === 'storyboard_image') {
+        endpoint = '/api/v1/nanobanana/generate-2';
+        queryEndpoint = '/api/v1/nanobanana/record-info';
+      }
     }
   }
   const defaultModel = req.default_model != null ? String(req.default_model).trim() || null : null;
@@ -219,6 +224,23 @@ async function testConnection(opts) {
   const provider = (opts.provider || 'openai').toLowerCase();
   const serviceType = (opts.service_type || '').toLowerCase();
   let endpoint = opts.endpoint || '';
+
+  // --- NanoBanana ---
+  if (provider === 'nano_banana') {
+    // 用 record-info 查询一个不存在的 taskId：401/403=key 无效，404=key 有效已联通
+    const url = base + '/api/v1/nanobanana/record-info?taskId=test-connectivity';
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { Authorization: 'Bearer ' + (opts.api_key || '') },
+    });
+    if (res.status === 401 || res.status === 403) {
+      const text = await res.text();
+      let errMsg = `API Key 无效 (${res.status})`;
+      try { const j = JSON.parse(text); errMsg = j.msg || j.message || errMsg; } catch {}
+      throw new Error(errMsg);
+    }
+    return;
+  }
 
   // --- Gemini ---
   if (provider === 'gemini' || provider === 'google') {

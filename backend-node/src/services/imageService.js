@@ -175,7 +175,8 @@ async function processImageGeneration(db, log, imageGenId) {
         const refs = [];
         if (sb.scene_id) {
           const scene = db.prepare('SELECT image_url, local_path FROM scenes WHERE id = ? AND deleted_at IS NULL').get(sb.scene_id);
-          if (scene && (scene.image_url || scene.local_path)) refs.push(scene.image_url || scene.local_path);
+          // 优先用 local_path：resolveImageRef 会将其读取并转为 base64，避免外部链接过期或第三方 API 无法访问
+          if (scene && (scene.local_path || scene.image_url)) refs.push(scene.local_path || scene.image_url);
         }
         if (sb.characters) {
           try {
@@ -184,7 +185,8 @@ async function processImageGeneration(db, log, imageGenId) {
               for (const item of charList.slice(0, 5)) {
                 const cid = typeof item === 'object' && item != null ? item.id : item;
                 const c = db.prepare('SELECT image_url, local_path FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(cid));
-                if (c && (c.image_url || c.local_path)) refs.push(c.image_url || c.local_path);
+                // 同上，优先用 local_path
+                if (c && (c.local_path || c.image_url)) refs.push(c.local_path || c.image_url);
               }
             }
           } catch (_) {}
@@ -235,6 +237,7 @@ async function processImageGeneration(db, log, imageGenId) {
       drama_id: row.drama_id,
       character_id: row.character_id,
       image_gen_id: imageGenId,
+      imageServiceType,
       reference_image_urls: reference_image_urls || undefined,
       files_base_url: filesBaseUrl,
       storage_local_path: storageLocalPath,

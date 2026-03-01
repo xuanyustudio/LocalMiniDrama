@@ -1,6 +1,6 @@
 {
   "name": "localminidrama-desktop",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "LocalMiniDrama 本地桌面客户端",
   "main": "main.js",
   "author": "LocalMiniDrama",

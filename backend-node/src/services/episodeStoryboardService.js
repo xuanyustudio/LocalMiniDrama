@@ -284,6 +284,13 @@ async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, mode
 
     taskService.updateTaskStatus(db, taskId, 'processing', 50, '分镜头生成完成，正在解析结果...');
 
+    log.info('AI raw response received', {
+      task_id: taskId,
+      text_type: typeof text,
+      text_length: text ? String(text).length : 0,
+      text_preview: text ? String(text).slice(0, 500) : '(empty)',
+    });
+
     let storyboards = [];
     try {
       const parsed = safeParseAIJSON(text, {});
@@ -297,7 +304,13 @@ async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, mode
         const arr = safeParseAIJSON(text, []);
         storyboards = Array.isArray(arr) ? arr : [];
       } catch (e2) {
-        log.error('Parse storyboard JSON failed', { error: e2.message, task_id: taskId });
+        log.error('Parse storyboard JSON failed', {
+          error: e2.message,
+          task_id: taskId,
+          text_type: typeof text,
+          text_length: text ? String(text).length : 0,
+          raw_text: text ? String(text).slice(0, 2000) : '(empty)',
+        });
         taskService.updateTaskError(db, taskId, '解析分镜头结果失败: ' + (e2.message || ''));
         return;
       }
