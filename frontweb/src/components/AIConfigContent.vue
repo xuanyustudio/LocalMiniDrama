@@ -5,27 +5,42 @@
         <div class="tab-content">
           <!-- 普通模式操作栏 -->
           <div v-if="!vendorLock.enabled" class="content-actions">
-            <el-button type="primary" @click="openAdd">
-              <el-icon><Plus /></el-icon>
-              添加配置
-            </el-button>
-            <el-button plain @click="exportConfigs">
-              <el-icon><Download /></el-icon>
-              导出配置
-            </el-button>
-            <el-button plain @click="triggerImport">
-              <el-icon><Upload /></el-icon>
-              导入配置
-            </el-button>
-            <input ref="importFileRef" type="file" accept=".json" style="display:none" @change="importConfigs" />
-            <el-button type="success" plain @click="openOneKeyTongyi">
-              <el-icon><MagicStick /></el-icon>
-              一键配置通义
-            </el-button>
-            <el-button type="success" plain @click="openOneKeyVolc">
-              <el-icon><MagicStick /></el-icon>
-              一键配置火山
-            </el-button>
+            <div class="actions-left">
+              <el-button type="primary" @click="openAdd">
+                <el-icon><Plus /></el-icon>
+                添加配置
+              </el-button>
+              <el-button plain @click="exportConfigs">
+                <el-icon><Download /></el-icon>
+                导出配置
+              </el-button>
+              <el-button plain @click="triggerImport">
+                <el-icon><Upload /></el-icon>
+                导入配置
+              </el-button>
+              <input ref="importFileRef" type="file" accept=".json" style="display:none" @change="importConfigs" />
+              <el-button type="success" plain @click="openOneKeyTongyi">
+                <el-icon><MagicStick /></el-icon>
+                一键配置通义
+              </el-button>
+              <el-button type="success" plain @click="openOneKeyVolc">
+                <el-icon><MagicStick /></el-icon>
+                一键配置火山
+              </el-button>
+            </div>
+            <div class="actions-right">
+              <transition name="fade-slide">
+                <el-button
+                  v-if="selectedRows.length > 0"
+                  type="danger"
+                  :loading="batchDeleting"
+                  @click="onBatchDelete"
+                >
+                  <el-icon><Delete /></el-icon>
+                  删除选中 ({{ selectedRows.length }})
+                </el-button>
+              </transition>
+            </div>
           </div>
           <!-- 锁定模式提示栏 -->
           <el-alert
@@ -39,35 +54,49 @@
             </template>
           </el-alert>
           <p class="default-tip">每种服务类型仅有一个默认配置：文本用于生成故事；文本生成图片用于角色/场景/道具图；分镜图片生成用于分镜图（支持参考图）；视频用于生成视频。</p>
-          <el-table v-loading="loading" :data="list" stripe style="width: 100%">
-      <el-table-column prop="name" label="名称" min-width="120" />
-      <el-table-column prop="service_type" label="类型" width="100">
-        <template #default="{ row }">
-          {{ serviceTypeLabel(row.service_type) }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="provider" label="提供商" width="100" />
-      <el-table-column prop="base_url" label="Base URL" min-width="180" show-overflow-tooltip />
-      <el-table-column prop="priority" label="优先级" width="80" />
-      <el-table-column prop="is_default" label="默认" width="70">
-        <template #default="{ row }">
-          <el-tag v-if="row.is_default" type="success" size="small">是</el-tag>
-          <span v-else>—</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="default_model" label="默认模型" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">
-          {{ row.default_model || (Array.isArray(row.model) && row.model[0]) || '—' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
-        <template #default="{ row }">
-          <el-button link type="primary" size="small" @click="openTest(row)">测试</el-button>
-          <el-button link type="primary" size="small" @click="openEdit(row)">{{ vendorLock.enabled ? '修改Key' : '编辑' }}</el-button>
-          <el-button v-if="!vendorLock.enabled" link type="danger" size="small" @click="onDelete(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+          <el-table
+            v-loading="loading"
+            :data="list"
+            stripe
+            style="width: 100%"
+            @selection-change="onSelectionChange"
+          >
+            <el-table-column v-if="!vendorLock.enabled" type="selection" width="46" />
+            <el-table-column prop="service_type" label="类型" width="148">
+              <template #default="{ row }">
+                <span :class="['type-badge', 'type-' + row.service_type]">
+                  <el-icon class="type-icon">
+                    <ChatDotRound v-if="row.service_type === 'text'" />
+                    <Picture v-else-if="row.service_type === 'image'" />
+                    <Film v-else-if="row.service_type === 'storyboard_image'" />
+                    <VideoCamera v-else-if="row.service_type === 'video'" />
+                  </el-icon>
+                  {{ serviceTypeLabel(row.service_type) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="name" label="名称" min-width="130" />
+            <el-table-column prop="provider" label="提供商" width="96" />
+            <el-table-column prop="base_url" label="Base URL" min-width="170" show-overflow-tooltip />
+            <el-table-column prop="default_model" label="默认模型" min-width="130" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.default_model || (Array.isArray(row.model) && row.model[0]) || '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="is_default" label="默认" width="60">
+              <template #default="{ row }">
+                <el-tag v-if="row.is_default" type="success" size="small">✓</el-tag>
+                <span v-else class="no-default">—</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180" fixed="right">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click="openTest(row)">测试</el-button>
+                <el-button link type="primary" size="small" @click="openEdit(row)">{{ vendorLock.enabled ? '修改Key' : '编辑' }}</el-button>
+                <el-button v-if="!vendorLock.enabled" link type="danger" size="small" @click="onDelete(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
       </el-tab-pane>
       <el-tab-pane label="高级设置（提示词）" name="prompts">
@@ -486,7 +515,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, MagicStick, QuestionFilled, Download, Upload } from '@element-plus/icons-vue'
+import { Plus, MagicStick, QuestionFilled, Download, Upload, Delete, ChatDotRound, Picture, Film, VideoCamera } from '@element-plus/icons-vue'
 import { aiAPI } from '@/api/ai'
 import PromptEditor from '@/components/PromptEditor.vue'
 
@@ -494,6 +523,8 @@ const activeTab = ref('configs')
 const importFileRef = ref(null)
 const loading = ref(false)
 const list = ref([])
+const selectedRows = ref([])
+const batchDeleting = ref(false)
 const vendorLock = ref({ enabled: false, config_file: '' })
 const dialogVisible = ref(false)
 const editingId = ref(null)
@@ -856,6 +887,31 @@ async function onDelete(row) {
   } catch (_) {}
 }
 
+function onSelectionChange(rows) {
+  selectedRows.value = rows
+}
+
+async function onBatchDelete() {
+  if (!selectedRows.value.length) return
+  await ElMessageBox.confirm(
+    `确定删除选中的 ${selectedRows.value.length} 条配置？此操作不可恢复。`,
+    '批量删除确认',
+    { type: 'warning', confirmButtonText: '确定删除', confirmButtonClass: 'el-button--danger' }
+  )
+  batchDeleting.value = true
+  let success = 0, failed = 0
+  for (const row of selectedRows.value) {
+    try {
+      await aiAPI.delete(row.id)
+      success++
+    } catch (_) { failed++ }
+  }
+  batchDeleting.value = false
+  selectedRows.value = []
+  ElMessage.success(`已删除 ${success} 条${failed ? `，${failed} 条失败` : ''}`)
+  await loadList()
+}
+
 function openOneKeyTongyi() {
   oneKeyTongyiKey.value = ''
   oneKeyTongyiVisible.value = true
@@ -1023,8 +1079,80 @@ onMounted(() => {
 }
 .content-actions {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
   margin-bottom: 16px;
+}
+.actions-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 过渡动画 */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.2s ease;
+}
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(8px);
+}
+
+/* 类型徽章 */
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.type-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* 文本/对话 — 蓝色 */
+.type-text {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.25);
+}
+/* 文本生成图片 — 绿色 */
+.type-image {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.25);
+}
+/* 分镜图片生成 — 紫色 */
+.type-storyboard_image {
+  background: rgba(139, 92, 246, 0.12);
+  color: #8b5cf6;
+  border-color: rgba(139, 92, 246, 0.25);
+}
+/* 视频 — 橙色 */
+.type-video {
+  background: rgba(249, 115, 22, 0.12);
+  color: #f97316;
+  border-color: rgba(249, 115, 22, 0.25);
+}
+
+.no-default {
+  color: #9ca3af;
+  font-size: 13px;
 }
 .one-key-tip {
   margin: 0 0 12px;
