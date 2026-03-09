@@ -100,6 +100,14 @@ function generateImagePrompt(sb, style) {
     if (sb.time) locationDesc += ', ' + sb.time;
     parts.push(locationDesc);
   }
+  if (sb.angle) {
+    const a = String(sb.angle).trim().toLowerCase();
+    if (a.includes('仰') || a.includes('low')) parts.push('low-angle upward shot');
+    else if (a.includes('俯') || a.includes('high')) parts.push("high-angle downward shot, bird's eye view");
+    else if (a.includes('侧') || a.includes('side')) parts.push('side-angle shot');
+    else if (a.includes('背') || a.includes('back')) parts.push('rear shot from behind character');
+    else parts.push('eye-level shot');
+  }
   if (sb.action) {
     const initialPose = extractInitialPose(sb.action);
     if (initialPose) parts.push(initialPose);

@@ -59,6 +59,37 @@ const taskService = require('./taskService');
 const uploadService = require('./uploadService');
 
 /**
+ * 四宫格模式：用 AI 生成 4 个帧提示词，拼成四宫格格式的单张图片提示词
+ * 让 AI 图片生成模型直接输出一张 2×2 四格序列图
+ */
+async function buildQuadGridPrompt(db, log, cfg, storyboardId, model) {
+  // 在函数内部 require，避免循环依赖
+  const framePromptService = require('./framePromptService');
+  const sb = framePromptService.loadStoryboard(db, storyboardId);
+  if (!sb) return null;
+  const scene = framePromptService.loadScene(db, sb.scene_id);
+  const characterNames = framePromptService.loadStoryboardCharacterNames(db, storyboardId);
+
+  log.info('[四宫格] 开始生成4帧提示词', { storyboard_id: storyboardId });
+  const [first, key1, key2, last] = await Promise.all([
+    framePromptService.generateSingleFrameExported(db, log, cfg, sb, scene, characterNames, model || undefined, 'first'),
+    framePromptService.generateSingleFrameExported(db, log, cfg, sb, scene, characterNames, model || undefined, 'key'),
+    framePromptService.generateSingleFrameExported(db, log, cfg, sb, scene, characterNames, model || undefined, 'key'),
+    framePromptService.generateSingleFrameExported(db, log, cfg, sb, scene, characterNames, model || undefined, 'last'),
+  ]);
+  log.info('[四宫格] 4帧提示词生成完成', { storyboard_id: storyboardId });
+
+  const style = cfg?.style?.default_style || '';
+  const styleNote = style ? `, consistent art style: ${style}` : '';
+  return `Generate a 2x2 four-panel storyboard grid image (comic strip layout, clear visible borders separating panels${styleNote}). Show action sequence in order:
+Panel 1 (top-left, first frame - initial state): ${first.prompt}
+Panel 2 (top-right, key moment - action peak): ${key1.prompt}
+Panel 3 (bottom-left, key moment - continuation): ${key2.prompt}
+Panel 4 (bottom-right, last frame - final state): ${last.prompt}
+Requirements: consistent character appearance across all panels, same scene/background adapted to each moment, clear panel dividers, sequential storytelling.`;
+}
+
+/**
  * 将 aspect_ratio（如 "9:16"）转换为图片生成 size 字符串（如 "720*1280"）
  * DashScope/Wan 用 W*H 格式，OpenAI 用 WxH 格式；统一返回 W*H，callDashScopeImageApi 内部会调 dashScopeSize 做最终校验
  */
@@ -160,6 +191,23 @@ async function processImageGeneration(db, log, imageGenId) {
   try {
     db.prepare('UPDATE image_generations SET status = ?, updated_at = ? WHERE id = ?').run('processing', now, imageGenId);
     const imageServiceType = row.storyboard_id ? 'storyboard_image' : 'image';
+
+    // ── 四宫格模式：先生成4帧提示词，再拼装组合提示词 ──────────────────
+    if (row.frame_type === 'quad_grid' && row.storyboard_id) {
+      try {
+        const loadConfig = require('../config').loadConfig;
+        const cfg = loadConfig();
+        const quadPrompt = await buildQuadGridPrompt(db, log, cfg, row.storyboard_id, row.model);
+        if (quadPrompt) {
+          db.prepare('UPDATE image_generations SET prompt = ?, updated_at = ? WHERE id = ?')
+            .run(quadPrompt, new Date().toISOString(), imageGenId);
+          row.prompt = quadPrompt;
+          log.info('[图生] 四宫格提示词已生成', { id: imageGenId, prompt_len: quadPrompt.length });
+        }
+      } catch (quadErr) {
+        log.warn('[图生] 四宫格提示词生成失败，使用原始提示词', { id: imageGenId, error: quadErr.message });
+      }
+    }
 
     // ── Step 1: 获取 AI 配置 ──────────────────────────────────────────
     const config = imageClient.getDefaultImageConfig(db, row.model, null, imageServiceType);

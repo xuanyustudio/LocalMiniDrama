@@ -5,6 +5,44 @@ const aiClient = require('./aiClient');
 const taskService = require('./taskService');
 const storyboardService = require('./storyboardService');
 
+/**
+ * 将分镜角度值扩展为带透视含义的完整描述，注入图像提示词上下文
+ * 让 AI 根据相机角度生成正确视角的背景（仰视/俯视/侧面/背面）
+ */
+function expandAngleDescription(angle, isEn) {
+  if (!angle) return null;
+  const a = String(angle).trim().toLowerCase();
+  if (isEn) {
+    if (a.includes('low') || a.includes('仰')) {
+      return "camera angle: low-angle upward shot, background shows sky/ceiling/treetops from below, strong upward perspective distortion";
+    }
+    if (a.includes('high') || a.includes('俯')) {
+      return "camera angle: high-angle downward shot, bird's eye view perspective, background shows ground/floor/scene from above with downward perspective distortion";
+    }
+    if (a.includes('side') || a.includes('侧')) {
+      return "camera angle: side-angle shot, profile composition, background extends laterally";
+    }
+    if (a.includes('back') || a.includes('背')) {
+      return "camera angle: rear shot from behind character, character's back to camera, background scene stretches ahead into the distance";
+    }
+    return "camera angle: eye-level horizontal shot, normal perspective, straight-on composition";
+  } else {
+    if (a.includes('仰') || a.includes('low')) {
+      return '相机角度：低角度仰拍，背景呈现天空/天花板/树冠的仰视透视效果，视角由下向上倾斜';
+    }
+    if (a.includes('俯') || a.includes('high')) {
+      return '相机角度：高角度俯拍，鸟瞰视角，背景呈现地面/场景的俯视透视效果，视角由上向下倾斜';
+    }
+    if (a.includes('侧') || a.includes('side')) {
+      return '相机角度：侧面视角，侧向构图，背景向两侧水平延展';
+    }
+    if (a.includes('背') || a.includes('back')) {
+      return '相机角度：从角色背后拍摄，角色背对镜头，背景场景在角色前方向远处延伸';
+    }
+    return '相机角度：平视水平拍摄，正常透视构图，正面取景';
+  }
+}
+
 const FRAME_TYPES = ['first', 'key', 'last', 'panel', 'action'];
 
 function loadStoryboard(db, storyboardId) {
@@ -71,7 +109,9 @@ function buildStoryboardContext(cfg, sb, scene, characterNames) {
     parts.push(promptI18n.formatUserPrompt(cfg, 'shot_type_label', sb.shot_type));
   }
   if (sb.angle) {
-    parts.push(promptI18n.formatUserPrompt(cfg, 'angle_label', sb.angle));
+    const isEn = promptI18n.isEnglish(cfg);
+    const angleDesc = expandAngleDescription(sb.angle, isEn);
+    if (angleDesc) parts.push(angleDesc);
   }
   if (sb.movement) {
     parts.push(promptI18n.formatUserPrompt(cfg, 'movement_label', sb.movement));
@@ -280,4 +320,5 @@ module.exports = {
   loadStoryboardCharacterNames,
   loadScene,
   getFramePrompts: (db, storyboardId) => storyboardService.getFramePrompts(db, storyboardId),
+  generateSingleFrameExported: generateSingleFrame,
 };

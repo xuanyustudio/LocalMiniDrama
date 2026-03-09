@@ -520,6 +520,12 @@
             <el-input-number v-model="videoDuration" :min="10" :max="600" :step="5" placeholder="自动" class="sb-config-input" />
             <span class="sb-config-hint">留空由 AI 决定</span>
           </label>
+          <span class="sb-config-divider">｜</span>
+          <label class="sb-config-item">
+            <span class="sb-config-label">四宫格序列图</span>
+            <el-switch v-model="quadGridMode" />
+            <span class="sb-config-hint">开启后生成含4帧的序列参考图</span>
+          </label>
         </div>
         <div class="asset-actions sb-batch-actions">
           <el-button
@@ -1562,6 +1568,7 @@ const charLibraryTotal = ref(0)
 const charLibraryKeyword = ref('')
 const storyboardCount = ref(null) // 分镜数量
 const videoDuration = ref(null) // 视频总长度
+const quadGridMode = ref(false) // 四宫格序列图模式
 const showEditCharLibrary = ref(false)
 const editCharLibraryForm = ref(null)
 const editCharLibrarySaving = ref(false)
@@ -1752,7 +1759,8 @@ async function onGenerateSbImage(sb) {
       drama_id: dramaId.value,
       prompt: sb.image_prompt || sb.description || '',
       model: undefined,
-      style: getSelectedStyle()
+      style: getSelectedStyle(),
+      frame_type: quadGridMode.value ? 'quad_grid' : undefined,
     })
     ElMessage.success('分镜图生成任务已提交')
     if (res?.task_id) {
@@ -3257,7 +3265,8 @@ async function startBatchImageGeneration() {
           storyboard_id: sb.id,
           drama_id: dramaId.value,
           prompt: sb.image_prompt || sb.description || '',
-          style: getSelectedStyle()
+          style: getSelectedStyle(),
+          frame_type: quadGridMode.value ? 'quad_grid' : undefined,
         })
         if (res?.task_id) {
           const pollRes = await pollTask(res.task_id, () => loadStoryboardMedia())
