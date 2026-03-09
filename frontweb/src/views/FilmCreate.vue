@@ -736,42 +736,70 @@
               </div>
               <div
                 class="sb-image-area"
-                :class="{ 'sb-image-area--dragover': dragOverSbId === sb.id }"
+                :class="{ 'sb-image-area--dragover': dragOverSbId === sb.id, 'sb-image-area--has-quad': !!getQuadGridImage(sb.id) }"
                 @dragover="onSbImageDragOver($event, sb.id)"
                 @dragleave="onSbImageDragLeave($event, sb.id)"
                 @drop="onSbImageDrop($event, sb)"
               >
-                <!-- 普通图（用户上传 / 选中的面板 / 非四宫格生成图） -->
-                <template v-if="getSbImage(sb.id)">
-                  <img
-                    :src="assetImageUrl(getSbImage(sb.id))"
-                    class="sb-generated-img"
-                    alt=""
-                    @click="openImagePreview(assetImageUrl(getSbImage(sb.id)))"
-                  />
-                </template>
-                <template v-else-if="sb.composed_image || sb.image_url">
-                  <img
-                    :src="imageUrl(sb.composed_image || sb.image_url)"
-                    class="sb-generated-img"
-                    alt=""
-                    @click="openImagePreview(imageUrl(sb.composed_image || sb.image_url))"
-                  />
-                </template>
-                <!-- 四宫格整图 + 面板选择器 -->
-                <template v-else-if="getQuadGridImage(sb.id)">
-                  <img
-                    :src="assetImageUrl(getQuadGridImage(sb.id))"
-                    class="sb-generated-img sb-quad-img"
-                    alt=""
-                    @load="triggerSplitQuadGrid(sb, getQuadGridImage(sb.id))"
-                    @click="openImagePreview(assetImageUrl(getQuadGridImage(sb.id)))"
-                  />
-                  <!-- 面板选择区 -->
+                <!-- ① 主图区（上方）：选中面板 > composed_image > 四宫格预览 > 空 -->
+                <div class="sb-main-image-wrap">
+                  <template v-if="getSbImage(sb.id)">
+                    <img
+                      :src="assetImageUrl(getSbImage(sb.id))"
+                      class="sb-generated-img"
+                      alt=""
+                      @click="openImagePreview(assetImageUrl(getSbImage(sb.id)))"
+                    />
+                  </template>
+                  <template v-else-if="sb.composed_image || sb.image_url">
+                    <img
+                      :src="imageUrl(sb.composed_image || sb.image_url)"
+                      class="sb-generated-img"
+                      alt=""
+                      @click="openImagePreview(imageUrl(sb.composed_image || sb.image_url))"
+                    />
+                  </template>
+                  <!-- 四宫格存在但尚未选面板时，显示整图作为预览 -->
+                  <template v-else-if="getQuadGridImage(sb.id)">
+                    <img
+                      :src="assetImageUrl(getQuadGridImage(sb.id))"
+                      class="sb-generated-img sb-quad-preview"
+                      alt=""
+                      @load="triggerSplitQuadGrid(sb, getQuadGridImage(sb.id))"
+                      @click="openImagePreview(assetImageUrl(getQuadGridImage(sb.id)))"
+                    />
+                  </template>
+                  <template v-else-if="sb.error_msg || sb.errorMsg">
+                    <div class="sb-image-error" :title="sb.error_msg || sb.errorMsg">{{ sb.error_msg || sb.errorMsg }}</div>
+                    <el-button type="primary" size="small" class="sb-gen-btn" :loading="generatingSbImageIds.has(sb.id)" @click="onGenerateSbImage(sb)">
+                      <el-icon><Refresh /></el-icon>
+                      重试
+                    </el-button>
+                    <el-button size="small" :loading="uploadingSbImageId === sb.id" @click="onUploadSbImageClick(sb)">上传</el-button>
+                  </template>
+                  <template v-else>
+                    <el-button type="primary" size="small" class="sb-gen-btn" :loading="generatingSbImageIds.has(sb.id)" @click="onGenerateSbImage(sb)">
+                      <el-icon><MagicStick /></el-icon>
+                      生成分镜
+                    </el-button>
+                    <el-button size="small" :loading="uploadingSbImageId === sb.id" @click="onUploadSbImageClick(sb)">上传</el-button>
+                  </template>
+                </div>
+
+                <!-- ② 四宫格面板选择区（下方，始终可见，随时切换主图） -->
+                <template v-if="getQuadGridImage(sb.id)">
                   <div class="quad-panel-selector">
                     <div class="quad-panel-hint">
                       <el-icon><InfoFilled /></el-icon>
-                      点击下方格子选为主分镜图
+                      <span>点击格子切换主图</span>
+                      <el-button
+                        v-if="getSbImage(sb.id)"
+                        size="small"
+                        link
+                        type="primary"
+                        style="margin-left:4px;font-size:11px"
+                        @click="openImagePreview(assetImageUrl(getQuadGridImage(sb.id)))"
+                      >查看四宫格原图</el-button>
                     </div>
                     <div v-if="splittingQuadIds.has(sb.id)" class="quad-panel-loading">
                       <el-icon class="is-loading"><Loading /></el-icon>
@@ -782,33 +810,25 @@
                         v-for="(panelUrl, idx) in sbQuadPanels[sb.id]"
                         :key="idx"
                         class="quad-panel-item"
-                        :class="{ 'quad-panel-item--selecting': selectingPanelSbId === sb.id }"
+                        :class="{
+                          'quad-panel-item--selecting': selectingPanelSbId === sb.id,
+                          'quad-panel-item--active': isActiveQuadPanel(sb, idx),
+                        }"
                         @click="onSelectQuadPanel(sb, idx)"
                       >
                         <img :src="panelUrl" class="quad-panel-thumb" alt="" />
                         <div class="quad-panel-overlay">
                           <el-icon v-if="selectingPanelSbId === sb.id" class="is-loading"><Loading /></el-icon>
-                          <span v-else>{{ ['左上', '右上', '左下', '右下'][idx] }}</span>
+                          <template v-else>
+                            <el-icon v-if="isActiveQuadPanel(sb, idx)" style="color:#67c23a"><Check /></el-icon>
+                            <span>{{ ['左上', '右上', '左下', '右下'][idx] }}</span>
+                          </template>
                         </div>
                       </div>
                     </div>
                   </div>
                 </template>
-                <template v-else-if="sb.error_msg || sb.errorMsg">
-                  <div class="sb-image-error" :title="sb.error_msg || sb.errorMsg">{{ sb.error_msg || sb.errorMsg }}</div>
-                  <el-button type="primary" size="small" class="sb-gen-btn" :loading="generatingSbImageIds.has(sb.id)" @click="onGenerateSbImage(sb)">
-                    <el-icon><Refresh /></el-icon>
-                    重试
-                  </el-button>
-                  <el-button size="small" :loading="uploadingSbImageId === sb.id" @click="onUploadSbImageClick(sb)">上传</el-button>
-                </template>
-                <template v-else>
-                  <el-button type="primary" size="small" class="sb-gen-btn" :loading="generatingSbImageIds.has(sb.id)" @click="onGenerateSbImage(sb)">
-                    <el-icon><MagicStick /></el-icon>
-                    生成分镜
-                  </el-button>
-                  <el-button size="small" :loading="uploadingSbImageId === sb.id" @click="onUploadSbImageClick(sb)">上传</el-button>
-                </template>
+
                 <div v-if="dragOverSbId === sb.id" class="sb-image-area-drop-hint">松开上传</div>
               </div>
               <div v-if="hasSbImage(sb)" class="sb-image-actions">
@@ -1792,6 +1812,16 @@ async function loadStoryboardMedia() {
   )
   sbImages.value = nextImages
   sbVideos.value = nextVideos
+  // 加载完成后，对已有四宫格图的分镜自动触发拆分（刷新/切换剧集时恢复面板）
+  for (const [sbIdStr, images] of Object.entries(nextImages)) {
+    const sbId = Number(sbIdStr)
+    const quadImg = Array.isArray(images)
+      ? images.find((i) => i.status === 'completed' && i.frame_type === 'quad_grid' && (i.image_url || i.local_path))
+      : null
+    if (quadImg && !sbQuadPanels.value[sbId] && !splittingQuadIds.has(sbId)) {
+      triggerSplitQuadGrid({ id: sbId }, quadImg)
+    }
+  }
 }
 
 // ── 四宫格拆图与面板选择 ─────────────────────────────────────────────
@@ -1837,6 +1867,18 @@ async function triggerSplitQuadGrid(sb, quadImgRecord) {
   }
 }
 
+/**
+ * 判断某个面板是否是当前选中的主图
+ * 通过比对 sbImages 中已上传面板的 local_path/image_url 与 sbQuadPanels 的对应项
+ * 这里用简单方案：记录 sbSelectedPanelIdx[sbId] = idx
+ */
+const sbSelectedPanelIdx = ref({}) // sbId → 选中的面板下标
+
+/** 判断面板是否为当前主图 */
+function isActiveQuadPanel(sb, idx) {
+  return sbSelectedPanelIdx.value[sb.id] === idx
+}
+
 /** dataUrl → Blob */
 function dataUrlToBlob(dataUrl) {
   const [header, data] = dataUrl.split(',')
@@ -1847,7 +1889,7 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([arr], { type: mime })
 }
 
-/** 用户选中某个面板，上传后作为主分镜图 */
+/** 用户选中某个面板，上传后作为主分镜图（可重复选择） */
 async function onSelectQuadPanel(sb, panelIndex) {
   if (selectingPanelSbId.value) return
   const panels = sbQuadPanels.value[sb.id]
@@ -1865,7 +1907,9 @@ async function onSelectQuadPanel(sb, panelIndex) {
       image_url: url,
       local_path: uploadRes?.local_path || undefined,
     })
-    ElMessage.success(`第 ${panelIndex + 1} 格已设为主分镜图`)
+    // 记录当前选中的面板下标，用于高亮标记
+    sbSelectedPanelIdx.value = { ...sbSelectedPanelIdx.value, [sb.id]: panelIndex }
+    ElMessage.success(`已切换为第 ${panelIndex + 1} 格（${['左上', '右上', '左下', '右下'][panelIndex]}）`)
     await loadStoryboardMedia()
   } catch (e) {
     ElMessage.error(e.message || '设置主图失败')
@@ -5218,12 +5262,28 @@ html.light .storyboard-row:hover {
 .sb-image-file-input { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
 .sb-gen-btn { margin-top: 4px; }
 .sb-image-area img.sb-generated-img { cursor: pointer; }
-/* 四宫格整图缩小一些，留出面板选择区空间 */
-.sb-quad-img { max-height: 180px; }
+/* 有四宫格时，image-area 改为纵向滚动布局 */
+.sb-image-area--has-quad {
+  flex-direction: column;
+  align-items: stretch;
+  overflow-y: auto;
+}
+/* 主图容器 */
+.sb-main-image-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+}
+/* 四宫格整图作为上方预览时稍微缩小 */
+.sb-quad-preview { max-height: 160px; }
 /* 四宫格面板选择器 */
 .quad-panel-selector {
   width: 100%;
   margin-top: 8px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  padding-top: 8px;
 }
 .quad-panel-hint {
   display: flex;
@@ -5254,6 +5314,7 @@ html.light .storyboard-row:hover {
   transition: border-color 0.2s;
 }
 .quad-panel-item:hover { border-color: var(--el-color-primary); }
+.quad-panel-item--active { border-color: var(--el-color-success) !important; }
 .quad-panel-item--selecting { pointer-events: none; opacity: 0.7; }
 .quad-panel-thumb {
   width: 100%;
