@@ -2686,20 +2686,38 @@ async function onAddCharFromLibrary(item) {
   addingCharFromLibraryId.value = item.id
   try {
     const existing = (store.characters || []).map((c) => ({
+      id: c.id, // 保留 id 以便后端识别为已有角色
       name: c.name || '',
       role: c.role || undefined,
       appearance: c.appearance || undefined,
       personality: c.personality || undefined,
       description: c.description || undefined,
       image_url: c.image_url || undefined,
+      local_path: c.local_path || undefined, // 保留 local_path
     }))
-    await dramaAPI.saveCharacters(store.dramaId, {
-      characters: [...existing, {
+    
+    // 只保留当前集的角色关联关系
+    const newCharacters = [...existing];
+    // 如果角色已存在（通过名字判断），则复用其 ID 进行更新
+    const existingChar = newCharacters.find(c => c.name === (item.name || '未命名'));
+    if (existingChar) {
+      // 更新已有角色信息
+      existingChar.description = item.description || existingChar.description;
+      existingChar.appearance = item.appearance || existingChar.appearance;
+      existingChar.image_url = item.image_url || existingChar.image_url;
+      existingChar.local_path = item.local_path || existingChar.local_path;
+    } else {
+      newCharacters.push({
         name: item.name || '未命名',
         description: item.description || undefined,
-        appearance: item.description || undefined,
+        appearance: item.appearance || undefined,
         image_url: item.image_url || undefined,
-      }],
+        local_path: item.local_path || undefined,
+      });
+    }
+
+    await dramaAPI.saveCharacters(store.dramaId, {
+      characters: newCharacters,
       episode_id: currentEpisodeId.value ?? undefined,
     })
     await loadDrama()

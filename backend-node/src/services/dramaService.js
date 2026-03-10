@@ -438,21 +438,25 @@ function saveCharacters(db, log, dramaId, req) {
       if (ex) {
         characterIds.push(ex.id);
         db.prepare(
-          `UPDATE characters SET name = ?, role = ?, description = ?, personality = ?, appearance = ?, image_url = ?, updated_at = ? WHERE id = ?`
-        ).run(char.name, char.role ?? null, char.description ?? null, char.personality ?? null, char.appearance ?? null, char.image_url ?? null, new Date().toISOString(), char.id);
+          `UPDATE characters SET name = ?, role = ?, description = ?, personality = ?, appearance = ?, image_url = ?, local_path = ?, updated_at = ? WHERE id = ?`
+        ).run(char.name, char.role ?? null, char.description ?? null, char.personality ?? null, char.appearance ?? null, char.image_url ?? null, char.local_path ?? null, new Date().toISOString(), char.id);
         continue;
       }
     }
     const byName = db.prepare('SELECT id FROM characters WHERE drama_id = ? AND name = ?').get(did, char.name);
     if (byName) {
       characterIds.push(byName.id);
+      // 如果通过名字找到已存在的角色（包含软删除的），也要更新它的信息并复活
+      db.prepare(
+        `UPDATE characters SET role = ?, description = ?, personality = ?, appearance = ?, image_url = ?, local_path = ?, updated_at = ?, deleted_at = NULL WHERE id = ?`
+      ).run(char.role ?? null, char.description ?? null, char.personality ?? null, char.appearance ?? null, char.image_url ?? null, char.local_path ?? null, new Date().toISOString(), byName.id);
       continue;
     }
     const now = new Date().toISOString();
     const info = db.prepare(
-      `INSERT INTO characters (drama_id, name, role, description, personality, appearance, image_url, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
-    ).run(did, char.name, char.role ?? null, char.description ?? null, char.personality ?? null, char.appearance ?? null, char.image_url ?? null, now, now);
+      `INSERT INTO characters (drama_id, name, role, description, personality, appearance, image_url, local_path, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
+    ).run(did, char.name, char.role ?? null, char.description ?? null, char.personality ?? null, char.appearance ?? null, char.image_url ?? null, char.local_path ?? null, now, now);
     characterIds.push(info.lastInsertRowid);
   }
   if (req.episode_id && characterIds.length > 0) {
