@@ -6,13 +6,16 @@
 
 *LocalMiniDrama · AI-powered short drama creator*
 
-[![version](https://img.shields.io/badge/version-1.1.10-blue?style=flat-square)](../../releases)
+[![version](https://img.shields.io/badge/version-1.1.14-blue?style=flat-square)](../../releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)](#)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](../../pulls)
 
 **[English](docs/en.md) | 简体中文 | [作者故事](docs/story.md)**
+
+[![GitHub](https://img.shields.io/badge/GitHub-xuanyustudio%2FLocalMiniDrama-181717?logo=github&style=flat-square)](https://github.com/xuanyustudio/LocalMiniDrama)
+[![Gitee](https://img.shields.io/badge/Gitee-bi__shang__a%2Flocalminidrama-C71D23?logo=gitee&style=flat-square)](https://gitee.com/bi_shang_a/localminidrama)
 
 </div>
 
@@ -118,7 +121,8 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-username/LocalMiniDrama.git
+git clone https://github.com/xuanyustudio/LocalMiniDrama.git
+# 或 Gitee：git clone https://gitee.com/bi_shang_a/localminidrama.git
 cd LocalMiniDrama
 
 # 2. 启动后端（默认端口 5679）
@@ -151,7 +155,7 @@ npm run dev
 | 火山引擎 Volcengine（豆包） | ✅ | ✅ | ✅ |
 | Google Gemini（Imagen / Veo） | — | ✅ | ✅ |
 | Vidu 生数科技 | — | — | ✅ |
-| NanoBanana（含代理，如星衍云） | — | ✅ | — |
+| NanoBanana（含代理） | — | ✅ | — |
 | 本地部署（Ollama 等 OpenAI 兼容） | ✅ | — | — |
 | 其他 OpenAI 兼容接口 | ✅ | ✅ | — |
 
@@ -199,18 +203,18 @@ LocalMiniDrama/
 
 查看完整更新记录 → **[CHANGELOG](docs/changelog.md)**
 
-**最新版 v1.1.10 亮点：**
-- 🆕 **Google Gemini 图片/视频生成**：支持 gemini-3.1-flash-image-preview 等图片模型及 Veo 视频模型，参考图通过图床方案解决大 payload 问题
-- 🆕 **Vidu 视频生成厂商**：新增 Vidu（生数科技），支持 viduq2 / viduq2-pro / viduq2-turbo / viduq3-pro
-- 🆕 **API 接口规范字段**：AI 配置新增「接口规范」字段，自定义中转站可显式指定接口类型，杜绝接口判断出错
-- 🆕 **29 种创作风格**：图片/视频风格选项大幅扩展，按六大类分组展示，覆盖写实、动漫、国风、绘画等
-- 🔧 **分镜生成超时与错误提示优化**：轮询超时延长至 15 分钟，失败/超时给出明确提示，不再静默停止
+**最新版 v1.1.14 亮点：**
+- 🆕 **官方仓库链接**：README 及后端文档新增 [GitHub](https://github.com/xuanyustudio/LocalMiniDrama) 与 [Gitee](https://gitee.com/bi_shang_a/localminidrama) 官方仓库徽章，方便提交 Issue 或 PR
 
-**v1.1.7 亮点：**
-- 🆕 **UI 全面美化**：紫色主题 + 亮色模式默认，卡片/按钮/表格视觉大幅升级
-- 🆕 **提示词高级设置**：9 个核心 AI 提示词可自定义，JSON 格式部分加锁保护，一键恢复默认
-- 🆕 **AI 厂商自定义选项**：下拉菜单支持直接输入自定义厂商名
-- 🔧 **提示词持久化**：自定义内容通过 SQLite 存储，重启不丢失
+**v1.1.13 亮点：**
+- 🆕 **分镜图相机角度视角修正**：分镜 `angle` 字段翻译为相机透视描述注入提示词，使 AI 生成画面视角与镜头设定一致
+- 🆕 **四宫格序列图模式（后端拆分）**：开关开启后后端自动拼装四宫格提示词并用 `sharp` 拆分为 4 张独立子图，主图选择持久化
+- 🔧 **分镜主图刷新后恢复**：`dramaService` 补充返回 `image_url`、`local_path`、`main_panel_idx`，前端可正确从后端恢复主图选中状态
+
+**v1.1.11 亮点：**
+- 🆕 **批量生成分镜图 / 批量生成分镜视频**：一键为所有缺图/缺视频分镜批量生成，含实时进度与随时停止
+- 🆕 **角色/场景影响分镜面板**：资源卡片新增「↻ 重新生成分镜图」按钮，批量重新生成关联分镜
+- 🔧 **手动选择角色/场景持久化**：`onStoryboardCharacterChange` / `onStoryboardSceneChange` 实现调用后端 update API
 
 ---
 

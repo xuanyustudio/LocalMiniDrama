@@ -543,7 +543,7 @@
               {{ storyboards.length > 0 ? '重新生成分镜' : 'AI 生成分镜' }}
             </el-button>
             <ElButton type="info" plain size="large" @click="onAddSingleStoryboard">
-            单独生成分镜
+            添加一个分镜
             </ElButton>
           </div>
           <template v-if="storyboards.length > 0">

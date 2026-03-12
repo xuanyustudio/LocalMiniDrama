@@ -2,6 +2,19 @@
 
 所有版本的重要改动记录在此文件中，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+**官方仓库：**
+[![GitHub](https://img.shields.io/badge/GitHub-xuanyustudio%2FLocalMiniDrama-181717?logo=github)](https://github.com/xuanyustudio/LocalMiniDrama)
+[![Gitee](https://img.shields.io/badge/Gitee-bi__shang__a%2Flocalminidrama-C71D23?logo=gitee)](https://gitee.com/bi_shang_a/localminidrama)
+
+---
+
+## [1.1.14] - 2026-02-28
+
+### 新增
+
+- **官方仓库链接**：`README.md`、`backend-node/README.md`、`CHANGELOG.md` 均新增 GitHub 与 Gitee 官方仓库徽章链接，方便用户直接提交 Issue 或 PR
+- **文档规范化**：`backend-node/README.md` 顶部新增官方仓库说明及 Issue 反馈引导
+
 ---
 
 ## [1.1.13] - 2026-03-09

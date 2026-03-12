@@ -422,7 +422,7 @@ input_reference = (图片文件，可选)</pre>
                       接口路径，追加在 Base URL 之后。<br>
                       <b>预设厂商</b>（火山 / 通义 / NanoBanana）留空，系统自动推断。<br>
                       <b>视频自定义厂商</b>必须填写，如 /v1/video/generations<br>
-                      <b>NanoBanana 代理</b>（如星衍云）填写代理路径，如 /fal-ai/nano-banana
+                      <b>NanoBanana 代理</b>填写代理路径，如 /fal-ai/nano-banana
                     </div>
                   </template>
                   <el-icon class="tip-icon"><QuestionFilled /></el-icon>
@@ -450,6 +450,24 @@ input_reference = (图片文件，可选)</pre>
             <el-input v-model="form.query_endpoint" placeholder="自定义视频厂商必填，如 /v1/video/tasks/{taskId}；预设厂商留空" />
           </el-form-item>
         </template>
+
+        <!-- 接口地址预览：选择厂商/协议后自动展示，帮助用户核对 -->
+        <div v-if="endpointPreviewInfo" class="endpoint-preview-box">
+          <div class="ep-preview-header">
+            <span>📌 系统将使用以下接口地址</span>
+            <span v-if="endpointPreviewInfo.isAuto && form.service_type !== 'text'" class="ep-auto-badge">自动推断</span>
+          </div>
+          <div class="ep-row">
+            <span class="ep-label">提交地址：</span>
+            <code class="ep-url">{{ endpointPreviewInfo.submit }}</code>
+          </div>
+          <div v-if="endpointPreviewInfo.query" class="ep-row">
+            <span class="ep-label">查询地址：</span>
+            <code class="ep-url">{{ endpointPreviewInfo.query }}</code>
+          </div>
+          <p class="ep-tip">以上为系统推断的实际调用地址（可手动填写上方端点字段来覆盖）</p>
+        </div>
+
         <el-form-item>
           <template #label>
             <span class="form-label-tip">模型列表
@@ -874,6 +892,79 @@ const availableModels = computed(() => {
   if (!st || !provider) return []
   const p = (providerConfigs[st] || []).find((x) => x.id === provider)
   return p?.models || []
+})
+
+/** 根据当前厂商/协议/base_url 推算实际将使用的接口地址，供用户核对 */
+const endpointPreviewInfo = computed(() => {
+  const { provider, api_protocol, base_url, service_type, endpoint, query_endpoint } = form.value
+  const p = String(provider || '').toLowerCase()
+  const proto = api_protocol || providerProtocolMap[p] || ''
+  const base = (base_url || '').replace(/\/$/, '')
+  if (!base && !proto && !p) return null
+
+  let submitPath = '', queryPath = ''
+
+  if (service_type === 'text') {
+    submitPath = '/chat/completions'
+  } else if (service_type === 'image' || service_type === 'storyboard_image') {
+    if (endpoint) {
+      submitPath = endpoint
+    } else if (proto === 'volcengine' || p === 'volcengine' || p === 'volces') {
+      submitPath = '/images/generations'
+    } else if (proto === 'dashscope' || p === 'dashscope' || p === 'qwen_image') {
+      submitPath = '/api/v1/services/aigc/multimodal-generation/generation'
+    } else if (proto === 'gemini' || p === 'gemini') {
+      submitPath = '/v1beta/models/{model}:generateContent'
+    } else if (proto === 'nano_banana' || p === 'nano_banana') {
+      submitPath = '/v1/images/generations'  // nano_banana base_url 无 /v1
+    } else {
+      submitPath = '/images/generations'  // openai 兼容：base_url 已含 /v1
+    }
+  } else if (service_type === 'video') {
+    if (endpoint) {
+      submitPath = endpoint
+    } else if (proto === 'volcengine' || p === 'volces' || p === 'volcengine') {
+      submitPath = '/videos/generations'
+    } else if (proto === 'dashscope' || p === 'dashscope') {
+      submitPath = '/api/v1/services/aigc/video-generation/video-synthesis'
+    } else if (proto === 'gemini' || p === 'gemini') {
+      submitPath = '/v1beta/models/{model}:predictLongRunning'
+    } else if (proto === 'vidu' || p === 'vidu') {
+      submitPath = '/ent/v2/img2video'
+    } else if (proto === 'sora') {
+      submitPath = '/v1/videos'
+    } else if (proto === 'veo3') {
+      submitPath = '/v1/video/create'
+    } else {
+      submitPath = '/v1/video/create'
+    }
+
+    if (query_endpoint) {
+      queryPath = query_endpoint
+    } else if (proto === 'volcengine' || p === 'volces' || p === 'volcengine') {
+      queryPath = '/tasks/{taskId}/info'
+    } else if (proto === 'dashscope' || p === 'dashscope') {
+      queryPath = '/api/v1/tasks/{taskId}/info'
+    } else if (proto === 'vidu' || p === 'vidu') {
+      queryPath = '/ent/v2/tasks/{taskId}/creations'
+    } else if (proto === 'sora') {
+      queryPath = '/v1/videos/{taskId}'
+    } else if (proto === 'veo3') {
+      queryPath = '/v1/video/query?id={taskId}'
+    } else if (proto !== 'gemini' && p !== 'gemini') {
+      queryPath = '/v1/video/query?id={taskId}'
+    }
+  }
+
+  const submitUrl = base ? (base + submitPath) : ('(未填 Base URL)' + submitPath)
+  const queryUrl = queryPath ? (base ? base + queryPath : '(未填 Base URL)' + queryPath) : null
+
+  if (!submitPath) return null
+  return {
+    submit: submitUrl,
+    query: queryUrl,
+    isAuto: !endpoint  // 端点是自动推断的（非用户手填）
+  }
 })
 
 function onProviderChange(providerId) {
@@ -1508,5 +1599,63 @@ code {
 }
 .tip-icon:hover {
   color: #409eff;
+}
+.endpoint-preview-box {
+  background: #f0f7ff;
+  border: 1px solid #c6e0ff;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin: -4px 0 14px;
+  font-size: 12px;
+}
+.ep-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #409eff;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.ep-auto-badge {
+  background: #e6f1ff;
+  color: #409eff;
+  border: 1px solid #b3d8ff;
+  border-radius: 3px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 400;
+}
+.ep-row {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 5px;
+  gap: 6px;
+  line-height: 1.5;
+}
+.ep-row:last-of-type {
+  margin-bottom: 0;
+}
+.ep-label {
+  flex-shrink: 0;
+  color: #606266;
+  min-width: 68px;
+}
+.ep-url {
+  word-break: break-all;
+  color: #303133;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid #dce8fa;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+.ep-tip {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #909399;
+  line-height: 1.4;
 }
 </style>
