@@ -3834,29 +3834,34 @@ async function runOneClickPipeline() {
   const style = getSelectedStyle()
 
   try {
-    // 1. 剧本生成角色
+    // 1. 剧本生成角色（已有角色则跳过，直接进入图片生成）
     await checkPause()
-    pipelineCurrentStep.value = '正在生成角色列表...'
-    try {
-      const outline = (store.scriptContent || '').toString().trim() || (storyInput.value || '').toString().trim() || undefined
-      const res = await generationAPI.generateCharacters(dramaIdVal, { episode_id: store.currentEpisode?.id ?? undefined, outline: outline || undefined })
-      const taskId = res?.task_id
-      if (taskId) {
-        const result = await pollTaskWithPause(taskId, () => loadDrama())
-        if (result?.paused) { await waitForResume(); return }
-        if (result?.error) { addPipelineError('生成角色', result.error); return }
-      } else {
-        await loadDrama()
+    let chars = store.currentEpisode?.characters ?? []
+    if (chars.length === 0) {
+      pipelineCurrentStep.value = '正在生成角色列表...'
+      try {
+        const outline = (store.scriptContent || '').toString().trim() || (storyInput.value || '').toString().trim() || undefined
+        const res = await generationAPI.generateCharacters(dramaIdVal, { episode_id: store.currentEpisode?.id ?? undefined, outline: outline || undefined })
+        const taskId = res?.task_id
+        if (taskId) {
+          const result = await pollTaskWithPause(taskId, () => loadDrama())
+          if (result?.paused) { await waitForResume(); return }
+          if (result?.error) { addPipelineError('生成角色', result.error); return }
+        } else {
+          await loadDrama()
+        }
+        await pipelineRest()
+      } catch (e) {
+        addPipelineError('生成角色', e.message || String(e))
+        return
       }
-      await pipelineRest()
-    } catch (e) {
-      addPipelineError('生成角色', e.message || String(e))
-      return
+      chars = store.currentEpisode?.characters ?? []
+    } else {
+      pipelineCurrentStep.value = `已有 ${chars.length} 个角色，跳过生成`
     }
 
     // 2. 为每个角色生成图片（并发）
     await checkPause()
-    let chars = store.currentEpisode?.characters ?? []
     const charsWithoutImage = chars.filter((c) => !hasAssetImage(c))
     {
       const concurrency = pipelineConcurrency.value
@@ -3885,28 +3890,33 @@ async function runOneClickPipeline() {
       if (paused) { await waitForResume() }
     }
 
-    // 3. 从剧本提取场景
+    // 3. 从剧本提取场景（已有场景则跳过，直接进入图片生成）
     await checkPause()
-    pipelineCurrentStep.value = '正在从剧本提取场景...'
-    try {
-      const res = await dramaAPI.extractBackgrounds(episodeId, { model: undefined, style, language: scriptLanguage.value })
-      const taskId = res?.task_id
-      if (taskId) {
-        const result = await pollTaskWithPause(taskId, () => loadDrama())
-        if (result?.paused) { await waitForResume(); return }
-        if (result?.error) { addPipelineError('提取场景', result.error); return }
-      } else {
-        await loadDrama()
+    let sceneList = store.currentEpisode?.scenes ?? []
+    if (sceneList.length === 0) {
+      pipelineCurrentStep.value = '正在从剧本提取场景...'
+      try {
+        const res = await dramaAPI.extractBackgrounds(episodeId, { model: undefined, style, language: scriptLanguage.value })
+        const taskId = res?.task_id
+        if (taskId) {
+          const result = await pollTaskWithPause(taskId, () => loadDrama())
+          if (result?.paused) { await waitForResume(); return }
+          if (result?.error) { addPipelineError('提取场景', result.error); return }
+        } else {
+          await loadDrama()
+        }
+        await pipelineRest()
+      } catch (e) {
+        addPipelineError('提取场景', e.message || String(e))
+        return
       }
-      await pipelineRest()
-    } catch (e) {
-      addPipelineError('提取场景', e.message || String(e))
-      return
+      sceneList = store.currentEpisode?.scenes ?? []
+    } else {
+      pipelineCurrentStep.value = `已有 ${sceneList.length} 个场景，跳过提取`
     }
 
     // 4. 为每个场景生成图片（并发）
     await checkPause()
-    let sceneList = store.currentEpisode?.scenes ?? []
     const scenesWithoutImage = sceneList.filter((s) => !hasAssetImage(s))
     {
       const concurrency = pipelineConcurrency.value
