@@ -683,7 +683,7 @@ function buildCacheKey(ref, imageBuffer) {
  * 避免 inlineData base64 大 payload 触发 503 memory overload。
  */
 async function callGeminiImageApi(db, config, log, opts) {
-  const { prompt, model, size, image_gen_id, reference_image_urls, files_base_url, storage_local_path } = opts;
+  const { prompt, model, size, image_gen_id, reference_image_urls, files_base_url, storage_local_path, system_prompt } = opts;
   const apiKey = config.api_key || '';
   const base = (config.base_url || 'https://generativelanguage.googleapis.com').replace(/\/$/, '');
   const modelName = model || 'gemini-2.5-flash-image';
@@ -706,9 +706,22 @@ async function callGeminiImageApi(db, config, log, opts) {
   log.info('[Gemini图生] 参考图传输方式', { image_gen_id, use_image_proxy: useImageProxy });
 
   const rawRefs = Array.isArray(reference_image_urls) ? reference_image_urls.filter(Boolean) : [];
-  const parts = [{ text: prompt || '' }];
+  const MAX_GEMINI_REF_IMAGES = 4; // 场景1张 + 最多3个角色
 
-  for (let i = 0; i < rawRefs.slice(0, 3).length; i++) {
+  // 解析 system_prompt 中的每张参考图标签（格式: "Image N: description..."）
+  // Gemini 多模态的正确输入结构：[文字说明] → [图片] → [文字说明] → [图片] → [生成指令]
+  // 即：每张参考图紧跟其说明文字，最后才是生成任务
+  const refLabelMap = {}; // index(0-based) → label text
+  if (system_prompt) {
+    system_prompt.split('\n').forEach(line => {
+      const m = line.match(/^Image\s+(\d+):\s*(.+)/i);
+      if (m) refLabelMap[parseInt(m[1], 10) - 1] = m[2].trim(); // 转为 0-based index
+    });
+  }
+
+  // 读取所有参考图（buffer + mimeType）
+  const refImageParts = []; // { label, imagePart }
+  for (let i = 0; i < rawRefs.slice(0, MAX_GEMINI_REF_IMAGES).length; i++) {
     const ref = rawRefs[i];
     log.info('[Gemini图生] 参考图 读取中', { image_gen_id, ref_index: i, ref: String(ref).slice(0, 80), elapsed: elapsed() });
     const tRead = Date.now();
@@ -719,7 +732,6 @@ async function callGeminiImageApi(db, config, log, opts) {
       continue;
     }
 
-    // 读取图片 buffer + mimeType
     let imageBuffer, mimeType;
     if (resolved.startsWith('data:')) {
       const m = resolved.match(/^data:([\w/]+);base64,(.+)$/);
@@ -747,43 +759,56 @@ async function callGeminiImageApi(db, config, log, opts) {
       read_ms: Date.now() - tRead, elapsed: elapsed(),
     });
 
-    // 跳过超过 10MB 的文件
     if (imageBuffer.length > 10 * 1024 * 1024) {
       log.warn('[Gemini图生] 参考图 超过10MB，跳过', { image_gen_id, ref_index: i, size_mb: (imageBuffer.length / 1024 / 1024).toFixed(1) });
       continue;
     }
 
+    let imagePart;
     if (useImageProxy) {
-      // ── 图床模式：上传图床 → fileData.fileUri（部分中转站不支持，会报 Cannot fetch content from URL）──
       const cacheKey = buildCacheKey(ref, imageBuffer);
       let fileUri = getProxyCache(db, cacheKey);
       if (fileUri) {
-        log.info('[Gemini图生] 参考图 缓存命中（图床）', { image_gen_id, ref_index: i, cacheKey: cacheKey.slice(0, 60), fileUri });
+        log.info('[Gemini图生] 参考图 缓存命中（图床）', { image_gen_id, ref_index: i });
       } else {
         log.info('[Gemini图生] 参考图 缓存未命中，上传图床 →', { image_gen_id, ref_index: i, elapsed: elapsed() });
         fileUri = await uploadToImageProxy(imageBuffer, mimeType, log, image_gen_id);
         if (fileUri) {
           setProxyCache(db, cacheKey, fileUri);
-          log.info('[Gemini图生] 参考图 已缓存（图床）', { image_gen_id, ref_index: i, elapsed: elapsed() });
         } else {
           log.warn('[Gemini图生] 参考图 上传图床失败，该参考图将跳过', { image_gen_id, ref_index: i, elapsed: elapsed() });
+          continue;
         }
       }
-      if (fileUri) {
-        parts.push({ fileData: { fileUri, mimeType } });
-        log.info('[Gemini图生] 参考图 已加入 parts（fileUri）', { image_gen_id, ref_index: i, fileUri });
-      }
+      imagePart = { fileData: { fileUri, mimeType } };
     } else {
-      // ── Base64 模式（默认）：直接内嵌 inlineData，无需图床，兼容所有中转站 ──
-      parts.push({ inlineData: { mimeType, data: imageBuffer.toString('base64') } });
-      log.info('[Gemini图生] 参考图 已加入 parts（inlineData base64）', {
-        image_gen_id, ref_index: i, mime: mimeType, size_kb: Math.round(imageBuffer.length / 1024),
-      });
+      imagePart = { inlineData: { mimeType, data: imageBuffer.toString('base64') } };
     }
+
+    refImageParts.push({ label: refLabelMap[i] || null, imagePart });
+    log.info('[Gemini图生] 参考图 已处理', { image_gen_id, ref_index: i, has_label: !!refLabelMap[i] });
+  }
+
+  // 构建 parts：正确的 Gemini 多模态输入顺序
+  // [参考说明] → [参考图1] → [参考图2] → ... → [生成指令+主提示词]
+  // 这与 Gemini 的 "文字描述紧接对应内容" 原则一致，避免模型混淆
+  const parts = [];
+  if (refImageParts.length > 0) {
+    parts.push({ text: 'The following are visual reference images. Use them ONLY to maintain character appearance and scene environment consistency. Do NOT reproduce their layout or format.' });
+    for (let i = 0; i < refImageParts.length; i++) {
+      const { label, imagePart } = refImageParts[i];
+      parts.push({ text: label ? `Reference ${i + 1}: ${label}` : `Reference ${i + 1}:` });
+      parts.push(imagePart);
+    }
+    // 生成指令放在所有参考图之后，清晰分隔
+    parts.push({ text: `Generate ONE single cinematic storyboard frame (do NOT create a grid or multi-panel layout):\n\n${prompt || ''}` });
+  } else {
+    // 无参考图：直接用 prompt
+    parts.push({ text: prompt || '' });
   }
 
   log.info('[Gemini图生] 参考图处理完毕，准备请求 Gemini API', {
-    image_gen_id, parts_count: parts.length, ref_parts: parts.length - 1, elapsed: elapsed(),
+    image_gen_id, parts_count: parts.length, ref_parts: refImageParts.length, elapsed: elapsed(),
   });
 
   // 注意：aspectRatio / numberOfImages 必须直接放在 generationConfig 顶层，
@@ -916,6 +941,7 @@ async function callImageApi(db, log, opts) {
       reference_image_urls: opts.reference_image_urls,
       files_base_url: opts.files_base_url,
       storage_local_path: opts.storage_local_path,
+      system_prompt: opts.system_prompt,
     });
   }
 
@@ -999,6 +1025,7 @@ function createAndGenerateImage(db, log, opts) {
   const {
     drama_id,
     character_id,
+    scene_id,
     image_type,
     prompt,
     model,
@@ -1009,18 +1036,24 @@ function createAndGenerateImage(db, log, opts) {
   const now = new Date().toISOString();
   const dramaIdNum = Number(drama_id) || 0;
   const charIdNum = character_id != null ? Number(character_id) : null;
+  const sceneIdNum = scene_id != null ? Number(scene_id) : null;
 
-  const task = taskService.createTask(db, log, 'image_generation', String(charIdNum != null ? `character_${charIdNum}` : dramaIdNum));
+  let resourceId;
+  if (charIdNum != null) resourceId = `character_${charIdNum}`;
+  else if (sceneIdNum != null) resourceId = `scene_${sceneIdNum}`;
+  else resourceId = String(dramaIdNum);
+  const task = taskService.createTask(db, log, 'image_generation', resourceId);
   const taskId = task.id;
 
   let imageGenId;
   try {
     const info = db.prepare(
-      `INSERT INTO image_generations (drama_id, character_id, provider, prompt, model, size, quality, status, task_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`
+      `INSERT INTO image_generations (drama_id, character_id, scene_id, provider, prompt, model, size, quality, status, task_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`
     ).run(
       dramaIdNum,
       charIdNum,
+      sceneIdNum,
       provider || 'openai',
       prompt || '',
       model || null,
@@ -1032,7 +1065,7 @@ function createAndGenerateImage(db, log, opts) {
     );
     imageGenId = info.lastInsertRowid;
   } catch (e) {
-    if ((e.message || '').includes('character_id')) {
+    if ((e.message || '').includes('scene_id') || (e.message || '').includes('character_id')) {
       const info = db.prepare(
         `INSERT INTO image_generations (drama_id, provider, prompt, model, size, quality, status, task_id, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`
@@ -1067,6 +1100,11 @@ function createAndGenerateImage(db, log, opts) {
             db.prepare('UPDATE characters SET error_msg = ?, updated_at = ? WHERE id = ?').run(result.error, now2, charIdNum);
           } catch (_) {}
         }
+        if (sceneIdNum != null) {
+          try {
+            db.prepare('UPDATE scenes SET error_msg = ?, updated_at = ? WHERE id = ?').run(result.error, now2, sceneIdNum);
+          } catch (_) {}
+        }
         log.error('Image generation failed', { image_gen_id: imageGenId, error: result.error });
         return;
       }
@@ -1077,7 +1115,8 @@ function createAndGenerateImage(db, log, opts) {
         const storagePath = path.isAbsolute(cfg.storage?.local_path)
           ? cfg.storage.local_path
           : path.join(process.cwd(), cfg.storage?.local_path || './data/storage');
-        localPath = await uploadService.downloadImageToLocal(storagePath, result.image_url, 'characters', log, 'ig');
+        const category = sceneIdNum != null ? 'scenes' : (charIdNum != null ? 'characters' : 'images');
+        localPath = await uploadService.downloadImageToLocal(storagePath, result.image_url, category, log, 'ig');
       } catch (_) {}
       // 兼容旧库无 completed_at：先试完整 UPDATE，失败则只更新必有列
       try {
@@ -1111,6 +1150,23 @@ function createAndGenerateImage(db, log, opts) {
         }
         log.info('Character image updated', { character_id: charIdNum, image_url: result.image_url, local_path: localPath });
       }
+      if (sceneIdNum != null) {
+        try {
+          db.prepare('UPDATE scenes SET image_url = ?, local_path = ?, updated_at = ? WHERE id = ?').run(
+            result.image_url,
+            localPath,
+            now2,
+            sceneIdNum
+          );
+        } catch (e) {
+          if ((e.message || '').includes('local_path')) {
+            db.prepare('UPDATE scenes SET image_url = ?, updated_at = ? WHERE id = ?').run(result.image_url, now2, sceneIdNum);
+          } else {
+            throw e;
+          }
+        }
+        log.info('Scene image updated', { scene_id: sceneIdNum, image_url: result.image_url, local_path: localPath });
+      }
       log.info('Image generation completed', { image_gen_id: imageGenId, local_path: localPath });
     } catch (err) {
       const now2 = new Date().toISOString();
@@ -1132,12 +1188,17 @@ function createAndGenerateImage(db, log, opts) {
           db.prepare('UPDATE characters SET error_msg = ?, updated_at = ? WHERE id = ?').run(errMsg, now2, charIdNum);
         } catch (_) {}
       }
+      if (sceneIdNum != null) {
+        try {
+          db.prepare('UPDATE scenes SET error_msg = ?, updated_at = ? WHERE id = ?').run(errMsg, now2, sceneIdNum);
+        } catch (_) {}
+      }
       log.error('Image generation error', { image_gen_id: imageGenId, task_id: taskId, error: err.message });
     }
   });
 
   const row = db.prepare('SELECT * FROM image_generations WHERE id = ?').get(imageGenId);
-  return row ? rowToItem(row) : { id: imageGenId, task_id: taskId, status: 'pending', drama_id: dramaIdNum, character_id: charIdNum, prompt, model, size, quality, created_at: now, updated_at: now };
+  return row ? rowToItem(row) : { id: imageGenId, task_id: taskId, status: 'pending', drama_id: dramaIdNum, character_id: charIdNum, scene_id: sceneIdNum, prompt, model, size, quality, created_at: now, updated_at: now };
 }
 
 function rowToItem(r) {

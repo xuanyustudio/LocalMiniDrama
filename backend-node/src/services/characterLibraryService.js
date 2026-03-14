@@ -1,6 +1,8 @@
 // 角色库：与 Go character_library_service 对齐
 const imageClient = require('./imageClient');
 const { aspectRatioToSize } = require('./imageService');
+const aiClient = require('./aiClient');
+const promptI18n = require('./promptI18n');
 
 function appendPrompt(base, extra) {
   const add = (extra || '').toString().trim();
@@ -252,24 +254,24 @@ function batchGenerateCharacterImages(db, log, cfg, characterIds, modelName, sty
   const ids = Array.isArray(characterIds) ? characterIds.map((id) => String(id)) : [];
   if (ids.length === 0) return { ok: false, error: 'character_ids 不能为空' };
   if (ids.length > 10) return { ok: false, error: '单次最多生成10个角色' };
-  log.info('Starting batch character image generation', { count: ids.length, model: modelName, character_ids: ids });
-  // sxy：每个角色单独起一个“协程”，不阻塞响应
+  log.info('Starting batch character four-view generation', { count: ids.length, model: modelName, character_ids: ids });
+  // 每个角色单独起一个异步任务，不阻塞响应
   for (const characterId of ids) {
     const charId = characterId;
-    setImmediate(() => {
+    setImmediate(async () => {
       try {
-        const out = generateCharacterImage(db, log, cfg, charId, modelName, style);
+        const out = await generateCharacterFourViewImage(db, log, cfg, charId, modelName, style);
         if (!out.ok) {
-          log.warn('Batch character image skip', { character_id: charId, error: out.error });
+          log.warn('Batch character four-view skip', { character_id: charId, error: out.error });
           return;
         }
-        log.info('Batch character image submitted', { character_id: charId, image_gen_id: out.image_generation?.id });
+        log.info('Batch character four-view submitted', { character_id: charId, image_gen_id: out.image_generation ? out.image_generation.id : null });
       } catch (err) {
-        log.error('Batch character image failed', { character_id: charId, error: err.message });
+        log.error('Batch character four-view failed', { character_id: charId, error: err.message });
       }
     });
   }
-  log.info('Batch character image generation tasks queued', { total: ids.length });
+  log.info('Batch character four-view tasks queued', { total: ids.length });
   return { ok: true, count: ids.length };
 }
 
@@ -288,6 +290,73 @@ function rowToItem(r) {
   };
 }
 
+/**
+ * 角色四视图生成：两步流程
+ * Step 1: 文本AI将 appearance 转换为标准四视图绘图描述
+ * Step 2: 图片AI根据描述生成 16:9 四格角色参考图
+ */
+async function generateCharacterFourViewImage(db, log, cfg, characterId, modelName, style) {
+  const charRow = db.prepare(
+    'SELECT id, drama_id, name, appearance, description FROM characters WHERE id = ? AND deleted_at IS NULL'
+  ).get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
+  if (!drama) return { ok: false, error: 'unauthorized' };
+
+  // 构建角色描述：优先用 appearance，其次 description，最后仅用名字
+  let appearanceText = '';
+  if (charRow.appearance && String(charRow.appearance).trim()) {
+    appearanceText = String(charRow.appearance).trim();
+  } else if (charRow.description && String(charRow.description).trim()) {
+    appearanceText = String(charRow.description).trim();
+  } else {
+    appearanceText = charRow.name || '';
+  }
+
+  const styleText = (style && String(style).trim()) || cfg?.style?.default_style || '';
+
+  // 构建 cfg（带风格，不带 image ratio，四视图固定 16:9）
+  const fourViewCfg = { ...cfg, style: { ...(cfg?.style || {}), default_style: styleText } };
+
+  // Step 1: 文本 AI 生成四视图提示词描述
+  const systemPrompt = promptI18n.getRolePolishPrompt(fourViewCfg);
+  const userPrompt = `角色名称：${charRow.name}\n\n角色描述：\n${appearanceText}`;
+
+  log.info('[四视图] Step1 开始生成四视图提示词', { character_id: characterId, name: charRow.name });
+
+  let fourViewDescription;
+  try {
+    fourViewDescription = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+      model: modelName || undefined,
+      max_tokens: 4000,
+    });
+  } catch (err) {
+    log.error('[四视图] Step1 文本AI失败，降级为直接使用外貌描述', { error: err.message });
+    fourViewDescription = appearanceText;
+  }
+
+  log.info('[四视图] Step1 完成，开始Step2生图', { character_id: characterId, desc_length: (fourViewDescription || '').length });
+
+  // Step 2: 图片AI生成四视图，固定 16:9
+  // 注意：图片生成API不支持独立 system_prompt，必须将布局规则合并进 prompt
+  const imageLayoutInstruction = promptI18n.getRoleGenerateImagePrompt();
+  const imagePrompt = `${imageLayoutInstruction}\n\n---\n\n${fourViewDescription}\n\n---\n\nCRITICAL OUTPUT REQUIREMENT: Generate ONE single image containing a 2×2 grid (4 panels): top-left=head close-up, top-right=front full body, bottom-left=left side full body, bottom-right=back full body. Pure white background. No text labels. No props in hands. Neutral expression. Arms at sides.`;
+
+  const imageGen = imageClient.createAndGenerateImage(db, log, {
+    drama_id: charRow.drama_id,
+    character_id: charRow.id,
+    prompt: imagePrompt,
+    model: modelName || undefined,
+    size: '1792x1024',
+    quality: 'standard',
+    provider: 'openai',
+  });
+
+  log.info('[四视图] Step2 图片生成任务已提交', { character_id: characterId, image_gen_id: imageGen?.id });
+
+  return { ok: true, image_generation: imageGen };
+}
+
 module.exports = {
   listLibraryItems,
   createLibraryItem,
@@ -302,4 +371,5 @@ module.exports = {
   deleteCharacter,
   generateCharacterImage,
   batchGenerateCharacterImages,
+  generateCharacterFourViewImage,
 };

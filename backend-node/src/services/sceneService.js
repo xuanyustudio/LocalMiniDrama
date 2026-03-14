@@ -1,4 +1,7 @@
 // 场景：与 Go scene_handler + storyboard_composition 对齐
+const imageClient = require('./imageClient');
+const aiClient = require('./aiClient');
+const promptI18n = require('./promptI18n');
 function updateScene(db, log, sceneId, req) {
   const row = db.prepare('SELECT id FROM scenes WHERE id = ? AND deleted_at IS NULL').get(Number(sceneId));
   if (!row) return { ok: false, error: 'scene not found' };
@@ -97,6 +100,73 @@ function getSceneById(db, id) {
   return row ? { id: row.id, drama_id: row.drama_id, location: row.location, time: row.time, prompt: row.prompt, image_url: row.image_url, local_path: row.local_path, extra_images: row.extra_images || null, status: row.status, created_at: row.created_at, updated_at: row.updated_at } : null;
 }
 
+/**
+ * 场景四视图生成：两步流程
+ * Step 1: 文本AI将 location/time/prompt 转换为四格场景参考图描述
+ * Step 2: 图片AI根据描述生成 16:9 四格场景参考图
+ */
+async function generateSceneFourViewImage(db, log, cfg, sceneId, modelName, style) {
+  const sceneRow = db.prepare(
+    'SELECT id, drama_id, location, time, prompt FROM scenes WHERE id = ? AND deleted_at IS NULL'
+  ).get(Number(sceneId));
+  if (!sceneRow) return { ok: false, error: 'scene not found' };
+  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(sceneRow.drama_id);
+  if (!drama) return { ok: false, error: 'unauthorized' };
+
+  const location = (sceneRow.location || '').toString().trim();
+  const time = (sceneRow.time || '').toString().trim();
+  const prompt = (sceneRow.prompt || '').toString().trim();
+  const styleText = (style && String(style).trim()) || cfg?.style?.default_style || '';
+
+  const fourViewCfg = { ...cfg, style: { ...(cfg?.style || {}), default_style: styleText } };
+
+  // 构建场景文字描述输入
+  const sceneDesc = [
+    location ? `场景地点：${location}` : '',
+    time ? `时间/时段：${time}` : '',
+    prompt ? `场景描述：${prompt}` : '',
+  ].filter(Boolean).join('\n');
+  const inputText = sceneDesc || (location || '未知场景');
+
+  // Step 1: 文本 AI 生成四视图提示词描述
+  const systemPrompt = promptI18n.getScenePolishPrompt(fourViewCfg);
+  const userPrompt = `请根据以下场景信息，生成四格场景参考图的提示词：\n\n${inputText}`;
+
+  log.info('[场景四视图] Step1 开始生成提示词', { scene_id: sceneId, location, time });
+
+  let fourViewDescription;
+  try {
+    fourViewDescription = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+      model: modelName || undefined,
+      max_tokens: 4000,
+    });
+  } catch (err) {
+    log.error('[场景四视图] Step1 文本AI失败，降级为直接使用场景描述', { error: err.message });
+    fourViewDescription = inputText;
+  }
+
+  log.info('[场景四视图] Step1 完成，开始Step2生图', { scene_id: sceneId, desc_length: (fourViewDescription || '').length });
+
+  // Step 2: 图片AI生成四视图，固定 16:9
+  // 图片生成API不支持独立 system_prompt，必须将布局规则合并进 prompt
+  const imageLayoutInstruction = promptI18n.getSceneGenerateImagePrompt();
+  const imagePrompt = `${imageLayoutInstruction}\n\n---\n\n${fourViewDescription}\n\n---\n\nCRITICAL OUTPUT REQUIREMENT: Generate ONE single image containing a 2×2 grid (4 panels): top-left=establishing wide shot, top-right=main activity zone, bottom-left=signature environmental detail, bottom-right=atmospheric variant (different lighting/time). No human figures. No text labels.`;
+
+  const imageGen = imageClient.createAndGenerateImage(db, log, {
+    drama_id: sceneRow.drama_id,
+    scene_id: sceneId,
+    prompt: imagePrompt,
+    model: modelName || undefined,
+    size: '1792x1024',
+    quality: 'standard',
+    provider: 'openai',
+  });
+
+  log.info('[场景四视图] Step2 图片生成任务已提交', { scene_id: sceneId, image_gen_id: imageGen?.id });
+
+  return { ok: true, image_generation: imageGen };
+}
+
 module.exports = {
   updateScene,
   updateScenePrompt,
@@ -105,4 +175,5 @@ module.exports = {
   createSceneForEpisode,
   deleteScenesByEpisodeId,
   getSceneById,
+  generateSceneFourViewImage,
 };

@@ -119,12 +119,13 @@ async function splitQuadGridToImages(db, log, originalRow, absLocalPath, storage
           : null;
         // 插入 image_generation 记录（status=completed，直接可用）
         db.prepare(
-          `INSERT INTO image_generations (storyboard_id, drama_id, scene_id, provider, prompt, model, frame_type, image_url, local_path, status, created_at, updated_at, completed_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?)`
+          `INSERT INTO image_generations (storyboard_id, drama_id, scene_id, character_id, provider, prompt, model, frame_type, image_url, local_path, status, created_at, updated_at, completed_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?)`
         ).run(
           originalRow.storyboard_id ?? null,
           originalRow.drama_id ?? 0,
           originalRow.scene_id ?? null,
+          originalRow.character_id ?? null,
           originalRow.provider || 'system',
           `[${labels[q.idx]}] ${originalRow.prompt || ''}`.slice(0, 1000),
           originalRow.model ?? null,
@@ -528,7 +529,7 @@ async function processImageGeneration(db, log, imageGenId) {
       }
     }
 
-    // ── 单张分镜图：注入角度描述 + 调试日志 ────────────────────────────
+    // ── 单张分镜图：注入角度描述 + 单张输出约束 + 调试日志 ─────────────
     if (row.storyboard_id && row.frame_type !== 'quad_grid' && row.frame_type !== 'nine_grid') {
       try {
         const framePromptService = require('./framePromptService');
@@ -555,7 +556,7 @@ async function processImageGeneration(db, log, imageGenId) {
             }
           }
         }
-        log.info('[图生] 单张分镜图 ── 最终提示词:\n' + (row.prompt || ''));
+        log.info('[图生] 单张分镜图 ── 角度注入后提示词:\n' + (row.prompt || ''));
       } catch (angleErr) {
         log.warn('[图生] 角度注入失败，使用原始提示词', { id: imageGenId, error: angleErr.message });
       }
@@ -582,6 +583,8 @@ async function processImageGeneration(db, log, imageGenId) {
     // ── Step 2: 解析参考图 ───────────────────────────────────────────
     let reference_image_urls = null;
     let reference_source = null;
+    // 参考图映射说明：告诉图片AI每张参考图对应哪个角色/场景，防止模型模仿宫格布局
+    let reference_context_note = null;
     if (row.reference_images) {
       try {
         const parsed = JSON.parse(row.reference_images);
@@ -595,15 +598,23 @@ async function processImageGeneration(db, log, imageGenId) {
       const sb = db.prepare('SELECT scene_id, characters FROM storyboards WHERE id = ? AND deleted_at IS NULL').get(row.storyboard_id);
       if (sb) {
         const refs = [];
+        const refLabels = [];
         if (sb.scene_id) {
-          const scene = db.prepare('SELECT image_url, local_path, extra_images FROM scenes WHERE id = ? AND deleted_at IS NULL').get(sb.scene_id);
-          if (scene && (scene.local_path || scene.image_url)) {
-            refs.push(scene.local_path || scene.image_url);
-            if (scene.extra_images) {
-              try {
-                const extras = JSON.parse(scene.extra_images);
-                if (Array.isArray(extras) && extras[0]) refs.push(extras[0]);
-              } catch (_) {}
+          const scene = db.prepare('SELECT image_url, local_path, location FROM scenes WHERE id = ? AND deleted_at IS NULL').get(sb.scene_id);
+          if (scene) {
+            const locationName = scene.location || 'scene';
+            // 优先使用拆分后的单张面板（quad_panel_0=建立远景），比四视图合图更利于模型提取场景信息
+            const scenePanel = db.prepare(
+              `SELECT local_path, image_url FROM image_generations
+               WHERE scene_id = ? AND frame_type = 'quad_panel_0' AND status = 'completed'
+               ORDER BY id DESC LIMIT 1`
+            ).get(sb.scene_id);
+            const sceneRef = (scenePanel && (scenePanel.local_path || scenePanel.image_url))
+              || scene.local_path || scene.image_url;
+            if (sceneRef) {
+              refs.push(sceneRef);
+              const isPanel = !!(scenePanel && (scenePanel.local_path || scenePanel.image_url));
+              refLabels.push(`Image ${refs.length}: scene background reference for "${locationName}"${isPanel ? ' (establishing wide shot)' : ' (four-view reference sheet)'}`);
             }
           }
         }
@@ -611,19 +622,22 @@ async function processImageGeneration(db, log, imageGenId) {
           try {
             const charList = JSON.parse(sb.characters);
             if (Array.isArray(charList)) {
-              for (const item of charList.slice(0, 4)) {
+              for (const item of charList.slice(0, 3)) {
                 const cid = typeof item === 'object' && item != null ? item.id : item;
-                const c = db.prepare('SELECT image_url, local_path, extra_images FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(cid));
+                const c = db.prepare('SELECT image_url, local_path, name FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(cid));
                 if (!c) continue;
-                // 优先使用 local_path，否则 image_url
-                const primaryRef = c.local_path || c.image_url;
-                if (primaryRef) refs.push(primaryRef);
-                // 将 extra_images 中第一张也作为参考（多角度参考），但控制总量
-                if (c.extra_images && refs.length < 6) {
-                  try {
-                    const extras = JSON.parse(c.extra_images);
-                    if (Array.isArray(extras) && extras[0]) refs.push(extras[0]);
-                  } catch (_) {}
+                // 优先使用拆分后的正面全身图（quad_panel_1=右上=正面全身），比四视图合图更准确
+                const charPanel = db.prepare(
+                  `SELECT local_path, image_url FROM image_generations
+                   WHERE character_id = ? AND frame_type = 'quad_panel_1' AND status = 'completed'
+                   ORDER BY id DESC LIMIT 1`
+                ).get(Number(cid));
+                const charRef = (charPanel && (charPanel.local_path || charPanel.image_url))
+                  || c.local_path || c.image_url;
+                if (charRef) {
+                  refs.push(charRef);
+                  const isPanel = !!(charPanel && (charPanel.local_path || charPanel.image_url));
+                  refLabels.push(`Image ${refs.length}: character appearance reference for "${c.name || 'character'}"${isPanel ? ' (front full-body view)' : ' (four-view reference sheet)'}`);
                 }
               }
             }
@@ -632,6 +646,10 @@ async function processImageGeneration(db, log, imageGenId) {
         if (refs.length > 0) {
           reference_image_urls = refs;
           reference_source = 'storyboard 自动解析';
+          // refLabels 与 refs 一一对应，确保描述条数 === 实际图片数
+          if (refLabels.length > 0) {
+            reference_context_note = refLabels.slice(0, refs.length).join('\n');
+          }
         }
       }
     }
@@ -642,6 +660,17 @@ async function processImageGeneration(db, log, imageGenId) {
       paths: (reference_image_urls || []).map(s => String(s).slice(0, 80)),
       elapsed: elapsed(),
     });
+
+    // ── Step 2.5: 单张分镜图 + 有参考图时，记录参考图映射（由 callGeminiImageApi 处理 parts 结构）───
+    // Gemini 正确做法：文字说明→参考图→生成指令（交替结构），在 imageClient 中组装
+    // 这里只记录日志，不再污染主 prompt 文本
+    if (row.storyboard_id && row.frame_type !== 'quad_grid' && row.frame_type !== 'nine_grid' && reference_image_urls && reference_image_urls.length > 0) {
+      log.info('[图生] Step2.5 参考图就绪，将由 Gemini parts 结构传递', {
+        id: imageGenId,
+        ref_count: reference_image_urls.length,
+        context_note: reference_context_note || '(无标签)',
+      });
+    }
 
     // ── Step 3: 计算尺寸 ────────────────────────────────────────────
     const loadConfig = require('../config').loadConfig;
@@ -670,6 +699,11 @@ async function processImageGeneration(db, log, imageGenId) {
     // ── Step 4: 调用图生 API ─────────────────────────────────────────
     log.info('[图生] Step4 调用图生 API →', { id: imageGenId, elapsed: elapsed() });
     const tApi = Date.now();
+    // 单张分镜图时，把参考图标签（reference_context_note）传给 Gemini，
+    // 在 callGeminiImageApi 里解析为 per-image 标签，交替插入 parts 结构
+    const isSingleStoryboard = row.storyboard_id && row.frame_type !== 'quad_grid' && row.frame_type !== 'nine_grid';
+    const apiSystemPrompt = (isSingleStoryboard && reference_context_note) ? reference_context_note : undefined;
+
     const result = await imageClient.callImageApi(db, log, {
       prompt: row.prompt,
       model: row.model,
@@ -682,6 +716,7 @@ async function processImageGeneration(db, log, imageGenId) {
       reference_image_urls: reference_image_urls || undefined,
       files_base_url: filesBaseUrl,
       storage_local_path: storageLocalPath,
+      system_prompt: apiSystemPrompt,
     });
     log.info('[图生] Step4 图生 API 返回', { id: imageGenId, api_ms: Date.now() - tApi, has_error: !!result.error, elapsed: elapsed() });
 

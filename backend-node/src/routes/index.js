@@ -35,7 +35,7 @@ function setupRouter(cfg, db, log) {
   const propLibrary = propLibraryRoutes(db, cfg, log);
   const characters = characterRoutes(db, cfg, log, uploadService);
   const uploadHandlers = uploadModule.routes(cfg, log);
-  const scenes = sceneRoutes(db, log);
+  const scenes = sceneRoutes(db, log, cfg);
   const storyboards = storyboardRoutes(db, log);
   const images = imageRoutes(db, cfg, log);
   const videos = videoRoutes(db, log);
@@ -133,6 +133,7 @@ function setupRouter(cfg, db, log) {
   r.delete('/characters/:id', characters.delete);
   r.post('/characters/batch-generate-images', characters.batchGenerateImages);
   r.post('/characters/:id/generate-image', characters.generateImage);
+  r.post('/characters/:id/generate-four-view-image', characters.generateFourViewImage);
   r.post('/characters/:id/upload-image', uploadModule.multerSingle, characters.uploadImage);
   r.put('/characters/:id/image', characters.putImage);
   r.put('/characters/:id/image-from-library', characters.imageFromLibrary);
@@ -170,6 +171,7 @@ function setupRouter(cfg, db, log) {
   r.delete('/scenes/:scene_id', scenes.delete);
   r.post('/scenes/generate-image', scenes.generateImage);
   r.post('/scenes', scenes.create);
+  r.post('/scenes/:scene_id/generate-four-view-image', scenes.generateFourViewImage);
   r.post('/scenes/:scene_id/add-to-library', scenes.addToLibrary);
   r.post('/scenes/:scene_id/add-to-material-library', scenes.addToMaterialLibrary);
 

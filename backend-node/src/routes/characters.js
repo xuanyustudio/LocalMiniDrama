@@ -60,10 +60,10 @@ function routes(db, cfg, log, uploadService) {
         response.internalError(res, err.message);
       }
     },
-    generateImage: (req, res) => {
+    generateImage: async (req, res) => {
       try {
         const body = req.body || {};
-        const out = characterLibraryService.generateCharacterImage(
+        const out = await characterLibraryService.generateCharacterFourViewImage(
           db,
           log,
           cfg,
@@ -73,11 +73,11 @@ function routes(db, cfg, log, uploadService) {
         );
         if (!out.ok) {
           if (out.error === 'character not found') return response.notFound(res, '角色不存在');
-          if (out.error === 'unauthorized') return response.forbidden(res, '无权限');
+          if (out.error === 'unauthorized') return response.notFound(res, '剧集不存在或无权限');
           return response.badRequest(res, out.error);
         }
         response.success(res, {
-          message: '角色图片生成已启动',
+          message: '角色四视图生成任务已提交',
           image_generation: out.image_generation,
         });
       } catch (err) {
@@ -178,6 +178,23 @@ function routes(db, cfg, log, uploadService) {
         response.success(res, { message: '已加入全局素材库', item: out.item });
       } catch (err) {
         log.error('characters add-to-material-library', { error: err.message });
+        response.internalError(res, err.message);
+      }
+    },
+    generateFourViewImage: async (req, res) => {
+      try {
+        const body = req.body || {};
+        const modelName = body.model_name || body.model || undefined;
+        const style = body.style || undefined;
+        const out = await characterLibraryService.generateCharacterFourViewImage(db, log, cfg, req.params.id, modelName, style);
+        if (!out.ok) {
+          if (out.error === 'character not found') return response.notFound(res, '角色不存在');
+          if (out.error === 'unauthorized') return response.notFound(res, '剧集不存在或无权限');
+          return response.badRequest(res, out.error);
+        }
+        response.success(res, { message: '四视图生成任务已提交', image_generation: out.image_generation });
+      } catch (err) {
+        log.error('characters generate-four-view-image', { error: err.message });
         response.internalError(res, err.message);
       }
     },

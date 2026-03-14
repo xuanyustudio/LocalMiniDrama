@@ -3,7 +3,7 @@ const sceneService = require('../services/sceneService');
 const sceneLibraryService = require('../services/sceneLibraryService');
 const imageService = require('../services/imageService');
 
-function routes(db, log) {
+function routes(db, log, cfg) {
   return {
     update: (req, res) => {
       try {
@@ -47,32 +47,25 @@ function routes(db, log) {
         response.internalError(res, err.message);
       }
     },
-    generateImage: (req, res) => {
+    generateImage: async (req, res) => {
       try {
         const body = req.body || {};
-        console.log("==c 生成图片请求body：",body);
         const sceneId = body.scene_id != null ? Number(body.scene_id) : null;
         if (sceneId == null) return response.badRequest(res, '缺少 scene_id');
-        const scene = sceneService.getSceneById(db, sceneId);
-        if (!scene) return response.notFound(res, '场景不存在');
-        const prompt = (body.prompt && body.prompt.trim()) || (scene.prompt && scene.prompt.trim()) || `${scene.location || '场景'}，${scene.time || '浅色'}`.trim();
-        console.log("==c 生成图片提示词：",prompt);
-        if (prompt.length < 5) return response.badRequest(res, '提示词过短或场景无描述');
-        const imageGen = imageService.create(db, log, {
-          scene_id: sceneId,
-          drama_id: scene.drama_id,
-          prompt,
-          model: body.model || null,
-          provider: body.provider || 'openai',
-          style: body.style || undefined,
-        });
+        const out = await sceneService.generateSceneFourViewImage(
+          db, log, cfg, sceneId, body.model || undefined, body.style || undefined
+        );
+        if (!out.ok) {
+          if (out.error === 'scene not found') return response.notFound(res, '场景不存在');
+          if (out.error === 'unauthorized') return response.notFound(res, '剧集不存在或无权限');
+          return response.badRequest(res, out.error);
+        }
         response.success(res, {
-          message: 'Scene image generation started',
-          image_generation: imageGen,
+          message: '场景四视图生成任务已提交',
+          image_generation: out.image_generation,
         });
       } catch (err) {
         log.error('scenes generateImage', { error: err.message });
-        if (err.message && err.message.includes('insert failed')) return response.internalError(res, '创建记录失败，请确认已执行迁移 08（scene_id 列）');
         response.internalError(res, err.message);
       }
     },
@@ -100,6 +93,23 @@ function routes(db, log) {
         response.success(res, { message: '已加入全局素材库', item: out.item });
       } catch (err) {
         log.error('scenes add-to-material-library', { error: err.message });
+        response.internalError(res, err.message);
+      }
+    },
+    generateFourViewImage: async (req, res) => {
+      try {
+        const body = req.body || {};
+        const modelName = body.model_name || body.model || undefined;
+        const style = body.style || undefined;
+        const out = await sceneService.generateSceneFourViewImage(db, log, cfg, req.params.scene_id, modelName, style);
+        if (!out.ok) {
+          if (out.error === 'scene not found') return response.notFound(res, '场景不存在');
+          if (out.error === 'unauthorized') return response.notFound(res, '剧集不存在或无权限');
+          return response.badRequest(res, out.error);
+        }
+        response.success(res, { message: '场景四视图生成任务已提交', image_generation: out.image_generation });
+      } catch (err) {
+        log.error('scenes generate-four-view-image', { error: err.message });
         response.internalError(res, err.message);
       }
     },

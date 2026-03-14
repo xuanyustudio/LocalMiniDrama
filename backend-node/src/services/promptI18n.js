@@ -185,7 +185,13 @@ function getStoryboardSystemPrompt(cfg) {
 - 每个镜头必须有明确的动作和结果
 - 景别选择必须符合叙事节奏（不要连续使用同一景别）
 - 情绪强度必须准确反映剧本氛围变化
-- **角色一致性**：每个镜头的characters列表必须与该镜头action/dialogue中实际描写的人物严格一致，不得把（在场景中存在但本镜头动作未涉及）的角色列入`;
+- **角色一致性**：每个镜头的characters列表必须与该镜头action/dialogue中实际描写的人物严格一致，不得把（在场景中存在但本镜头动作未涉及）的角色列入
+
+5. **构图与视觉设计参考**（生成分镜时运用）：
+   - 景别变化规律：禁止连续3个及以上镜头使用相同景别，情绪递进时逐步推近（远→中→近→特写）
+   - 构图建议：三分法（稳定叙事）/ 对角线（动态张力）/ 框架构图（增加纵深）/ 中心构图（庄重仪式感）
+   - 光线方向：在 atmosphere 字段中注明光源方向和色温（如"左侧冷蓝光，逆光轮廓"）
+   - 对话场景：使用正反打（过肩镜头交替），避免连续同向构图`;
 }
 
 function formatUserPrompt(cfg, key, ...args) {
@@ -296,43 +302,64 @@ function getFirstFramePrompt(cfg) {
   const style = cfg?.style?.default_style || '';
   const imageRatio = cfg?.style?.default_image_ratio || '16:9';
   if (isEnglish(cfg)) {
-    return `You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
+    return `You are a professional cinematic storyboard image prompt expert. Generate AI image generation prompts based on the shot information provided.
 
-Important: This is the first frame of the shot - a completely static image showing the initial state before the action begins.
+Important: This is the FIRST FRAME - a completely static image showing the initial state BEFORE the action begins.
 
-Key Points:
-1. Focus on the initial static state - the moment before the action
-2. Must NOT include any action or movement
-3. Describe the character's initial posture, position, and expression
-4. Can include scene atmosphere and environmental details
-5. Shot type determines composition and framing
+Core Rules:
+1. Static initial state only - the moment before any action
+2. NO movement or action descriptions
+3. Describe character's initial posture, screen position (left/center/right), and expression
+4. Include character appearance details if provided
+
+Cinematic Language (must apply):
+- COMPOSITION: Choose based on shot type: Rule of Thirds (subject at grid intersections), Frame Composition (use doors/windows/branches as natural frame), Center Composition (symmetrical, ceremonial), Foreground Layering (blurred foreground for depth)
+- LIGHTING: Specify light source direction (left/right/top/backlight/bottom), quality (hard light=dramatic shadows / soft light=natural warmth), color temperature (warm=golden/orange, cool=blue/cyan)
+- DEPTH OF FIELD: Close-up/medium-close=shallow DOF, background blur; Medium shot=medium DOF; Long shot/wide=deep DOF, full scene clarity
+- CHARACTER POSITION: Describe placement in frame, facing direction (toward/away from camera/profile), body language
 - **Style Requirement**: ${style}
 - **Image Ratio**: ${imageRatio}
 Output Format:
 Return a JSON object containing:
-- prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
+- prompt: Complete image generation prompt (detailed cinematic description)
 - description: Simplified Chinese description (for reference)`;
   }
-  const _ffLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n输出格式：\n返回一个JSON对象，包含：\n- prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）\n- description：简化的中文描述（供参考）`;
+  const _ffLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n输出格式：\n返回一个JSON对象，包含：\n- prompt：完整的中文图片生成提示词（详细的电影语言描述）\n- description：简化的中文描述（供参考）`;
   const _ffOverride = _overrideCache['first_frame_prompt'];
   if (_ffOverride) {
     return _ffOverride + _ffLocked;
   }
-  return `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
+  return `你是一个专业的电影分镜图像生成提示词专家。请根据提供的镜头信息，生成适合AI图像生成的提示词。
 
 重要：这是镜头的首帧 - 一个完全静态的画面，展示动作发生之前的初始状态。
 
-关键要点：
-1. 聚焦初始静态状态 - 动作发生之前的那一瞬间
-2. 必须不包含任何动作或运动
-3. 描述角色的初始姿态、位置和表情
-4. 可以包含场景氛围和环境细节
-5. 景别决定构图和取景范围
+核心规则：
+1. 聚焦初始静态状态 - 动作发生之前的那一瞬间，禁止包含任何动作或运动描述
+2. 描述角色在画面中的位置（画面左/中/右）、朝向（面向/背对/侧面）、初始姿态和表情
+3. 如提供了角色外貌信息，必须将其融入提示词（服装、发型、面部特征等）
+
+【电影语言规范（必须应用）】
+
+构图规则（根据景别选择）：
+- 三分法：主体置于三分线交点，稳定平衡，适合大多数叙事镜头
+- 框架构图：用门窗/树枝/栏杆形成自然画框，突出主体，增加纵深
+- 中心构图：对称庄重，适合特写和仪式感场景
+- 前景遮挡：前景虚化元素增加层次感
+
+光线设计（必须描述）：
+- 光源方向：左侧光/右侧光/顶光/逆光（轮廓光）/底光
+- 光线质感：硬光（强烈阴影，戏剧张力）/ 柔光（柔和过渡，自然温馨）
+- 色温：暖光（金黄/橙红，温暖怀旧）/ 冷光（蓝调/青白，冷漠疏离）
+
+景深设置：
+- 特写/近景：浅景深，背景虚化，突出人物情绪
+- 中景：中等景深，人物与环境均清晰
+- 远景/全景：深景深，前后均清晰，交代空间关系
 - **风格要求**：${style}
 - **图片比例**：${imageRatio}
 输出格式：
 返回一个JSON对象，包含：
-- prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）
+- prompt：完整的中文图片生成提示词（详细的电影语言描述）
 - description：简化的中文描述（供参考）`;
 }
 
@@ -340,43 +367,66 @@ function getKeyFramePrompt(cfg) {
   const style = cfg?.style?.default_style || '';
   const imageRatio = cfg?.style?.default_image_ratio || '16:9';
   if (isEnglish(cfg)) {
-    return `You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
+    return `You are a professional cinematic storyboard image prompt expert. Generate AI image generation prompts based on the shot information provided.
 
-Important: This is the key frame of the shot - capturing the most intense and exciting moment of the action.
+Important: This is the KEY FRAME - capturing the most intense and climactic moment of the action.
 
-Key Points:
-1. Focus on the most exciting moment of the action
-2. Capture peak emotional expression
-3. Emphasize dynamic tension
-4. Show character actions and expressions at their climax
-5. Can include motion blur or dynamic effects
+Core Rules:
+1. Focus on the peak moment of the action - maximum dramatic tension
+2. Capture the emotional climax - character's most expressive state
+3. Can include dynamic effects (motion blur, impact lines, visual tension)
+4. Include character appearance details if provided
+5. Show character's body language and expression at climax
+
+Cinematic Language (must apply):
+- COMPOSITION: For action/climax - diagonal composition (dynamic tension, leads viewer's eye), Dutch angle (unease/intensity for conflict scenes), over-shoulder (confrontation/dialogue tension)
+- LIGHTING: Dramatic lighting for peak moments - rim light separating subject from background, strong chiaroscuro (light/shadow contrast), or explosive bright key light for revelations
+- DEPTH OF FIELD: Usually shallow to isolate the critical action; deep for wide action involving environment
+- EMOTIONAL COLOR: Warm saturated (passion/anger), cool desaturated (shock/loss), high contrast (climax/confrontation)
 - **Style Requirement**: ${style}
 - **Image Ratio**: ${imageRatio}
 Output Format:
 Return a JSON object containing:
-- prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
+- prompt: Complete image generation prompt (detailed cinematic description)
 - description: Simplified Chinese description (for reference)`;
   }
-  const _kfLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n输出格式：\n返回一个JSON对象，包含：\n- prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）\n- description：简化的中文描述（供参考）`;
+  const _kfLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n输出格式：\n返回一个JSON对象，包含：\n- prompt：完整的中文图片生成提示词（详细的电影语言描述）\n- description：简化的中文描述（供参考）`;
   const _kfOverride = _overrideCache['key_frame_prompt'];
   if (_kfOverride) {
     return _kfOverride + _kfLocked;
   }
-  return `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
+  return `你是一个专业的电影分镜图像生成提示词专家。请根据提供的镜头信息，生成适合AI图像生成的提示词。
 
-重要：这是镜头的关键帧 - 捕捉动作最激烈、最精彩的瞬间。
+重要：这是镜头的关键帧 - 捕捉动作最激烈、情绪最饱满的高潮瞬间。
 
-关键要点：
-1. 聚焦动作最精彩的时刻
-2. 捕捉情绪表达的顶点
-3. 强调动态张力
-4. 展示角色动作和表情的高潮状态
-5. 可以包含动作模糊或动态效果
+核心规则：
+1. 聚焦动作高潮时刻，最大化戏剧张力
+2. 捕捉情绪顶点，角色表情和肢体语言处于最强烈状态
+3. 可包含动态效果（动作模糊、视觉冲击感）
+4. 如提供了角色外貌信息，必须将其融入提示词
+5. 展示角色高潮状态下的肢体姿态和神情
+
+【电影语言规范（必须应用）】
+
+构图规则（高潮/动作场景）：
+- 对角线构图：强烈动态感，视觉引导，适合冲突/行动镜头
+- 荷兰角/斜角：不安感和紧张感，适合对峙/心理冲击场景
+- 过肩镜头：适合对话高潮、面对面对峙
+
+光线设计（高潮时刻）：
+- 轮廓光：将主体从背景中分离，突出人物
+- 强烈明暗对比（硬光）：戏剧张力，冲突感
+- 爆发性亮光：适合揭示真相、情绪爆发时刻
+- 色温情绪化：暖色饱和（激情/愤怒）/ 冷色低饱和（震惊/失落）
+
+景深与色调：
+- 通常使用浅景深聚焦关键动作，隔离背景
+- 高对比度色调强化高潮感
 - **风格要求**：${style}
 - **图片比例**：${imageRatio}
 输出格式：
 返回一个JSON对象，包含：
-- prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）
+- prompt：完整的中文图片生成提示词（详细的电影语言描述）
 - description：简化的中文描述（供参考）`;
 }
 
@@ -384,43 +434,68 @@ function getLastFramePrompt(cfg) {
   const style = cfg?.style?.default_style || '';
   const imageRatio = cfg?.style?.default_image_ratio || '16:9';
   if (isEnglish(cfg)) {
-    return `You are a professional image generation prompt expert. Please generate prompts suitable for AI image generation based on the provided shot information.
+    return `You are a professional cinematic storyboard image prompt expert. Generate AI image generation prompts based on the shot information provided.
 
-Important: This is the last frame of the shot - a static image showing the final state and result after the action ends.
+Important: This is the LAST FRAME - a static image showing the final state AFTER the action ends.
 
-Key Points:
-1. Focus on the final state after action completion
-2. Show the result of the action
-3. Describe character's final posture and expression after action
-4. Emphasize emotional state after action
-5. Capture the calm moment after action ends
+Core Rules:
+1. Focus on the final resting state after action completion
+2. Show the visible result/consequence of the action
+3. Describe character's final posture, position, and emotional expression
+4. Emphasize the emotional aftermath - relief, tension, sadness, triumph
+5. Include character appearance details if provided
+
+Cinematic Language (must apply):
+- COMPOSITION: Closing shots often use wider frames to re-establish context; or tight on face for emotional resolution
+- LIGHTING: Reflect emotional aftermath - soft warm light (resolution/comfort), lingering dramatic shadows (unresolved tension), fading light (loss/ending)
+- DEPTH OF FIELD: Match the emotional tone - shallow for intimate emotional close, deep for consequential wide shots showing impact on environment
+- CHARACTER POSITION: Show the result - where the character ended up, their final stance, any physical consequences
+- ATMOSPHERE: Describe color tone and mood that carries the emotional weight of the scene's conclusion
 - **Style Requirement**: ${style}
 - **Image Ratio**: ${imageRatio}
 Output Format:
 Return a JSON object containing:
-- prompt: Complete English image generation prompt (detailed description, suitable for AI image generation)
+- prompt: Complete image generation prompt (detailed cinematic description)
 - description: Simplified Chinese description (for reference)`;
   }
-  const _lfLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n输出格式：\n返回一个JSON对象，包含：\n- prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）\n- description：简化的中文描述（供参考）`;
+  const _lfLocked = `\n- **风格要求**：${style}\n- **图片比例**：${imageRatio}\n输出格式：\n返回一个JSON对象，包含：\n- prompt：完整的中文图片生成提示词（详细的电影语言描述）\n- description：简化的中文描述（供参考）`;
   const _lfOverride = _overrideCache['last_frame_prompt'];
   if (_lfOverride) {
     return _lfOverride + _lfLocked;
   }
-  return `你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。
+  return `你是一个专业的电影分镜图像生成提示词专家。请根据提供的镜头信息，生成适合AI图像生成的提示词。
 
 重要：这是镜头的尾帧 - 一个静态画面，展示动作结束后的最终状态和结果。
 
-关键要点：
-1. 聚焦动作完成后的最终状态
-2. 展示动作的结果
-3. 描述角色在动作完成后的姿态和表情
-4. 强调动作后的情绪状态
-5. 捕捉动作结束后的平静瞬间
+核心规则：
+1. 聚焦动作完成后的最终静态状态
+2. 展示动作的可见结果和后果
+3. 描述角色在动作完成后的最终姿态、位置和情绪表情
+4. 强调情绪余韵：释然/平静/悲伤/胜利/遗憾
+5. 如提供了角色外貌信息，必须将其融入提示词
+
+【电影语言规范（必须应用）】
+
+构图规则（收尾镜头）：
+- 通常用较宽的景别重建空间背景，或用紧镜头聚焦情绪收场
+- 留白构图：大面积空旷空间传递孤独/结束感
+- 呼应开场构图：收尾镜头可与首帧构图呼应，形成闭环
+
+光线设计（情绪余韵）：
+- 柔和暖光：事件解决后的温情/宽慰
+- 残留戏剧阴影：未解决的张力，悬念延续
+- 渐弱光线/冷调：失去/结束/遗憾的情绪
+- 色调整体偏暗或偏亮反映情绪归宿
+
+景深与氛围：
+- 情绪收场：浅景深，聚焦面部情绪细节
+- 结果展示：深景深，展示行动对环境/他人的影响
+- 整体色调和氛围承载本镜头情绪的收尾重量
 - **风格要求**：${style}
 - **图片比例**：${imageRatio}
 输出格式：
 返回一个JSON对象，包含：
-- prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）
+- prompt：完整的中文图片生成提示词（详细的电影语言描述）
 - description：简化的中文描述（供参考）`;
 }
 
@@ -613,13 +688,13 @@ function getDefaultPromptBody(key) {
       return '【分镜要素】每个镜头聚焦单一动作，描述要详尽具体：\n1. **镜头标题(title)**：用3-5个字概括该镜头的核心内容或情绪\n2. **时间**：[清晨/午后/深夜/具体时分+详细光线描述]\n3. **地点**：[场景完整描述+空间布局+环境细节]\n4. **镜头设计**：**景别(shot_type)**、**镜头角度(angle)**、**运镜方式(movement)**\n5. **人物行为**：**详细动作描述**\n6. **对话/独白**：提取该镜头中的完整对话或独白内容（如无对话则为空字符串）\n7. **画面结果**：动作的即时后果+视觉细节+氛围变化\n8. **环境氛围**：光线质感+色调+声音环境+整体氛围\n9. **配乐提示(bgm_prompt)**、**音效描述(sound_effect)**\n10. **观众情绪**：[情绪类型]（[强度：↑↑↑/↑↑/↑/→/↓]）\n\n**dialogue字段说明**：角色名："台词内容"。无对话时填空字符串""。\n**角色和背景要求**：characters只填**在本镜头action/dialogue中有实际描写行为**的角色ID，数量必须与动作描述中出现的人物一致（路人、画面外角色、仅被提及的角色均不填）；scene_id从场景列表选或null。\n**duration时长**：每镜头4-12秒，综合对话、动作、情绪估算。';
 
     case 'first_frame_prompt':
-      return '你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。\n\n重要：这是镜头的首帧 - 一个完全静态的画面，展示动作发生之前的初始状态。\n\n关键要点：\n1. 聚焦初始静态状态 - 动作发生之前的那一瞬间\n2. 必须不包含任何动作或运动\n3. 描述角色的初始姿态、位置和表情\n4. 可以包含场景氛围和环境细节\n5. 景别决定构图和取景范围';
+      return '你是一个专业的电影分镜图像生成提示词专家。请根据提供的镜头信息，生成适合AI图像生成的提示词。\n\n重要：这是镜头的首帧 - 一个完全静态的画面，展示动作发生之前的初始状态。\n\n核心规则：\n1. 聚焦初始静态状态 - 动作发生之前的那一瞬间，禁止包含任何动作或运动描述\n2. 描述角色在画面中的位置（画面左/中/右）、朝向（面向/背对/侧面）、初始姿态和表情\n3. 如提供了角色外貌信息，必须将其融入提示词（服装、发型、面部特征等）\n\n【电影语言规范（必须应用）】\n\n构图规则（根据景别选择）：\n- 三分法：主体置于三分线交点，稳定平衡，适合大多数叙事镜头\n- 框架构图：用门窗/树枝/栏杆形成自然画框，突出主体，增加纵深\n- 中心构图：对称庄重，适合特写和仪式感场景\n- 前景遮挡：前景虚化元素增加层次感\n\n光线设计（必须描述）：\n- 光源方向：左侧光/右侧光/顶光/逆光（轮廓光）/底光\n- 光线质感：硬光（强烈阴影，戏剧张力）/ 柔光（柔和过渡，自然温馨）\n- 色温：暖光（金黄/橙红，温暖怀旧）/ 冷光（蓝调/青白，冷漠疏离）\n\n景深设置：\n- 特写/近景：浅景深，背景虚化，突出人物情绪\n- 中景：中等景深，人物与环境均清晰\n- 远景/全景：深景深，前后均清晰，交代空间关系';
 
     case 'key_frame_prompt':
-      return '你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。\n\n重要：这是镜头的关键帧 - 捕捉动作最激烈、最精彩的瞬间。\n\n关键要点：\n1. 聚焦动作最精彩的时刻\n2. 捕捉情绪表达的顶点\n3. 强调动态张力\n4. 展示角色动作和表情的高潮状态\n5. 可以包含动作模糊或动态效果';
+      return '你是一个专业的电影分镜图像生成提示词专家。请根据提供的镜头信息，生成适合AI图像生成的提示词。\n\n重要：这是镜头的关键帧 - 捕捉动作最激烈、情绪最饱满的高潮瞬间。\n\n核心规则：\n1. 聚焦动作高潮时刻，最大化戏剧张力\n2. 捕捉情绪顶点，角色表情和肢体语言处于最强烈状态\n3. 可包含动态效果（动作模糊、视觉冲击感）\n4. 如提供了角色外貌信息，必须将其融入提示词\n5. 展示角色高潮状态下的肢体姿态和神情\n\n【电影语言规范（必须应用）】\n\n构图规则（高潮/动作场景）：\n- 对角线构图：强烈动态感，视觉引导，适合冲突/行动镜头\n- 荷兰角/斜角：不安感和紧张感，适合对峙/心理冲击场景\n- 过肩镜头：适合对话高潮、面对面对峙\n\n光线设计（高潮时刻）：\n- 轮廓光：将主体从背景中分离，突出人物\n- 强烈明暗对比（硬光）：戏剧张力，冲突感\n- 爆发性亮光：适合揭示真相、情绪爆发时刻\n- 色温情绪化：暖色饱和（激情/愤怒）/ 冷色低饱和（震惊/失落）\n\n景深与色调：\n- 通常使用浅景深聚焦关键动作，隔离背景\n- 高对比度色调强化高潮感';
 
     case 'last_frame_prompt':
-      return '你是一个专业的图像生成提示词专家。请根据提供的镜头信息，生成适合用于AI图像生成的提示词。\n\n重要：这是镜头的尾帧 - 一个静态画面，展示动作结束后的最终状态和结果。\n\n关键要点：\n1. 聚焦动作完成后的最终状态\n2. 展示动作的结果\n3. 描述角色在动作完成后的姿态和表情\n4. 强调动作后的情绪状态\n5. 捕捉动作结束后的平静瞬间';
+      return '你是一个专业的电影分镜图像生成提示词专家。请根据提供的镜头信息，生成适合AI图像生成的提示词。\n\n重要：这是镜头的尾帧 - 一个静态画面，展示动作结束后的最终状态和结果。\n\n核心规则：\n1. 聚焦动作完成后的最终静态状态\n2. 展示动作的可见结果和后果\n3. 描述角色在动作完成后的最终姿态、位置和情绪表情\n4. 强调情绪余韵：释然/平静/悲伤/胜利/遗憾\n5. 如提供了角色外貌信息，必须将其融入提示词\n\n【电影语言规范（必须应用）】\n\n构图规则（收尾镜头）：\n- 通常用较宽的景别重建空间背景，或用紧镜头聚焦情绪收场\n- 留白构图：大面积空旷空间传递孤独/结束感\n- 呼应开场构图：收尾镜头可与首帧构图呼应，形成闭环\n\n光线设计（情绪余韵）：\n- 柔和暖光：事件解决后的温情/宽慰\n- 残留戏剧阴影：未解决的张力，悬念延续\n- 渐弱光线/冷调：失去/结束/遗憾的情绪\n- 色调整体偏暗或偏亮反映情绪归宿\n\n景深与氛围：\n- 情绪收场：浅景深，聚焦面部情绪细节\n- 结果展示：深景深，展示行动对环境/他人的影响';
 
     default:
       return '';
@@ -646,10 +721,285 @@ function getLockedSuffix(key) {
     case 'first_frame_prompt':
     case 'key_frame_prompt':
     case 'last_frame_prompt':
-      return '\n- **风格要求**：[当前剧集风格]\n- **图片比例**：[当前比例]\n输出格式：\n返回一个JSON对象，包含：\n- prompt：完整的中文图片生成提示词（详细描述，适合AI图像生成）\n- description：简化的中文描述（供参考）';
+      return '\n- **风格要求**：[当前剧集风格]\n- **图片比例**：[当前比例]\n输出格式：\n返回一个JSON对象，包含：\n- prompt：完整的中文图片生成提示词（详细的电影语言描述）\n- description：简化的中文描述（供参考）';
     default:
       return null;
   }
+}
+
+/**
+ * 场景四视图提示词生成：文本AI将场景描述转化为四格场景参考图提示词
+ */
+function getScenePolishPrompt(cfg) {
+  const style = cfg?.style?.default_style || '';
+  return `# 场景四视图参考图生成器
+
+## 你的身份
+你是专业的影视美术设计师，负责将场景描述转换为AI绘图标准四视图参考图提示词。
+
+## 核心规则
+
+### 提取与统一
+- **完全统一**：四格图中的建筑结构、地面材质、主要陈设必须完全一致，只有光线/时段/焦距可变
+- **禁止出现**：角色、人物剪影、文字标注、水印
+- **真实可信**：建筑风格、材质、植被必须符合场景所属时代和地域${style ? '\n- **画风风格**：' + style : ''}
+
+### 四格内容设计原则
+- 第1格用最宽视角展示整体空间关系，不遗漏边界
+- 第2格聚焦人物最常活动的区域（对话区/行动区），中景视角
+- 第3格选择最具场景辨识度的标志性细节进行特写
+- 第4格使用与第1格相反的时段或情绪化光线，展示同一场景的情绪跨度
+
+## 四格固定顺序
+
+| 位置 | 视图类型 | 构图与功能 |
+|------|---------|-----------|
+| 第1格 | 全景建立镜头 | 最宽视角，展示完整空间格局、建筑边界、环境背景，无人物 |
+| 第2格 | 主体焦点区域 | 主要活动区域中景，清晰展示人物站位空间、地面细节、主要陈设 |
+| 第3格 | 环境特征细节 | 场景最具辨识度的标志性元素特写（建筑纹理、招牌、装饰品等） |
+| 第4格 | 氛围变体 | 相同场景但不同光线/时段/天气，展示情绪变化（如白天→夜晚，晴天→雨天） |
+
+## 时代场景匹配表
+
+| 类型 | 场景风格 |
+|------|---------|
+| 古风/仙侠 | 中国古代建筑，青砖黑瓦，红柱彩梁，庭院回廊 |
+| 武侠 | 江湖风貌，茶馆客栈，山野林间，镖局武馆 |
+| 西幻/奇幻 | 欧洲中世纪，石砌城堡，酒馆，森林，魔法元素 |
+| 现代都市 | 现代建筑，办公室，咖啡厅，街道，居家空间 |
+
+## 输出格式
+
+【场景基础设定】
+场景类型: 室内/室外/自然场景
+地点特征: 建筑风格，主要材质，空间规模，标志性元素
+默认光线: 自然光/人工光，色温，时段
+气氛基调: 整体色调倾向，视觉情绪
+
+【第1格-全景建立镜头】
+镜头高度，视角（地面平视/微俯/高俯），场景全貌描述
+建筑/地形轮廓，背景天空/远景，整体色调
+无人物，无道具遮挡，展示完整空间边界
+
+【第2格-主体焦点区域】
+人物活动核心区域，地面纹理细节，陈设布局
+中景视角，景深设置，光线落点
+该区域的功能特征（对话区/打斗区/仪式场所等）
+
+【第3格-环境特征细节】
+选取该场景最具辨识度的标志性元素：具体描述材质/纹理/色彩
+特写构图，浅景深或虚化背景
+该元素对场景类型的指示意义
+
+【第4格-氛围变体】
+时段或天气转变：具体说明（如白天→黄昏，晴天→雨夜）
+光线变化对场景色调的影响，情绪转化
+保持第1格的全景视角，但氛围完全不同
+
+【技术参数】
+纯净背景或场景自然背景，高清细节，
+四视图排列:全景-主体焦点-环境细节-氛围变体，
+无人物角色，无文字标注，无水印，
+建筑和陈设在四格中保持完全一致`;
+}
+
+/**
+ * 场景四视图图片生成：图片AI的system prompt，指导生成2×2四格场景参考图
+ */
+function getSceneGenerateImagePrompt() {
+  return `# Scene Environment Reference Sheet Generator
+
+## Core Behavior
+**Your only task: Generate images**
+- Never output any text, explanation, or confirmation
+- Immediately invoke image generation upon receiving input
+
+## Absolute Mandatory Rules
+
+### 1. Zero Text Contamination
+- No text anywhere in the image
+- No labels, annotations, captions, numbers, watermarks, location names
+
+### 2. No Human Figures
+- Absolutely no characters, people, silhouettes, or human shadows
+- Only architectural elements, natural environment, furniture, and props
+
+### 3. Spatial Consistency
+- The same architecture, ground materials, and key furnishings must appear across all panels
+- Only lighting, time of day, weather, and focal length may vary between panels
+
+## Four-View Layout (Fixed Order)
+
+**Panel 1 → Panel 2 → Panel 3 → Panel 4**
+
+| Position | View | Requirements |
+|----------|------|--------------|
+| Panel 1 | Establishing Wide Shot | Widest angle, full spatial layout, architectural boundaries, environmental context |
+| Panel 2 | Main Activity Zone | Medium shot of primary interaction area, clear floor detail, key furnishings, character placement zone |
+| Panel 3 | Signature Detail | Close-up of the most iconic environmental element (texture, signage, architectural detail) |
+| Panel 4 | Atmospheric Variant | Same location, different time of day or weather, demonstrating emotional range |
+
+## Cinematic Standards
+- LIGHTING: Natural or artificial lighting appropriate to setting and time period
+- DEPTH: Consistent spatial depth, no flat or artificial perspective  
+- COLOR PALETTE: Unified, period/setting-appropriate color grading
+- ATMOSPHERE: Each panel maintains the world-building consistency of the setting
+
+## Quality Standards
+- High-quality rendering matching specified art style
+- No human figures or characters of any kind
+- Architectural and environmental elements consistent across all four panels
+- Professional cinematographic framing for each panel type`;
+}
+
+/**
+ * 角色四视图提示词生成：文本AI将角色外貌描述转化为标准四视图绘图提示词
+ */
+function getRolePolishPrompt(cfg) {
+  const style = cfg?.style?.default_style || '';
+  return `# 角色四视图标准提示词生成器
+
+## 你的身份
+你是专业的角色视觉设计师，负责将角色描述转换为AI绘图标准四视图提示词。
+
+## 核心规则
+
+### 提取与限制
+- **仅提取**：角色描述中明确的外貌特征
+- **严禁添加**：道具、武器、手持物品、背景、场景、环境元素、光影特效
+- **确保一致**：四视图的发型、瞳色、服装、体型完全统一
+- **时代匹配**：服装发型必须符合作品类型所属时代背景${style ? '\n- **画风风格**：' + style : ''}
+
+### 姿态与表情约束
+- **表情统一**：全部视图必须是完全无表情的中性面孔（如证件照）
+- **手部统一**：第2/3/4格双手必须完全自然下垂于身体两侧，手指自然微曲
+- **全身展示**：第2/3/4格必须展示完整全身（从头顶到脚底）
+- **标准站姿**：双脚并拢或微分，脊柱挺直，身体无扭转
+
+### 输出语言约束
+- **禁止情绪描写**：禁止"带憧憬"、"给人...感"等
+- **禁止抽象形容**：禁止"俊美"、"自信"、"温柔"等无法绘制的词
+- **只用具象描述**：用可视化的物理特征描述
+
+## 四视图固定顺序
+
+| 位置 | 视图类型 | 构图要求 |
+|------|---------|---------|
+| 第1格 | 头部特写 | 头顶到锁骨，五官清晰，唯一允许非全身 |
+| 第2格 | 正面全身 | 头顶到脚底100%完整，双手自然下垂贴身 |
+| 第3格 | 侧面全身 | 精确90度左侧面，头顶到脚底100%完整 |
+| 第4格 | 背面全身 | 完全180度背面，头顶到脚后跟100%完整 |
+
+## 时代服装匹配表
+
+| 类型 | 服装体系 |
+|------|---------|
+| 古风/仙侠/玄幻 | 中国古代汉服体系，交领右衽、广袖长袍 |
+| 武侠 | 中国古代劲装体系，交领窄袖劲装 |
+| 西幻/奇幻 | 欧洲中世纪服饰，束腰长袍、斗篷 |
+| 现代都市 | 现代服装，T恤、衬衫、西装、连衣裙 |
+
+## 抽象词汇转具象示例
+
+| 禁用词 | 替换为 |
+|-------|--------|
+| 俊美/英俊 | 五官比例协调，鼻梁挺直 |
+| 自信 | 下巴微抬，目光平视前方 |
+| 温柔 | 眉毛弧度柔和，眼角微圆 |
+
+## 输出格式
+
+【基础设定】
+人物基础: 性别，年龄段，身高体型，肤色
+五官: 眉形，眼型，瞳色，鼻型，唇形
+表情: 眉毛自然平放，眼睛平视，双唇自然闭合（无表情标准）
+发型: 颜色，长度，质感，发型结构
+服装: 款式名称，主色，材质，领型，袖型
+姿态: 标准直立站姿，双臂自然下垂贴于身侧
+
+【第1格-头部特写】
+聚焦面部细节: 瞳孔细节，睫毛，皮肤质感，唇部细节，发际线
+表情: 完全无表情，中性平静
+
+【第2格-正面全身】
+目光方向，正面服装结构，前襟细节
+从头顶到脚底完整展示，双手自然下垂于身体两侧
+
+【第3格-侧面全身】
+精确90度左侧面，侧脸轮廓线，发型侧面形态，服装侧面线条
+从头顶到脚底完整展示，双臂自然下垂
+
+【第4格-背面全身】
+后脑发型结构，背面服装细节，发尾位置
+从头顶到脚后跟完整展示，双手背面可见
+
+【技术参数】
+纯白色背景(RGB 255,255,255)，角色设定表，高清细节，
+四视图排列:头部特写-正面全身-侧面全身-背面全身，
+全身视图从头到脚完整展示，标准站姿脊柱挺直，
+双臂自然下垂于身体两侧手指微曲，
+完全无表情中性面孔双唇闭合，
+无文字标注，无道具武器，无场景元素，无地面阴影`;
+}
+
+/**
+ * 角色四视图图片生成：图片AI的system prompt，指导生成2×2四格角色参考图
+ */
+function getRoleGenerateImagePrompt() {
+  return `# Character Orthographic Reference Sheet Generator
+
+## Core Behavior
+**Your only task: Generate images**
+- Never output any text, explanation, or confirmation
+- Immediately invoke image generation upon receiving input
+
+## Absolute Mandatory Rules
+
+### 1. Zero Text Contamination
+- No text anywhere in the image
+- No labels, annotations, captions, numbers, watermarks
+
+### 2. Pure White Background
+- Solid white background only (RGB 255,255,255)
+- No ground plane, horizon line, cast shadows, walls, grid lines
+
+### 3. Zero Props
+- No handheld objects whatsoever
+- No floating accessories or effects
+- Only fixed worn clothing/accessories allowed
+- Both hands must be completely empty
+
+## Four-View Layout (Fixed Order)
+
+**Panel 1 → Panel 2 → Panel 3 → Panel 4**
+
+| Position | View | Requirements |
+|----------|------|--------------|
+| Panel 1 | Head Close-up | Top of head to collarbone, clear facial features, completely neutral expression |
+| Panel 2 | Front Full Body | 100% complete from head to toe, arms naturally at sides, neutral expression |
+| Panel 3 | Side Full Body | Exact 90° left profile, 100% complete from head to toe, arms at sides |
+| Panel 4 | Back Full Body | Exact 180° rear view, 100% complete from head to heels |
+
+## Expression & Pose Rules
+
+**Facial Expression (All Views):**
+- Completely neutral, expressionless face
+- Lips naturally closed, no curve
+- Calm, forward-gazing eyes
+- No smiling/frowning/surprise/blinking
+
+**Body Pose (Panels 2/3/4):**
+- Standard upright standing pose
+- Both arms hanging naturally at sides
+- Fingers naturally slightly curved
+- Feet together or slightly apart
+- No gestures/raised arms/dynamic poses
+
+## Quality Standards
+- High-quality rendering matching specified art style
+- Pure white background, zero environmental elements
+- Identical character appearance across all four views
+- Soft, even lighting with no harsh shadows`;
 }
 
 module.exports = {
@@ -666,6 +1016,10 @@ module.exports = {
   getStoryboardUserPromptSuffix,
   getStoryExpansionSystemPrompt,
   buildStoryExpansionUserPrompt,
+  getRolePolishPrompt,
+  getRoleGenerateImagePrompt,
+  getScenePolishPrompt,
+  getSceneGenerateImagePrompt,
   loadOverridesIntoCache,
   setOverrideInMemory,
   clearOverrideInMemory,

@@ -8,6 +8,24 @@
 
 ---
 
+## [1.1.16] - 2026-03-14
+
+### 修复
+
+- **场景四视图生成后不显示**：`createAndGenerateImage` 新增 `scene_id` 参数支持，图片存储目录从 hardcode `characters/` 改为动态判断（`scenes/` / `characters/`），生成成功后自动回写 `scenes.image_url` / `scenes.local_path`
+- **分镜图生成结果仍为宫格布局**：修正 Gemini 多模态输入结构，参考图说明文字与图片数据严格交替排列（`[说明] → [图] → [说明] → [图] → [生成指令]`），移除错误的 `systemInstruction` 字段，在生成指令中明确要求输出单张图
+- **角色参考图干扰分镜布局**：优先使用拆分后的单张面板作为参考（场景取 `quad_panel_0` 建立远景，角色取 `quad_panel_1` 正面全身），无拆分面板时 fallback 到四视图合图
+- **拆分角色面板无法按 ID 查询**：`splitQuadGridToImages` INSERT 时补充 `character_id` 字段，确保面板图片可关联到对应角色
+- **参考图标签与传图数量不对齐**：`extra_images` 推入逻辑移入主图存在分支，`refLabels` 强制裁剪到 `refs.length`，Gemini parts 构建时同步对齐
+
+### 架构
+
+- `imageClient.js`：`callGeminiImageApi` 重构多模态 parts 构建逻辑；`MAX_GEMINI_REF_IMAGES` 从 3 提升至 4（支持场景参考图 1 张 + 角色参考图最多 3 张）；`createAndGenerateImage` 支持 `scene_id`，回写 `scenes` 表
+- `imageService.js`：`splitQuadGridToImages` INSERT 增加 `character_id`；Step 2 参考图解析优先取拆分面板；移除 Step 2.5 冗余的 `CRITICAL OUTPUT REQUIREMENT` 文字注入；`callImageApi` 调用时传入 `system_prompt`（含参考图标签映射）
+- `sceneService.js`：`createAndGenerateImage` 调用时传入 `scene_id`
+
+---
+
 ## [1.1.15] - 2026-02-28
 
 ### 新增

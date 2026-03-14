@@ -40,7 +40,7 @@ style:
 
 # 厂商锁定模式：启用后只使用指定配置文件中的 AI 服务，用户只能修改 API Key 和默认模型
 vendor_lock:
-  enabled: false
+  enabled: true
   config_file: "ai-configs-qudao.json"
 
 # 中转图床（用于 Gemini 参考图上传）

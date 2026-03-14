@@ -71,8 +71,12 @@ function loadStoryboardCharacterNames(db, storyboardId) {
   if (!links.length) return [];
   const ids = links.map((r) => r.character_id);
   const placeholders = ids.map(() => '?').join(',');
-  const rows = db.prepare(`SELECT id, name FROM character_libraries WHERE id IN (${placeholders}) AND deleted_at IS NULL`).all(...ids);
-  return rows.map((r) => r.name);
+  const rows = db.prepare(`SELECT id, name, appearance FROM character_libraries WHERE id IN (${placeholders}) AND deleted_at IS NULL`).all(...ids);
+  // 返回带外貌描述的格式：若有 appearance 则拼成 "姓名（外貌描述）"，否则仅返回姓名
+  return rows.map((r) => {
+    const app = (r.appearance || '').toString().trim();
+    return app ? `${r.name}（${app}）` : r.name;
+  });
 }
 
 function loadScene(db, sceneId) {
