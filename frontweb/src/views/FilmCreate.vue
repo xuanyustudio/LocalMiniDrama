@@ -76,15 +76,23 @@
           <span>分镜列表</span>
         </div>
         <div v-show="storyboardMenuExpanded" class="nav-sub-list">
-          <div
-            v-for="(sb, i) in storyboards"
-            :key="sb.id"
-            class="nav-sub-item"
-            :title="sb.title || '分镜 ' + (i + 1)"
-            @click="scrollToAnchor('sb-' + sb.id)"
-          >
-            {{ i + 1 }}. {{ sb.title || '分镜' }}
-          </div>
+          <template v-for="(sb, i) in storyboards" :key="sb.id">
+            <!-- 段落标题行 -->
+            <div
+              v-if="sb.segment_title && (i === 0 || sb.segment_index !== storyboards[i - 1].segment_index)"
+              class="nav-segment-label"
+            >
+              <span class="nav-segment-dot" />
+              {{ sb.segment_title }}
+            </div>
+            <div
+              class="nav-sub-item"
+              :title="sb.title || '分镜 ' + (i + 1)"
+              @click="scrollToAnchor('sb-' + sb.id)"
+            >
+              {{ i + 1 }}. {{ sb.title || '分镜' }}
+            </div>
+          </template>
         </div>
       </div>
 
@@ -301,7 +309,10 @@
                 <div v-for="char in characters" :key="char.id" class="asset-item asset-item-left-right">
                   <div class="asset-info">
                     <div class="asset-name">
-                      <span>{{ char.name }}</span>
+                      <span style="display:inline-flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden">
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ char.name }}</span>
+                        <el-tag v-if="char.role" size="small" effect="plain" :type="char.role === 'main' ? 'danger' : char.role === 'supporting' ? 'warning' : 'info'" style="flex-shrink:0;padding:0 5px;font-size:11px;height:18px;line-height:18px">{{ charRoleLabel(char.role) }}</el-tag>
+                      </span>
                       <el-button type="danger" text size="small" class="btn-delete-icon" title="删除" @click="onDeleteCharacter(char)">
                         <el-icon><Delete /></el-icon>
                       </el-button>
@@ -649,7 +660,25 @@
           <el-button size="small" text @click="sbTruncatedDismissed = true">关闭</el-button>
         </div>
         <template v-if="storyboards.length > 0">
-          <div v-for="(sb, i) in storyboards" :key="sb.id" :id="'sb-' + sb.id" class="storyboard-row">
+          <template v-for="(sb, i) in storyboards" :key="sb.id">
+            <!-- 段落分隔标头：segment_title 存在且是新段落的第一个镜头时显示 -->
+            <div
+              v-if="sb.segment_title && (i === 0 || sb.segment_index !== storyboards[i - 1].segment_index)"
+              class="segment-header"
+            >
+              <div class="segment-header-inner">
+                <span class="segment-index-badge">第 {{ (sb.segment_index ?? 0) + 1 }} 幕</span>
+                <span class="segment-title-text">{{ sb.segment_title }}</span>
+                <span class="segment-shot-range">
+                  镜头 {{ i + 1 }}–{{ (() => {
+                    let end = i
+                    while (end + 1 < storyboards.length && storyboards[end + 1].segment_index === sb.segment_index) end++
+                    return end + 1
+                  })() }}
+                </span>
+              </div>
+            </div>
+          <div :id="'sb-' + sb.id" class="storyboard-row">
             <div class="sb-num-badge">
               <span>{{ i + 1 }}</span>
               <ElButton  type="danger" size="small" @click="onDeleteSingleStoryboard(sb.id)">删除</ElButton>
@@ -942,8 +971,34 @@
                       </el-select>
                     </div>
                     <div class="sb-field">
-                      <span class="sb-field-label">镜头角度</span>
-                      <el-input v-model="sbAngle[sb.id]" size="small" placeholder="如：平视/仰视" />
+                      <span class="sb-field-label">镜头视角</span>
+                      <div style="display:flex;align-items:center;gap:4px;flex:1;flex-wrap:wrap">
+                        <el-select v-model="sbAngleS[sb.id]" size="small" placeholder="景别" style="width:82px">
+                          <el-option label="特写" value="close_up" />
+                          <el-option label="中景" value="medium" />
+                          <el-option label="远景" value="wide" />
+                        </el-select>
+                        <el-select v-model="sbAngleV[sb.id]" size="small" placeholder="俯仰" style="width:90px">
+                          <el-option label="平视" value="eye_level" />
+                          <el-option label="低角仰拍" value="low" />
+                          <el-option label="高角俯拍" value="high" />
+                          <el-option label="虫眼仰视" value="worm" />
+                        </el-select>
+                        <el-select v-model="sbAngleH[sb.id]" size="small" placeholder="方向" style="width:82px">
+                          <el-option label="正面" value="front" />
+                          <el-option label="前左45°" value="front_left" />
+                          <el-option label="左侧" value="left" />
+                          <el-option label="后左135°" value="back_left" />
+                          <el-option label="背面" value="back" />
+                          <el-option label="后右135°" value="back_right" />
+                          <el-option label="右侧" value="right" />
+                          <el-option label="前右45°" value="front_right" />
+                        </el-select>
+                        <span v-if="sbAngleS[sb.id] && sbAngleV[sb.id] && sbAngleH[sb.id]"
+                              style="font-size:11px;color:#6b7280;white-space:nowrap;background:#f3f4f6;padding:2px 7px;border-radius:4px">
+                          {{ angleToPromptFragment(sbAngleH[sb.id], sbAngleV[sb.id], sbAngleS[sb.id]).label }}
+                        </span>
+                      </div>
                     </div>
                     <div class="sb-field">
                       <span class="sb-field-label">运镜</span>
@@ -978,6 +1033,7 @@
               </el-button>
             </div>
           </div>
+          </template>
         </template>
         <!-- 分镜生成中提示条 -->
         <div v-if="storyboardGenerating" class="sb-generating-tip">
@@ -1081,23 +1137,46 @@
     </el-dialog>
 
     <!-- 添加/编辑角色弹窗 -->
-    <el-dialog v-model="showEditCharacter" :title="editCharacterForm?.id ? '编辑角色' : '添加角色'" width="660px" @close="showEditCharacter = false">
-      <el-form v-if="editCharacterForm" label-width="80px">
+    <el-dialog v-model="showEditCharacter" :title="editCharacterForm?.id ? '编辑角色' : '添加角色'" width="75%" @close="() => { showEditCharacter = false; stopCharacterPromptPoll(); editCharacterPromptGenerating = false }">
+      <el-form v-if="editCharacterForm" label-width="90px">
         <el-form-item label="名称" required>
           <el-input v-model="editCharacterForm.name" placeholder="角色名称" />
         </el-form-item>
         <el-form-item label="身份/定位">
-          <el-input v-model="editCharacterForm.role" placeholder="如：女主角" />
+          <el-select v-model="editCharacterForm.role" placeholder="请选择角色类型" style="width:200px">
+            <el-option value="main" label="主角" />
+            <el-option value="supporting" label="配角" />
+            <el-option value="minor" label="次要角色" />
+          </el-select>
         </el-form-item>
         <el-form-item label="外貌描述">
-          <el-input v-model="editCharacterForm.appearance" type="textarea" :rows="5" placeholder="用于 AI 生成图像的外貌描述，尽量详细" />
+          <el-input v-model="editCharacterForm.appearance" type="textarea" :autosize="{ minRows: 4, maxRows: 10 }" placeholder="用于 AI 生成图像的外貌描述，尽量详细" />
         </el-form-item>
-        <!-- 性格暂时隐藏 -->
-        <!-- <el-form-item label="性格">
-          <el-input v-model="editCharacterForm.personality" type="textarea" :rows="2" placeholder="性格特点" />
-        </el-form-item> -->
         <el-form-item label="简介">
-          <el-input v-model="editCharacterForm.description" type="textarea" :rows="5" placeholder="角色背景简介，供剧本生成参考" />
+          <el-input v-model="editCharacterForm.description" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" placeholder="角色背景简介，供剧本生成参考" />
+        </el-form-item>
+        <el-form-item v-if="editCharacterForm.id">
+          <template #label>
+            <span style="font-size:12px;line-height:1.4;white-space:normal;word-break:break-all;display:inline-block;width:90px">图生提示词</span>
+          </template>
+          <div style="width:100%">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:12px;color:#909399">AI 润色后的最终提示词，生成四视图图片时直接使用；可手动修改</span>
+              <el-button
+                size="small"
+                :loading="editCharacterPromptGenerating"
+                @click="doGenerateCharacterPrompt"
+              >重新生成提示词</el-button>
+            </div>
+            <el-input
+              v-model="editCharacterForm.polished_prompt"
+              type="textarea"
+              :autosize="{ minRows: 5, maxRows: 16 }"
+              :placeholder="editCharacterPromptGenerating ? 'AI 正在生成提示词，请稍候…' : '点击「重新生成提示词」由 AI 自动生成，或直接在此输入'"
+              :disabled="editCharacterPromptGenerating"
+              style="font-size:12px"
+            />
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -1107,8 +1186,8 @@
     </el-dialog>
 
     <!-- 编辑道具弹窗 -->
-    <el-dialog v-model="showEditProp" title="编辑道具" width="660px" @close="showEditProp = false">
-      <el-form v-if="editPropForm" label-width="80px">
+    <el-dialog v-model="showEditProp" title="编辑道具" width="75%" @close="() => { showEditProp = false; stopPropPromptPoll(); editPropPromptGenerating = false }">
+      <el-form v-if="editPropForm" label-width="90px">
         <el-form-item label="名称" required>
           <el-input v-model="editPropForm.name" placeholder="道具名称" />
         </el-form-item>
@@ -1116,10 +1195,22 @@
           <el-input v-model="editPropForm.type" placeholder="如：物品、建筑" />
         </el-form-item>
         <el-form-item label="描述">
-          <el-input v-model="editPropForm.description" type="textarea" :rows="4" placeholder="道具描述" />
+          <el-input v-model="editPropForm.description" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" placeholder="道具描述" />
         </el-form-item>
         <el-form-item label="图生提示词">
-          <el-input v-model="editPropForm.prompt" type="textarea" :rows="5" placeholder="用于 AI 生成图片的提示词" />
+          <div style="width:100%">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:12px;color:#909399">AI 润色后的图片提示词，生成图片时直接使用；可手动修改</span>
+              <el-button size="small" :loading="editPropPromptGenerating" @click="doGeneratePropPrompt">重新生成提示词</el-button>
+            </div>
+            <el-input
+              v-model="editPropForm.prompt"
+              type="textarea"
+              :autosize="{ minRows: 5, maxRows: 16 }"
+              :placeholder="editPropPromptGenerating ? 'AI 正在生成提示词，请稍候…' : '点击「重新生成提示词」由 AI 自动生成，或直接在此输入'"
+              :disabled="editPropPromptGenerating"
+            />
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -1129,16 +1220,35 @@
     </el-dialog>
 
     <!-- 添加/编辑场景弹窗 -->
-    <el-dialog v-model="showEditScene" :title="editSceneForm?.id ? '编辑场景' : '添加场景'" width="660px" @close="showEditScene = false">
-      <el-form v-if="editSceneForm" label-width="80px">
+    <el-dialog v-model="showEditScene" :title="editSceneForm?.id ? '编辑场景' : '添加场景'" width="75%" @close="() => { showEditScene = false; stopScenePromptPoll(); editScenePromptGenerating = false }">
+      <el-form v-if="editSceneForm" label-width="90px">
         <el-form-item label="地点" required>
           <el-input v-model="editSceneForm.location" placeholder="如：森林、教室" />
         </el-form-item>
         <el-form-item label="时间">
           <el-input v-model="editSceneForm.time" placeholder="如：白天、傍晚" />
         </el-form-item>
-        <el-form-item label="图生提示词">
-          <el-input v-model="editSceneForm.prompt" type="textarea" :rows="6" placeholder="用于 AI 生成场景图的提示词" />
+        <el-form-item label="场景描述">
+          <el-input v-model="editSceneForm.prompt" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" placeholder="场景的简要描述，供 AI 生成四视图时参考" />
+        </el-form-item>
+        <el-form-item v-if="editSceneForm.id">
+          <template #label>
+            <span style="font-size:12px;line-height:1.4;white-space:normal;word-break:break-all;display:inline-block;width:90px">四视图提示词</span>
+          </template>
+          <div style="width:100%">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:12px;color:#909399">AI 生成的完整四视图图片提示词，生图时直接使用；可手动修改</span>
+              <el-button size="small" :loading="editScenePromptGenerating" @click="doGenerateScenePrompt">重新生成提示词</el-button>
+            </div>
+            <el-input
+              v-model="editSceneForm.polished_prompt"
+              type="textarea"
+              :autosize="{ minRows: 5, maxRows: 16 }"
+              :placeholder="editScenePromptGenerating ? 'AI 正在生成四视图提示词，请稍候…' : '点击「重新生成提示词」由 AI 自动生成，或直接在此输入'"
+              :disabled="editScenePromptGenerating"
+              style="font-size:12px"
+            />
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -1347,7 +1457,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, reactive } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, reactive, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -1406,68 +1516,189 @@ const scriptGenerating = ref(false)
 const generationStyle = ref('')
 const projectAspectRatio = ref('16:9')
 const videoClipDuration = ref(5)
+// value = 存库的短标识（向后兼容）
+// prompt = 中文描述（界面展示用）
+// promptEn = 英文描述（传给图像/视频 AI 用，效果更好）
 const generationStyleOptions = [
   {
     label: '写实 / 影视',
     options: [
-      { label: '写实',    value: 'realistic',        color: 'linear-gradient(135deg,#c9a87c,#7c5e3c)', thumb: '/style-thumbs/realistic.jpg' },
-      { label: '电影感',  value: 'cinematic',         color: 'linear-gradient(135deg,#1a1a2e,#c9aa71)', thumb: '/style-thumbs/cinematic.jpg' },
-      { label: '纪录片',  value: 'documentary',       color: 'linear-gradient(135deg,#4a6741,#8fbc8f)', thumb: '/style-thumbs/documentary.jpg' },
-      { label: '黑色电影', value: 'noir',             color: 'linear-gradient(135deg,#1a1a1a,#666)',    thumb: '/style-thumbs/noir.jpg' },
-      { label: '复古胶片', value: 'retro film',       color: 'linear-gradient(135deg,#d4a373,#8b6914)', thumb: '/style-thumbs/retro.jpg' },
-      { label: '恐怖',    value: 'horror',            color: 'linear-gradient(135deg,#1a0a0a,#7b1111)', thumb: '/style-thumbs/horror.jpg' },
+      { label: '写实',    value: 'realistic',
+        prompt:   '超写实摄影风格，8K超清细节，精准自然光照，真实皮肤纹理，专业摄影机拍摄，RAW原片质感，超高清锐度，人物面部毛孔清晰可见',
+        promptEn: 'photorealistic, ultra-detailed, 8k uhd, sharp focus, natural lighting, real skin texture, hyperrealism, professional photography, RAW photo',
+        color: 'linear-gradient(135deg,#c9a87c,#7c5e3c)', thumb: '/style-thumbs/realistic.jpg' },
+      { label: '电影感',  value: 'cinematic',
+        prompt:   '电影级大片画面，变形镜头压缩感，胶片颗粒质感，伦勃朗式戏剧性布光，浅景深虚化背景，专业调色风格，史诗级构图，35mm胶片美学，宽画幅银幕比例',
+        promptEn: 'cinematic movie still, anamorphic lens, film grain, dramatic rembrandt lighting, shallow depth of field, color graded, epic composition, professional cinematography, 35mm film, widescreen',
+        color: 'linear-gradient(135deg,#1a1a2e,#c9aa71)', thumb: '/style-thumbs/cinematic.jpg' },
+      { label: '纪录片',  value: 'documentary',
+        prompt:   '纪录片摄影风格，自然可用光源，抓拍式真实瞬间，手持摄影机晃动感，新闻摄影美学，粗粝真实质感，颗粒感胶片，非摆拍自然状态',
+        promptEn: 'documentary photography style, natural available light, candid authentic moment, handheld camera look, photojournalism, raw gritty realism, grain texture, unposed',
+        color: 'linear-gradient(135deg,#4a6741,#8fbc8f)', thumb: '/style-thumbs/documentary.jpg' },
+      { label: '黑色电影', value: 'noir',
+        prompt:   '黑色电影风格，高对比度黑白影调，强烈明暗光影雕刻，百叶窗投影光纹，1940年代侦探片氛围，悬疑神秘气质，烟雾缭绕与雨夜街景',
+        promptEn: 'film noir, dramatic high-contrast black and white, hard chiaroscuro shadows, venetian blind light patterns, moody 1940s detective aesthetic, mystery atmosphere, smoke and rain',
+        color: 'linear-gradient(135deg,#1a1a1a,#666)',    thumb: '/style-thumbs/noir.jpg' },
+      { label: '复古胶片', value: 'retro film',
+        prompt:   '复古胶片摄影美学，柯达色彩体系，漏光与光晕效果，浓重35mm胶片颗粒，褪色暖调色彩，模拟胶片质感，怀旧复古氛围，轻微过曝处理',
+        promptEn: 'vintage retro film photography, kodachrome color palette, light leaks, heavy 35mm grain, faded warm tones, analog film aesthetics, nostalgic atmosphere, slightly overexposed',
+        color: 'linear-gradient(135deg,#d4a373,#8b6914)', thumb: '/style-thumbs/retro.jpg' },
+      { label: '恐怖',    value: 'horror',
+        prompt:   '恐怖氛围渲染，阴暗压抑情绪，浓厚大气雾气，深重戏剧阴影，诡异冷色布光，令人不安的构图，哥特元素点缀，去饱和暗调色板，心理悬疑张力',
+        promptEn: 'horror atmosphere, dark ominous mood, dense atmospheric fog, deep dramatic shadows, eerie cold lighting, unsettling composition, gothic elements, desaturated dark palette, psychological tension',
+        color: 'linear-gradient(135deg,#1a0a0a,#7b1111)', thumb: '/style-thumbs/horror.jpg' },
     ]
   },
   {
     label: '动漫 / 卡通',
     options: [
-      { label: '日本动漫', value: 'anime style',      color: 'linear-gradient(135deg,#ff9fd2,#a97cdb)', thumb: '/style-thumbs/anime.jpg' },
-      { label: '欧美漫画', value: 'comic style',      color: 'linear-gradient(135deg,#4169e1,#ff6b47)', thumb: '/style-thumbs/comic.jpg' },
-      { label: '卡通',    value: 'cartoon',           color: 'linear-gradient(135deg,#ffd700,#ff6b6b)', thumb: '/style-thumbs/cartoon.jpg' },
-      { label: '2D 动画', value: '2d animation',      color: 'linear-gradient(135deg,#43e97b,#38f9d7)', thumb: '/style-thumbs/2d-animation.jpg' },
+      { label: '日本动漫', value: 'anime style',
+        prompt:   '日本动漫画风，精细赛璐璐上色，清晰黑色线稿，高饱和鲜艳配色，极具表现力的角色设计，动画工作室级别质量，漫画美学影响，关键帧视觉插图风格',
+        promptEn: 'anime style, Japanese animation, clean cel shading, precise black linework, vibrant saturated colors, expressive character design, studio quality, manga influence, key visual illustration',
+        color: 'linear-gradient(135deg,#ff9fd2,#a97cdb)', thumb: '/style-thumbs/anime.jpg' },
+      { label: '欧美漫画', value: 'comic style',
+        prompt:   '欧美漫画风格，粗犷墨线勾勒，半调网点纹理，充满动感的动作构图，平涂鲜艳色彩，超级英雄插画美学，墨水上色分格效果',
+        promptEn: 'western comic book style, bold ink linework, halftone dot texture, dynamic action composition, flat vibrant colors, superhero illustration aesthetic, inked and colored panels',
+        color: 'linear-gradient(135deg,#4169e1,#ff6b47)', thumb: '/style-thumbs/comic.jpg' },
+      { label: '卡通',    value: 'cartoon',
+        prompt:   '卡通插画风格，简洁粗犷轮廓线，平涂纯色块面，夸张表情与肢体动作，活泼友好的设计感，欧美动画片风格，干净的矢量感画质',
+        promptEn: 'cartoon illustration, simple bold outlines, flat solid colors, exaggerated expressive features, playful friendly design, western animation style, clean vector-like quality',
+        color: 'linear-gradient(135deg,#ffd700,#ff6b6b)', thumb: '/style-thumbs/cartoon.jpg' },
+      { label: '2D 动画', value: '2d animation',
+        prompt:   '二维动画风格，流畅动画单帧画面，干净平面设计感，粗犷轮廓线条，鲜艳饱和色彩，动画长片级别质量，关键帧插画美学',
+        promptEn: '2D animation style, smooth animated frame, clean flat design, bold outlines, vibrant colors, animated feature film quality, keyframe illustration',
+        color: 'linear-gradient(135deg,#43e97b,#38f9d7)', thumb: '/style-thumbs/2d-animation.jpg' },
     ]
   },
   {
     label: '中国风格',
     options: [
-      { label: '国画水墨', value: 'ink wash',         color: 'linear-gradient(135deg,#e8e0d5,#8b7355)', thumb: '/style-thumbs/ink-wash.jpg' },
-      { label: '中国风',  value: 'chinese style',     color: 'linear-gradient(135deg,#c0392b,#8b0000)', thumb: '/style-thumbs/chinese.jpg' },
-      { label: '古装',    value: 'historical',        color: 'linear-gradient(135deg,#d4af37,#8b5e14)', thumb: '/style-thumbs/historical.jpg' },
-      { label: '武侠',    value: 'wuxia',             color: 'linear-gradient(135deg,#2c3e50,#3498db)', thumb: '/style-thumbs/wuxia.jpg' },
+      { label: '国画水墨', value: 'ink wash',
+        prompt:   '中国传统水墨画风格，泼墨写意技法，单色笔墨晕染，竹毫笔触肌理，极简留白构图，宣纸纸张质感，诗意朦胧云雾氛围，国画工笔与写意结合',
+        promptEn: 'traditional Chinese ink wash painting, sumi-e style, monochrome brushwork, bamboo brush strokes, minimalist composition, generous negative space, xuan paper texture, poetic misty atmosphere, guohua style',
+        color: 'linear-gradient(135deg,#e8e0d5,#8b7355)', thumb: '/style-thumbs/ink-wash.jpg' },
+      { label: '中国风',  value: 'chinese style',
+        prompt:   '中国传统美学，精致汉服服饰，朱红描金器物，精工刺绣纹样，明清朝代设计元素，古典建筑与亭台楼阁，景深悠远的意境',
+        promptEn: 'Chinese traditional aesthetics, elegant hanfu costumes, red lacquer and gold ornaments, intricate embroidered patterns, Ming-Qing dynasty design elements, classical architecture, atmospheric depth',
+        color: 'linear-gradient(135deg,#c0392b,#8b0000)', thumb: '/style-thumbs/chinese.jpg' },
+      { label: '古装',    value: 'historical',
+        prompt:   '中国历史古装剧风格，唐宋朝代电影美学，飘逸汉服广袖，皇宫殿宇建筑，古典园林景观，浓郁暖调色彩分级，高制作水准影视质感',
+        promptEn: 'Chinese historical drama, ancient China setting, Tang-Song dynasty cinematic aesthetic, flowing traditional hanfu robes, imperial palace architecture, classical garden, rich warm color grading, high production value',
+        color: 'linear-gradient(135deg,#d4af37,#8b5e14)', thumb: '/style-thumbs/historical.jpg' },
+      { label: '武侠',    value: 'wuxia',
+        prompt:   '武侠史诗画风，古代中国山河背景，丝绸长袍飞扬动感，云雾缥缈的山水胜景，戏剧性剑术对决姿态，水墨晕染氛围影响，侠客剑士英雄美学，史诗宽幅电影构图，烟雾光芒交织的悬疑气氛',
+        promptEn: 'wuxia martial arts epic, ancient China, flowing silk robes in dynamic motion, misty mountain landscape, dramatic sword fighting pose, atmospheric ink wash influence, hero and swordsman aesthetic, cinematic epic wide shot, moody fog and light rays',
+        color: 'linear-gradient(135deg,#2c3e50,#3498db)', thumb: '/style-thumbs/wuxia.jpg' },
     ]
   },
   {
     label: '绘画艺术',
     options: [
-      { label: '水彩',    value: 'watercolor',        color: 'linear-gradient(135deg,#a8d8ea,#ffd3b6)', thumb: '/style-thumbs/watercolor.jpg' },
-      { label: '油画',    value: 'oil painting',      color: 'linear-gradient(135deg,#d4a76a,#6b3728)', thumb: '/style-thumbs/oil-painting.jpg' },
-      { label: '素描',    value: 'sketch',            color: 'linear-gradient(135deg,#f0f0f0,#888)',    thumb: '/style-thumbs/sketch.jpg' },
-      { label: '版画',    value: 'woodblock print',   color: 'linear-gradient(135deg,#4a3728,#c9a87c)', thumb: '/style-thumbs/woodblock.jpg' },
-      { label: '印象派',  value: 'impressionist',     color: 'linear-gradient(135deg,#7ec8e3,#f9c74f)', thumb: '/style-thumbs/impressionist.jpg' },
+      { label: '水彩',    value: 'watercolor',
+        prompt:   '水彩绘画风格，湿润叠色柔边，透明色彩晕染，流动颜料自然扩散，纸张纤维质感，印象派笔触，明亮柔和色调，精致手绘插画质量',
+        promptEn: 'watercolor painting, soft wet-on-wet edges, transparent color washes, flowing pigment blooms, delicate paper texture, impressionistic strokes, luminous pastel tones, fine art illustration',
+        color: 'linear-gradient(135deg,#a8d8ea,#ffd3b6)', thumb: '/style-thumbs/watercolor.jpg' },
+      { label: '油画',    value: 'oil painting',
+        prompt:   '布面油画风格，厚涂肌理质感，有力方向性笔触，深沉饱和色彩，古典大师明暗对比光法，博物馆级精品，文艺复兴美学传承',
+        promptEn: 'oil painting on canvas, rich impasto textures, thick directional brushwork, deep saturated colors, old master chiaroscuro lighting, museum quality fine art, classical Renaissance aesthetic',
+        color: 'linear-gradient(135deg,#d4a76a,#6b3728)', thumb: '/style-thumbs/oil-painting.jpg' },
+      { label: '素描',    value: 'sketch',
+        prompt:   '精细铅笔素描，石墨绘画质感，精准排线与交叉网线，明暗调子处理，美术速写本质量，黑白单色，原始艺术张力，炭笔纸面肌理',
+        promptEn: 'detailed pencil sketch, graphite drawing, precise hatching and crosshatching, tonal shading, fine art sketchbook quality, monochrome, raw artistic energy, charcoal texture',
+        color: 'linear-gradient(135deg,#f0f0f0,#888)',    thumb: '/style-thumbs/sketch.jpg' },
+      { label: '版画',    value: 'woodblock print',
+        prompt:   '传统木刻版画风格，浮世绘美学，大块平涂色域，有限和谐色系，日本版画制作美学，图形化线条，北斋构图风格',
+        promptEn: 'traditional woodblock print, ukiyo-e inspired, bold flat color areas, limited harmonious palette, Japanese printmaking aesthetic, graphic linework, Hokusai style composition',
+        color: 'linear-gradient(135deg,#4a3728,#c9a87c)', thumb: '/style-thumbs/woodblock.jpg' },
+      { label: '印象派',  value: 'impressionist',
+        prompt:   '印象派油画风格，松散表现性笔触，斑驳阳光光影效果，鲜明互补色彩，莫奈雷诺阿风格，户外写生自然光，大气光色交融',
+        promptEn: 'impressionist oil painting, loose expressive brushstrokes, dappled sunlight effect, vibrant complementary colors, Monet-Renoir style, plein air outdoor painting, atmospheric light and color',
+        color: 'linear-gradient(135deg,#7ec8e3,#f9c74f)', thumb: '/style-thumbs/impressionist.jpg' },
     ]
   },
   {
     label: '幻想 / 科幻',
     options: [
-      { label: '奇幻',    value: 'fantasy',           color: 'linear-gradient(135deg,#6a0572,#e8b86d)', thumb: '/style-thumbs/fantasy.jpg' },
-      { label: '暗黑奇幻', value: 'dark fantasy',     color: 'linear-gradient(135deg,#0d0d0d,#6b0f1a)', thumb: '/style-thumbs/dark-fantasy.jpg' },
-      { label: '科幻',    value: 'sci-fi',            color: 'linear-gradient(135deg,#0a0a2e,#00d4ff)', thumb: '/style-thumbs/sci-fi.jpg' },
-      { label: '赛博朋克', value: 'cyberpunk',        color: 'linear-gradient(135deg,#0d0221,#ff00ff)', thumb: '/style-thumbs/cyberpunk.jpg' },
-      { label: '蒸汽朋克', value: 'steampunk',        color: 'linear-gradient(135deg,#3d2b1f,#c87941)', thumb: '/style-thumbs/steampunk.jpg' },
-      { label: '末世废土', value: 'post-apocalyptic', color: 'linear-gradient(135deg,#3d3117,#8b7355)', thumb: '/style-thumbs/post-apoc.jpg' },
+      { label: '奇幻',    value: 'fantasy',
+        prompt:   '史诗奇幻数字艺术，神奇空灵大气，戏剧性黄金时刻光效，神话生物与魔法世界，壮阔全景风光，高度细腻概念艺术，绘画插图质量',
+        promptEn: 'epic fantasy digital art, magical ethereal atmosphere, dramatic golden hour lighting, mythical creatures and enchanted world, sweeping landscape, highly detailed concept art, painterly illustration quality',
+        color: 'linear-gradient(135deg,#6a0572,#e8b86d)', thumb: '/style-thumbs/fantasy.jpg' },
+      { label: '暗黑奇幻', value: 'dark fantasy',
+        prompt:   '黑暗奇幻艺术风格，哥特式阴郁氛围，压抑暗沉色调，戏剧性边缘补光，克苏鲁秘法元素，巴洛克繁复细节，严酷粗粝的世界观，恐怖奇幻交融',
+        promptEn: 'dark fantasy art, gothic ominous atmosphere, brooding dark palette, dramatic rim lighting, eldritch and arcane elements, baroque ornate detail, grim and gritty world, horror fantasy crossover',
+        color: 'linear-gradient(135deg,#0d0d0d,#6b0f1a)', thumb: '/style-thumbs/dark-fantasy.jpg' },
+      { label: '科幻',    value: 'sci-fi',
+        prompt:   '科幻概念艺术，未来科技元素，全息投影界面，先进文明设计美学，简洁科幻质感，太空时代材质，发光交互界面，硬科幻写实风格',
+        promptEn: 'science fiction concept art, futuristic technology, holographic displays, sleek advanced civilization design, clean sci-fi aesthetic, space age materials, glowing interfaces, hard sci-fi realism',
+        color: 'linear-gradient(135deg,#0a0a2e,#00d4ff)', thumb: '/style-thumbs/sci-fi.jpg' },
+      { label: '赛博朋克', value: 'cyberpunk',
+        prompt:   '赛博朋克美学，霓虹浸润雨后街道，反乌托邦巨型都市，高科技低生活世界，发光广告牌林立，漆黑雨夜氛围，霓虹粉紫与电光蓝，银翼杀手黑色电影气质',
+        promptEn: 'cyberpunk aesthetic, neon-soaked rain-slicked streets, dystopian megacity, high tech low life, glowing advertising billboards, dark wet night, neon pink magenta and electric blue, blade runner noir atmosphere',
+        color: 'linear-gradient(135deg,#0d0221,#ff00ff)', thumb: '/style-thumbs/cyberpunk.jpg' },
+      { label: '蒸汽朋克', value: 'steampunk',
+        prompt:   '蒸汽朋克美学，维多利亚时代工业幻想，光亮黄铜齿轮与铜管构件，蒸汽驱动机械装置，棕褐色暖调，精巧机械装置，护目镜与礼帽造型，华丽钟表机芯细节',
+        promptEn: 'steampunk aesthetic, Victorian era industrial fantasy, polished brass gears and copper cogs, steam powered machinery, sepia warm tones, elaborate mechanical contraptions, goggles and top hats, ornate clockwork',
+        color: 'linear-gradient(135deg,#3d2b1f,#c87941)', thumb: '/style-thumbs/steampunk.jpg' },
+      { label: '末世废土', value: 'post-apocalyptic',
+        prompt:   '末世废土荒漠，文明崩塌遗迹，灰暗低饱和色调，生存末日氛围，腐朽建筑与废墟，尘埃与碎石漫天，强烈戏剧光照，疯狂麦克斯美学',
+        promptEn: 'post-apocalyptic wasteland, ruined crumbling civilization, harsh desaturated color palette, survival atmosphere, decayed architecture, dust and debris, harsh dramatic light, Mad Max aesthetic',
+        color: 'linear-gradient(135deg,#3d3117,#8b7355)', thumb: '/style-thumbs/post-apoc.jpg' },
     ]
   },
   {
     label: '数字 / 现代',
     options: [
-      { label: '3D 渲染', value: '3d render',         color: 'linear-gradient(135deg,#1a1a2e,#4facfe)', thumb: '/style-thumbs/3d-render.jpg' },
-      { label: '像素风',  value: 'pixel art',         color: 'linear-gradient(135deg,#6272a4,#50fa7b)', thumb: '/style-thumbs/pixel-art.jpg' },
-      { label: '低多边形', value: 'low poly',         color: 'linear-gradient(135deg,#2193b0,#6dd5ed)', thumb: '/style-thumbs/low-poly.jpg' },
-      { label: '极简',    value: 'minimalist',        color: 'linear-gradient(135deg,#e0e0e0,#bdbdbd)', thumb: '/style-thumbs/minimalist.jpg' },
-      { label: '唯美梦幻', value: 'dreamy',           color: 'linear-gradient(135deg,#ffecd2,#fcb69f)', thumb: '/style-thumbs/dreamy.jpg' },
+      { label: '3D 渲染', value: '3d render',
+        prompt:   '三维CGI渲染，光线追踪全局光照，次表面散射写实质感，HDRI工作室照明，高精度多边形模型，物理渲染流程，Octane或Redshift级别品质，产品级可视化精度',
+        promptEn: '3D CGI render, ray tracing global illumination, photorealistic subsurface scattering, studio HDRI lighting, high polygon model, physically based rendering, Octane or Redshift quality, product visualization',
+        color: 'linear-gradient(135deg,#1a1a2e,#4facfe)', thumb: '/style-thumbs/3d-render.jpg' },
+      { label: '像素风',  value: 'pixel art',
+        prompt:   '像素艺术风格，16位复古游戏美学，有限色板，清晰硬边像素颗粒，精灵图艺术质感，经典日式RPG视觉风格，等距或横版游戏画面',
+        promptEn: 'pixel art, 16-bit retro game aesthetic, limited color palette, crisp hard pixels, sprite art style, classic JRPG visual, isometric or side-scroll game art',
+        color: 'linear-gradient(135deg,#6272a4,#50fa7b)', thumb: '/style-thumbs/pixel-art.jpg' },
+      { label: '低多边形', value: 'low poly',
+        prompt:   '低多边形几何艺术，平面三角形切面，极简多边形数量，干净彩色切面组合，现代几何美学，三维折纸风格，抽象数字艺术感',
+        promptEn: 'low poly geometric art, flat triangular faceted surfaces, minimal polygon count, clean colorful facets, modern geometric aesthetic, 3D origami style, abstract digital art',
+        color: 'linear-gradient(135deg,#2193b0,#6dd5ed)', thumb: '/style-thumbs/low-poly.jpg' },
+      { label: '极简',    value: 'minimalist',
+        prompt:   '极简主义设计美学，干净无杂乱构图，大量留白呼吸感，简洁几何形态，有限单色色系，包豪斯现代主义，优雅克制的简约美感',
+        promptEn: 'minimalist design, clean uncluttered composition, generous negative space, simple geometric forms, limited monochromatic palette, modern Bauhaus aesthetic, sophisticated elegant simplicity',
+        color: 'linear-gradient(135deg,#e0e0e0,#bdbdbd)', thumb: '/style-thumbs/minimalist.jpg' },
+      { label: '唯美梦幻', value: 'dreamy',
+        prompt:   '唯美梦幻美学，奶油色柔虚背景，粉彩柔和色调，空灵发光氛围，浪漫柔光打亮，细腻雾气与光晕，童话魔法质感，软焦梦境感',
+        promptEn: 'dreamy aesthetic, creamy soft bokeh background, pastel color palette, ethereal glowing atmosphere, romantic soft lighting, delicate haze and glow, fairy tale magical quality, soft focus dreamy',
+        color: 'linear-gradient(135deg,#ffecd2,#fcb69f)', thumb: '/style-thumbs/dreamy.jpg' },
     ]
   },
 ]
+
+/** 根据 value 查找样式选项对象 */
+function _findStyleOption(val) {
+  for (const group of generationStyleOptions) {
+    const found = group.options.find(o => o.value === val)
+    if (found) return found
+  }
+  return null
+}
+
+/** 传给图像/视频 AI 用的英文 prompt（效果最好）；
+ *  找不到 promptEn 时降级到 prompt，再降级到原始值 */
+function getSelectedStylePrompt() {
+  const val = (generationStyle.value || '').toString().trim()
+  if (!val) return undefined
+  const opt = _findStyleOption(val)
+  if (opt) return opt.promptEn || opt.prompt || val
+  return val
+}
+
+/** 中文风格描述（用于界面展示或中文场景提示词拼接） */
+function getSelectedStylePromptZh() {
+  const val = (generationStyle.value || '').toString().trim()
+  if (!val) return undefined
+  const opt = _findStyleOption(val)
+  if (opt) return opt.prompt || opt.promptEn || val
+  return val
+}
 const scriptContent = computed({
   get: () => store.scriptContent,
   set: (v) => store.setScriptContent(v)
@@ -1569,14 +1800,20 @@ const addPropForm = ref({ name: '', type: '', description: '', prompt: '' })
 const showEditCharacter = ref(false)
 const editCharacterForm = ref(null)
 const editCharacterSaving = ref(false)
+const editCharacterPromptGenerating = ref(false)
+let editCharacterPollTimer = null
 
 const showEditProp = ref(false)
 const editPropForm = ref(null)
 const editPropSaving = ref(false)
+const editPropPromptGenerating = ref(false)
+let editPropPollTimer = null
 
 const showEditScene = ref(false)
 const editSceneForm = ref(null)
 const editSceneSaving = ref(false)
+const editScenePromptGenerating = ref(false)
+let editScenePollTimer = null
 
 // 资源管理大面板及子区块折叠状态
 const resourcePanelCollapsed = ref(false)
@@ -1721,6 +1958,9 @@ const sbAction = ref({})
 const sbResult = ref({})
 const sbAtmosphere = ref({})
 const sbAngle = ref({})
+const sbAngleH = ref({})   // 结构化视角：水平方向
+const sbAngleV = ref({})   // 结构化视角：俯仰角度
+const sbAngleS = ref({})   // 结构化视角：景别
 const sbMovement = ref({})
 // 分镜图片/视频列表（由 /images?storyboard_id=xx 和 /videos?storyboard_id=xx 拉取）
 const sbImages = ref({})
@@ -1874,8 +2114,7 @@ function hasAssetImage(item) {
   return !!(item.image_url || item.local_path)
 }
 function getSelectedStyle() {
-  const value = (generationStyle.value || '').toString().trim()
-  return value || undefined
+  return getSelectedStylePrompt()
 }
 function openImagePreview(url) {
   previewImageUrl.value = url
@@ -2137,6 +2376,9 @@ function syncStoryboardStateFromEpisode(ep) {
   const nextResult = {}
   const nextAtmosphere = {}
   const nextAngle = {}
+  const nextAngleH = {}
+  const nextAngleV = {}
+  const nextAngleS = {}
   const nextMovement = {}
   for (const sb of boards) {
     nextScene[sb.id] = sb.scene_id ?? null
@@ -2150,6 +2392,9 @@ function syncStoryboardStateFromEpisode(ep) {
     nextResult[sb.id] = (sb.result ?? '').toString()
     nextAtmosphere[sb.id] = (sb.atmosphere ?? '').toString()
     nextAngle[sb.id] = (sb.angle ?? '').toString()
+    nextAngleH[sb.id] = sb.angle_h || ''
+    nextAngleV[sb.id] = sb.angle_v || ''
+    nextAngleS[sb.id] = sb.angle_s || ''
     nextMovement[sb.id] = (sb.movement ?? '').toString()
     const charList = Array.isArray(sb.characters) ? sb.characters : (sb.characters != null ? [sb.characters] : [])
     nextCharIds[sb.id] = charList.map((c) => (typeof c === 'object' && c != null ? Number(c.id) : Number(c))).filter((n) => Number.isFinite(n))
@@ -2168,6 +2413,9 @@ function syncStoryboardStateFromEpisode(ep) {
   sbResult.value = nextResult
   sbAtmosphere.value = nextAtmosphere
   sbAngle.value = nextAngle
+  sbAngleH.value = nextAngleH
+  sbAngleV.value = nextAngleV
+  sbAngleS.value = nextAngleS
   sbMovement.value = nextMovement
 }
 
@@ -2247,6 +2495,12 @@ function getSbPropIds(sbId) {
 
 function setSbPropIds(sbId, v) {
   sbPropIds.value = { ...sbPropIds.value, [sbId]: Array.isArray(v) ? v : [] }
+  onStoryboardPropChange(sbId)
+}
+
+function onStoryboardPropChange(sbId) {
+  const ids = sbPropIds.value[sbId] || []
+  storyboardsAPI.update(sbId, { prop_ids: ids }).catch(() => {})
 }
 
 /** 当前分镜选中的场景对象（用于下方缩略图） */
@@ -2599,21 +2853,60 @@ function openAddCharacter() {
     role: '',
     appearance: '',
     personality: '',
-    description: ''
+    description: '',
+    polished_prompt: ''
   }
   showEditCharacter.value = true
 }
 
+function stopCharacterPromptPoll() {
+  if (editCharacterPollTimer) {
+    clearInterval(editCharacterPollTimer)
+    editCharacterPollTimer = null
+  }
+}
+
+const CHAR_ROLE_LABEL = { main: '主角', supporting: '配角', minor: '次要角色' }
+function charRoleLabel(role) { return CHAR_ROLE_LABEL[role] || role || '' }
+
 function editCharacter(char) {
+  stopCharacterPromptPoll()
   editCharacterForm.value = {
     id: char.id,
     name: char.name || '',
     role: char.role || '',
     appearance: char.appearance || '',
     personality: char.personality || '',
-    description: char.description || ''
+    description: char.description || '',
+    polished_prompt: char.polished_prompt || ''
   }
   showEditCharacter.value = true
+  // 如果提示词还没有，说明后台异步可能还在跑，轮询等待（最多 60 秒）
+  if (!char.polished_prompt && char.id && (char.appearance || char.description)) {
+    editCharacterPromptGenerating.value = true
+    let elapsed = 0
+    editCharacterPollTimer = setInterval(async () => {
+      elapsed += 3
+      try {
+        const res = await characterAPI.get(char.id)
+        const prompt = res?.character?.polished_prompt
+        if (prompt) {
+          if (editCharacterForm.value?.id === char.id) {
+            editCharacterForm.value.polished_prompt = prompt
+          }
+          stopCharacterPromptPoll()
+          editCharacterPromptGenerating.value = false
+        } else if (elapsed >= 60) {
+          // 超时：后台可能失败，停止轮询，让用户手动触发
+          stopCharacterPromptPoll()
+          editCharacterPromptGenerating.value = false
+        }
+      } catch (_) {
+        stopCharacterPromptPoll()
+        editCharacterPromptGenerating.value = false
+      }
+    }, 3000)
+  }
 }
 
 async function submitEditCharacter() {
@@ -2627,7 +2920,8 @@ async function submitEditCharacter() {
         role: form.role || undefined,
         appearance: form.appearance || undefined,
         personality: form.personality || undefined,
-        description: form.description || undefined
+        description: form.description || undefined,
+        polished_prompt: form.polished_prompt || undefined
       })
       ElMessage.success('角色已保存')
     } else {
@@ -2652,6 +2946,23 @@ async function submitEditCharacter() {
     ElMessage.error(e.message || (form.id ? '保存失败' : '添加失败'))
   } finally {
     editCharacterSaving.value = false
+  }
+}
+
+async function doGenerateCharacterPrompt() {
+  const form = editCharacterForm.value
+  if (!form?.id) return
+  editCharacterPromptGenerating.value = true
+  try {
+    const res = await characterAPI.generatePrompt(form.id)
+    if (res?.polished_prompt) {
+      form.polished_prompt = res.polished_prompt
+      ElMessage.success('提示词已生成')
+    }
+  } catch (e) {
+    ElMessage.error(e.message || '生成提示词失败')
+  } finally {
+    editCharacterPromptGenerating.value = false
   }
 }
 
@@ -3202,7 +3513,12 @@ async function onExtractProps() {
   }
 }
 
+function stopPropPromptPoll() {
+  if (editPropPollTimer) { clearInterval(editPropPollTimer); editPropPollTimer = null }
+}
+
 function editProp(prop) {
+  stopPropPromptPoll()
   editPropForm.value = {
     id: prop.id,
     name: prop.name || '',
@@ -3211,6 +3527,37 @@ function editProp(prop) {
     prompt: prop.prompt || ''
   }
   showEditProp.value = true
+  if (!prop.prompt && prop.id && prop.description) {
+    editPropPromptGenerating.value = true
+    let elapsed = 0
+    editPropPollTimer = setInterval(async () => {
+      elapsed += 3
+      try {
+        const res = await propAPI.get(prop.id)
+        const p = res?.prop?.prompt
+        if (p) {
+          if (editPropForm.value?.id === prop.id) editPropForm.value.prompt = p
+          stopPropPromptPoll(); editPropPromptGenerating.value = false
+        } else if (elapsed >= 60) {
+          stopPropPromptPoll(); editPropPromptGenerating.value = false
+        }
+      } catch (_) { stopPropPromptPoll(); editPropPromptGenerating.value = false }
+    }, 3000)
+  }
+}
+
+async function doGeneratePropPrompt() {
+  const form = editPropForm.value
+  if (!form?.id) return
+  editPropPromptGenerating.value = true
+  try {
+    const res = await propAPI.generatePrompt(form.id)
+    if (res?.prompt) { form.prompt = res.prompt; ElMessage.success('提示词已生成') }
+  } catch (e) {
+    ElMessage.error(e.message || '生成提示词失败')
+  } finally {
+    editPropPromptGenerating.value = false
+  }
 }
 
 async function submitEditProp() {
@@ -3317,14 +3664,52 @@ function openAddScene() {
   showEditScene.value = true
 }
 
+function stopScenePromptPoll() {
+  if (editScenePollTimer) { clearInterval(editScenePollTimer); editScenePollTimer = null }
+}
+
 function editScene(scene) {
+  stopScenePromptPoll()
   editSceneForm.value = {
     id: scene.id,
     location: scene.location || '',
     time: scene.time || '',
-    prompt: scene.prompt || ''
+    prompt: scene.prompt || '',
+    polished_prompt: scene.polished_prompt || ''
   }
   showEditScene.value = true
+  // polished_prompt 为空时轮询等待后台异步生成
+  if (!scene.polished_prompt && scene.id && (scene.location || scene.time)) {
+    editScenePromptGenerating.value = true
+    let elapsed = 0
+    editScenePollTimer = setInterval(async () => {
+      elapsed += 3
+      try {
+        const res = await sceneAPI.get(scene.id)
+        const p = res?.scene?.polished_prompt
+        if (p) {
+          if (editSceneForm.value?.id === scene.id) editSceneForm.value.polished_prompt = p
+          stopScenePromptPoll(); editScenePromptGenerating.value = false
+        } else if (elapsed >= 60) {
+          stopScenePromptPoll(); editScenePromptGenerating.value = false
+        }
+      } catch (_) { stopScenePromptPoll(); editScenePromptGenerating.value = false }
+    }, 3000)
+  }
+}
+
+async function doGenerateScenePrompt() {
+  const form = editSceneForm.value
+  if (!form?.id) return
+  editScenePromptGenerating.value = true
+  try {
+    const res = await sceneAPI.generatePrompt(form.id)
+    if (res?.polished_prompt) { form.polished_prompt = res.polished_prompt; ElMessage.success('提示词已生成') }
+  } catch (e) {
+    ElMessage.error(e.message || '生成提示词失败')
+  } finally {
+    editScenePromptGenerating.value = false
+  }
 }
 
 async function submitEditScene() {
@@ -3336,7 +3721,8 @@ async function submitEditScene() {
       await sceneAPI.update(form.id, {
         location: form.location.trim(),
         time: form.time || undefined,
-        prompt: form.prompt || undefined
+        prompt: form.prompt || undefined,
+        polished_prompt: form.polished_prompt || undefined
       })
       ElMessage.success('场景已保存')
     } else {
@@ -3455,32 +3841,54 @@ function onEditSbVideoPrompt(sb) {
   editingSbVideoPromptText.value = (sb.video_prompt || '').toString()
 }
 
+/** 将结构化视角三元组转为英文描述片段 + 中文标签（与 angleService.js 保持一致） */
+function angleToPromptFragment(h, v, s) {
+  const hDesc = { front:'shooting from the front', front_left:'shooting from front-left at 45-degree angle', left:'shooting from the left side, profile view', back_left:'shooting from back-left at 135-degree angle', back:"shooting from behind, character's back to camera", back_right:'shooting from back-right at 135-degree angle', right:'shooting from the right side, profile view', front_right:'shooting from front-right at 45-degree angle' }
+  const vDesc = { worm:"extreme low-angle worm's eye view, camera near ground pointing sharply upward, strong upward perspective distortion, background shows sky/ceiling", low:'low-angle upward shot, camera below eye-line, slight upward tilt, empowering perspective', eye_level:'eye-level shot, neutral perspective, natural horizontal framing', high:"high-angle bird's eye view, camera above looking down, background shows floor/ground with downward perspective distortion" }
+  const sDesc = { close_up:'close-up shot (face/bust framing), subject fills most of frame, shallow depth of field, background softly blurred', medium:'medium shot (waist-up to full body), character and immediate surroundings visible, moderate depth of field', wide:'wide shot (full body with environment), subject small relative to scene, deep depth of field, environment context prominent' }
+  const hLabel = { front:'正面', front_left:'前左', left:'左侧', back_left:'后左', back:'背面', back_right:'后右', right:'右侧', front_right:'前右' }
+  const vLabel = { worm:'虫眼仰', low:'仰拍', eye_level:'平视', high:'俯拍' }
+  const sLabel = { close_up:'特写', medium:'中景', wide:'远景' }
+  const fragment = [sDesc[s] || sDesc.medium, vDesc[v] || vDesc.eye_level, hDesc[h] || hDesc.front].join(', ')
+  const label = `${sLabel[s] || '中景'}·${vLabel[v] || '平视'}·${hLabel[h] || '正面'}`
+  return { fragment, label }
+}
+
 /** 根据当前分镜的「视频提示词组成」字段拼出完整 video_prompt 文案（与后端 generateVideoPrompt 顺序一致） */
 function buildVideoPromptFromFields(sbId) {
   const parts = []
   const loc = (sbLocation.value[sbId] || '').toString().trim()
   const time = (sbTime.value[sbId] || '').toString().trim()
-  if (loc) parts.push('Scene: ' + (time ? loc + ', ' + time : loc))
+  if (loc) parts.push('场景：' + (time ? loc + '，' + time : loc))
   const title = (sbTitle.value[sbId] || '').toString().trim()
-  if (title) parts.push('Title: ' + title)
+  if (title) parts.push('镜头标题：' + title)
   const action = (sbAction.value[sbId] || '').toString().trim()
-  if (action) parts.push('Action: ' + action)
+  if (action) parts.push('动作：' + action)
   const dialogue = (sbDialogue.value[sbId] || '').toString().trim()
-  if (dialogue) parts.push('Dialogue: ' + dialogue)
+  if (dialogue) parts.push('对话：' + dialogue)
   const shotType = (sbShotType.value[sbId] || '').toString().trim()
-  if (shotType) parts.push('Shot type: ' + shotType)
-  const angle = (sbAngle.value[sbId] || '').toString().trim()
-  if (angle) parts.push('Camera angle: ' + angle)
+  if (shotType) parts.push('景别：' + shotType)
+  // 优先使用结构化三元组：中文标签 + 英文描述（兼顾中英文视频模型）
+  const angleH = sbAngleH.value[sbId] || ''
+  const angleV = sbAngleV.value[sbId] || ''
+  const angleS = sbAngleS.value[sbId] || ''
+  if (angleH && angleV && angleS) {
+    const { fragment, label } = angleToPromptFragment(angleH, angleV, angleS)
+    parts.push(`镜头角度：${label}（${fragment}）`)
+  } else {
+    const angle = (sbAngle.value[sbId] || '').toString().trim()
+    if (angle) parts.push('镜头角度：' + angle)
+  }
   const movement = (sbMovement.value[sbId] || '').toString().trim()
-  if (movement) parts.push('Camera movement: ' + movement)
+  if (movement) parts.push('运镜：' + movement)
   const atmosphere = (sbAtmosphere.value[sbId] || '').toString().trim()
-  if (atmosphere) parts.push('Atmosphere: ' + atmosphere)
+  if (atmosphere) parts.push('氛围：' + atmosphere)
   const result = (sbResult.value[sbId] || '').toString().trim()
-  if (result) parts.push('Result: ' + result)
+  if (result) parts.push('结果：' + result)
   const duration = Number(sbDuration.value[sbId])
   const sec = Number.isFinite(duration) && duration > 0 ? duration : 5
-  parts.push('Duration: ' + sec + ' seconds')
-  return parts.length ? parts.join('. ') : 'Video scene'
+  parts.push('时长：' + sec + '秒')
+  return parts.length ? parts.join('。') : '视频场景'
 }
 
 async function onSaveSbVideoFields(sb) {
@@ -3497,6 +3905,9 @@ async function onSaveSbVideoFields(sb) {
       atmosphere: (sbAtmosphere.value[sb.id] || '').toString().trim() || null,
       result: (sbResult.value[sb.id] || '').toString().trim() || null,
       angle: (sbAngle.value[sb.id] || '').toString().trim() || null,
+      angle_h: sbAngleH.value[sb.id] || null,
+      angle_v: sbAngleV.value[sb.id] || null,
+      angle_s: sbAngleS.value[sb.id] || null,
       movement: (sbMovement.value[sb.id] || '').toString().trim() || null,
       shot_type: (sbShotType.value[sb.id] || '').toString().trim() || null,
       video_prompt
@@ -5549,6 +5960,69 @@ html.light .empty-tip {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+/* ── 段落分隔标头 ─────────────────────────────── */
+.segment-header {
+  margin: 28px 0 12px;
+  position: relative;
+}
+.segment-header:first-child { margin-top: 0; }
+.segment-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: linear-gradient(90deg, rgba(139,92,246,0.18) 0%, rgba(139,92,246,0.04) 100%);
+  border-left: 4px solid #8b5cf6;
+  border-radius: 0 8px 8px 0;
+}
+.segment-index-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a78bfa;
+  background: rgba(139,92,246,0.25);
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.segment-title-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: #e2e8f0;
+  flex: 1;
+}
+.segment-shot-range {
+  font-size: 11px;
+  color: #71717a;
+  white-space: nowrap;
+}
+html.light .segment-header-inner {
+  background: linear-gradient(90deg, rgba(139,92,246,0.1) 0%, rgba(139,92,246,0.02) 100%);
+  border-left-color: #7c3aed;
+}
+html.light .segment-title-text { color: #1e1b4b; }
+html.light .segment-index-badge { color: #7c3aed; background: rgba(124,58,237,0.12); }
+
+/* 左侧导航段落标签 */
+.nav-segment-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #a78bfa;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.nav-segment-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  flex-shrink: 0;
+}
+
 .storyboard-row {
   display: flex;
   align-items: stretch;

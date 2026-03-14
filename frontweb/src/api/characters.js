@@ -1,8 +1,14 @@
 import request from '@/utils/request'
 
 export const characterAPI = {
+  get(characterId) {
+    return request.get(`/characters/${characterId}`)
+  },
   generateImage(characterId, model, style) {
     return request.post(`/characters/${characterId}/generate-image`, { model, style })
+  },
+  generatePrompt(characterId, model, style) {
+    return request.post(`/characters/${characterId}/generate-prompt`, { model, style })
   },
   batchGenerateImages(characterIds, model, style) {
     return request.post('/characters/batch-generate-images', {

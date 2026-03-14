@@ -10,6 +10,7 @@ function updateScene(db, log, sceneId, req) {
   if (req.location != null) { updates.push('location = ?'); params.push(req.location); }
   if (req.time != null) { updates.push('time = ?'); params.push(req.time); }
   if (req.prompt != null) { updates.push('prompt = ?'); params.push(req.prompt); }
+  if (req.polished_prompt != null) { updates.push('polished_prompt = ?'); params.push(req.polished_prompt); }
   if (req.image_url != null) { updates.push('image_url = ?'); params.push(req.image_url); }
   if (req.local_path !== undefined) { updates.push('local_path = ?'); params.push(req.local_path); }
   if (req.extra_images !== undefined) { updates.push('extra_images = ?'); params.push(req.extra_images ?? null); }
@@ -97,42 +98,62 @@ function deleteScenesByEpisodeId(db, log, episodeId) {
 
 function getSceneById(db, id) {
   const row = db.prepare('SELECT * FROM scenes WHERE id = ? AND deleted_at IS NULL').get(id);
-  return row ? { id: row.id, drama_id: row.drama_id, location: row.location, time: row.time, prompt: row.prompt, image_url: row.image_url, local_path: row.local_path, extra_images: row.extra_images || null, status: row.status, created_at: row.created_at, updated_at: row.updated_at } : null;
+  return row ? {
+    id: row.id,
+    drama_id: row.drama_id,
+    location: row.location,
+    time: row.time,
+    prompt: row.prompt,
+    polished_prompt: row.polished_prompt || null,
+    image_url: row.image_url,
+    local_path: row.local_path,
+    extra_images: row.extra_images || null,
+    status: row.status,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  } : null;
 }
 
 /**
- * 场景四视图生成：两步流程
- * Step 1: 文本AI将 location/time/prompt 转换为四格场景参考图描述
- * Step 2: 图片AI根据描述生成 16:9 四格场景参考图
+ * 将文字AI的四视图描述 + 布局指令 + 风格 合并为完整的图片AI提示词
+ * 与角色的 buildFourViewImagePrompt 对应
  */
-async function generateSceneFourViewImage(db, log, cfg, sceneId, modelName, style) {
+function buildSceneFourViewImagePrompt(fourViewDescription, styleText) {
+  const imageLayoutInstruction = promptI18n.getSceneGenerateImagePrompt();
+  const styleAppend = styleText ? ` Art style: ${styleText}.` : '';
+  return `${imageLayoutInstruction}\n\n---\n\n${fourViewDescription}\n\n---\n\nCRITICAL OUTPUT REQUIREMENT: Generate ONE single image containing a 2×2 grid (4 panels): top-left=establishing wide shot, top-right=main activity zone, bottom-left=signature environmental detail, bottom-right=atmospheric variant (different lighting/time). No human figures. No text labels.${styleAppend}`;
+}
+
+/**
+ * 仅生成（并保存）场景四视图完整图片提示词到 scenes.polished_prompt，不触发图片生成。
+ * 与角色的 generateCharacterPromptOnly 对应：
+ *   Step 1: 文字AI将 location/time/prompt(原始描述) → fourViewDescription
+ *   Step 2: 拼接布局指令 + fourViewDescription + 硬性要求 → polished_prompt（完整英文图片提示词）
+ * 供「提取场景后异步预生成」和「重新生成提示词」按钮调用。
+ */
+async function generateScenePromptOnly(db, log, cfg, sceneId, modelName, style) {
   const sceneRow = db.prepare(
     'SELECT id, drama_id, location, time, prompt FROM scenes WHERE id = ? AND deleted_at IS NULL'
   ).get(Number(sceneId));
   if (!sceneRow) return { ok: false, error: 'scene not found' };
-  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(sceneRow.drama_id);
-  if (!drama) return { ok: false, error: 'unauthorized' };
 
-  const location = (sceneRow.location || '').toString().trim();
-  const time = (sceneRow.time || '').toString().trim();
-  const prompt = (sceneRow.prompt || '').toString().trim();
+  const location = (sceneRow.location || '').trim();
+  const time = (sceneRow.time || '').trim();
+  const rawPrompt = (sceneRow.prompt || '').trim();
   const styleText = (style && String(style).trim()) || cfg?.style?.default_style || '';
-
   const fourViewCfg = { ...cfg, style: { ...(cfg?.style || {}), default_style: styleText } };
 
-  // 构建场景文字描述输入
+  // 构建文字AI输入（location + time + 原始描述）
   const sceneDesc = [
     location ? `场景地点：${location}` : '',
     time ? `时间/时段：${time}` : '',
-    prompt ? `场景描述：${prompt}` : '',
-  ].filter(Boolean).join('\n');
-  const inputText = sceneDesc || (location || '未知场景');
+    rawPrompt ? `场景描述：${rawPrompt}` : '',
+  ].filter(Boolean).join('\n') || location || '未知场景';
 
-  // Step 1: 文本 AI 生成四视图提示词描述
   const systemPrompt = promptI18n.getScenePolishPrompt(fourViewCfg);
-  const userPrompt = `请根据以下场景信息，生成四格场景参考图的提示词：\n\n${inputText}`;
+  const userPrompt = `请根据以下场景信息，生成四格场景参考图的提示词：\n\n${sceneDesc}`;
 
-  log.info('[场景四视图] Step1 开始生成提示词', { scene_id: sceneId, location, time });
+  log.info('[场景提示词] Step1 开始生成四视图描述', { scene_id: sceneId, location, time });
 
   let fourViewDescription;
   try {
@@ -141,16 +162,84 @@ async function generateSceneFourViewImage(db, log, cfg, sceneId, modelName, styl
       max_tokens: 4000,
     });
   } catch (err) {
-    log.error('[场景四视图] Step1 文本AI失败，降级为直接使用场景描述', { error: err.message });
-    fourViewDescription = inputText;
+    log.error('[场景提示词] 文字AI失败', { error: err.message });
+    return { ok: false, error: err.message };
   }
 
-  log.info('[场景四视图] Step1 完成，开始Step2生图', { scene_id: sceneId, desc_length: (fourViewDescription || '').length });
+  if (!fourViewDescription || !fourViewDescription.trim()) {
+    return { ok: false, error: 'AI返回内容为空' };
+  }
 
-  // Step 2: 图片AI生成四视图，固定 16:9
-  // 图片生成API不支持独立 system_prompt，必须将布局规则合并进 prompt
-  const imageLayoutInstruction = promptI18n.getSceneGenerateImagePrompt();
-  const imagePrompt = `${imageLayoutInstruction}\n\n---\n\n${fourViewDescription}\n\n---\n\nCRITICAL OUTPUT REQUIREMENT: Generate ONE single image containing a 2×2 grid (4 panels): top-left=establishing wide shot, top-right=main activity zone, bottom-left=signature environmental detail, bottom-right=atmospheric variant (different lighting/time). No human figures. No text labels.`;
+  // Step 2: 拼接完整图片提示词（与 generateSceneFourViewImage 保持一致）
+  const polishedPrompt = buildSceneFourViewImagePrompt(fourViewDescription.trim(), styleText);
+
+  db.prepare('UPDATE scenes SET polished_prompt = ?, updated_at = ? WHERE id = ?').run(
+    polishedPrompt, new Date().toISOString(), Number(sceneId)
+  );
+  log.info('[场景提示词] 生成并保存完成', { scene_id: sceneId, length: polishedPrompt.length });
+  return { ok: true, polished_prompt: polishedPrompt };
+}
+
+/**
+ * 场景四视图生成：两步流程
+ * Step 1: 文本AI将 location/time/prompt 转换为四格场景参考图描述
+ * Step 2: 图片AI根据描述生成 16:9 四格场景参考图
+ * 如果已有 polished_prompt（预生成的完整提示词），直接使用，跳过 Step 1
+ */
+async function generateSceneFourViewImage(db, log, cfg, sceneId, modelName, style) {
+  const sceneRow = db.prepare(
+    'SELECT id, drama_id, location, time, prompt, polished_prompt FROM scenes WHERE id = ? AND deleted_at IS NULL'
+  ).get(Number(sceneId));
+  if (!sceneRow) return { ok: false, error: 'scene not found' };
+  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(sceneRow.drama_id);
+  if (!drama) return { ok: false, error: 'unauthorized' };
+
+  const styleText = (style && String(style).trim()) || cfg?.style?.default_style || '';
+  let imagePrompt;
+
+  if (sceneRow.polished_prompt && String(sceneRow.polished_prompt).trim()) {
+    imagePrompt = String(sceneRow.polished_prompt).trim();
+    log.info('[场景四视图] 使用已保存的 polished_prompt，跳过文字AI', { scene_id: sceneId });
+  } else {
+    const location = (sceneRow.location || '').toString().trim();
+    const time = (sceneRow.time || '').toString().trim();
+    const rawPrompt = (sceneRow.prompt || '').toString().trim();
+    const fourViewCfg = { ...cfg, style: { ...(cfg?.style || {}), default_style: styleText } };
+
+    const sceneDesc = [
+      location ? `场景地点：${location}` : '',
+      time ? `时间/时段：${time}` : '',
+      rawPrompt ? `场景描述：${rawPrompt}` : '',
+    ].filter(Boolean).join('\n');
+    const inputText = sceneDesc || (location || '未知场景');
+
+    const systemPrompt = promptI18n.getScenePolishPrompt(fourViewCfg);
+    const userMsg = `请根据以下场景信息，生成四格场景参考图的提示词：\n\n${inputText}`;
+
+    log.info('[场景四视图] Step1 开始生成提示词', { scene_id: sceneId, location, time });
+
+    let fourViewDescription;
+    try {
+      fourViewDescription = await aiClient.generateText(db, log, 'text', userMsg, systemPrompt, {
+        model: modelName || undefined,
+        max_tokens: 4000,
+      });
+    } catch (err) {
+      log.error('[场景四视图] Step1 文本AI失败，降级为直接使用场景描述', { error: err.message });
+      fourViewDescription = inputText;
+    }
+
+    imagePrompt = buildSceneFourViewImagePrompt(fourViewDescription, styleText);
+
+    // 顺带保存，供下次复用
+    try {
+      db.prepare('UPDATE scenes SET polished_prompt = ?, updated_at = ? WHERE id = ?').run(
+        imagePrompt, new Date().toISOString(), Number(sceneId)
+      );
+    } catch (_) {}
+
+    log.info('[场景四视图] Step1 完成，开始Step2生图', { scene_id: sceneId });
+  }
 
   const imageGen = imageClient.createAndGenerateImage(db, log, {
     drama_id: sceneRow.drama_id,
@@ -176,4 +265,5 @@ module.exports = {
   deleteScenesByEpisodeId,
   getSceneById,
   generateSceneFourViewImage,
+  generateScenePromptOnly,
 };

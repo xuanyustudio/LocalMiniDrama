@@ -3,5 +3,3 @@ dist/
 data/
 *.db
 .env
-config.yaml
-!config.example.yaml

@@ -106,10 +106,23 @@ function getStoryboardSystemPrompt(cfg) {
      * Stable → (0): Emotion remains unchanged
      * Weak ↓ (-1): Emotion subsiding
 
+5. **Narrative Segment Grouping**:
+   - Group consecutive shots into named narrative segments (e.g., "Arrival", "Confrontation", "Resolution")
+   - Each segment = a coherent dramatic beat or scene transition
+   - Segment rules:
+     * 1–3 segments for short scripts (≤10 shots)
+     * 3–6 segments for medium scripts (10–30 shots)
+     * Shot count per segment: suggest 3–8 shots (avoid 1-shot segments unless a major turning point)
+     * Opening shots: wide/establishing, closing shots: close-up/reaction to cap the beat
+
 [Output Requirements]
-1. Generate an array, each element is a shot containing:
-   - shot_number: Shot number
-   - scene_description: Scene (location + time, e.g., "bedroom interior, morning")
+1. Return a JSON array. Each element is one shot object containing ALL of the following fields:
+   - shot_number: Shot number (integer, starting from 1)
+   - title: Shot title (3–8 words, concise summary of this shot's key action or visual, e.g., "Lin Wei Enters the Room", "Tense Eye Contact")
+   - segment_index: Segment index (0-based integer, e.g., 0, 1, 2…)
+   - segment_title: Segment name (short 2–6 words, e.g., "Chance Encounter", "Hidden Truth Revealed")
+   - location: Location name (e.g., "bedroom interior", "rooftop", "hospital corridor")
+   - time: Time of day (e.g., "morning", "dusk", "night", "afternoon")
    - shot_type: Shot type (extreme long shot/long shot/medium shot/close-up/extreme close-up)
    - camera_angle: Camera angle (eye-level/low-angle/high-angle/side/back)
    - camera_movement: Camera movement (fixed/push/pull/pan/follow/tracking)
@@ -123,14 +136,14 @@ function getStoryboardSystemPrompt(cfg) {
 
 [Important Notes]
 - Shot count must match number of independent actions in the script (not allowed to merge or reduce)
-- Each shot must have clear action and result
+- Each shot must have clear action, result, AND title
 - Shot types must match storytelling rhythm (don't use same shot type continuously)
 - Emotion intensity must accurately reflect script atmosphere changes
-- **Character consistency**: The characters listed in each shot must exactly match who appears and acts in that shot's action/dialogue. Never list more characters than what the action actually describes.`;
+- segment_index must be sequential integers starting from 0; all shots in the same segment share the same index and title`;
   }
   const _sbOverride = _overrideCache['storyboard_system'];
   if (_sbOverride) {
-    return _sbOverride + '\n\n**重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**\n\n【重要提示】\n- 镜头数量必须与剧本中的独立动作数量匹配（不允许合并或减少）\n- 每个镜头必须有明确的动作和结果\n- 景别选择必须符合叙事节奏（不要连续使用同一景别）\n- 情绪强度必须准确反映剧本氛围变化\n- 【角色一致性】每个镜头的characters列表必须与该镜头action/dialogue中实际描写的人物严格一致，不得把（在场景中存在但本镜头动作未涉及）的角色列入';
+    return _sbOverride + '\n\n**重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**\n\n【重要提示】\n- 镜头数量必须与剧本中的独立动作数量匹配（不允许合并或减少）\n- 每个镜头必须有明确的动作和结果\n- 景别选择必须符合叙事节奏（不要连续使用同一景别）\n- 情绪强度必须准确反映剧本氛围变化';
   }
   return `【角色】你是一位资深影视分镜师，精通罗伯特·麦基的镜头拆解理论，擅长构建情绪节奏。
 
@@ -165,10 +178,23 @@ function getStoryboardSystemPrompt(cfg) {
      * 平稳 → (0)：情绪不变
      * 弱 ↓ (-1)：情绪回落
 
+5. **叙事段落分组**：
+   - 将连续镜头归组为命名段落（如"邂逅"、"矛盾激化"、"和解"）
+   - 每个段落 = 一个连贯的戏剧节拍或场景切换
+   - 分组规则：
+     * 短剧本（≤10个镜头）：1–3个段落
+     * 中等剧本（10–30个镜头）：3–6个段落
+     * 每段建议3–8个镜头，避免1镜头单独成段（除非是重大转折点）
+     * 段落开篇用大远景/远景建立环境，段落结尾用近景/特写收尾
+
 【输出要求】
-1. 生成一个数组，每个元素是一个镜头，包含：
-   - shot_number：镜头号
-   - scene_description：场景（地点+时间，如"卧室内，早晨"）
+1. 返回一个JSON数组，每个元素是一个镜头对象，必须包含以下**全部**字段：
+   - shot_number：镜头号（整数，从1开始）
+   - title：镜头标题（3–8字，简洁概括本镜头的核心动作或视觉重点，如"林薇走进房间"、"紧张的对视"）
+   - segment_index：段落索引（从0开始的整数，如 0、1、2……）
+   - segment_title：段落名称（简短2–6字，如"意外相遇"、"真相大白"）
+   - location：场景地点名称（如"卧室内"、"天台"、"医院走廊"）
+   - time：拍摄时间（如"清晨"、"黄昏"、"夜晚"、"午后"）
    - shot_type：景别（大远景/远景/中景/近景/特写）
    - camera_angle：机位角度（平视/仰视/俯视/侧面/背面）
    - camera_movement：运镜方式（固定/推镜/拉镜/摇镜/跟镜/移镜）
@@ -178,20 +204,20 @@ function getStoryboardSystemPrompt(cfg) {
    - emotion：当前情绪
    - emotion_intensity：情绪强度等级（3/2/1/0/-1）
 
+2. **构图与视觉设计参考**（生成分镜时运用）：
+   - 景别变化规律：禁止连续3个及以上镜头使用相同景别，情绪递进时逐步推近（远→中→近→特写）
+   - 构图建议：三分法（稳定叙事）/ 对角线（动态张力）/ 框架构图（增加纵深）/ 中心构图（庄重仪式感）
+   - 光线方向：在 atmosphere 字段中注明光源方向和色温（如"左侧冷蓝光，逆光轮廓"）
+   - 对话场景：使用正反打（过肩镜头交替），避免连续同向构图
+
 **重要：必须只返回纯JSON数组，不要包含任何markdown代码块、说明文字或其他内容。直接以 [ 开头，以 ] 结尾。**
 
 【重要提示】
 - 镜头数量必须与剧本中的独立动作数量匹配（不允许合并或减少）
-- 每个镜头必须有明确的动作和结果
+- 每个镜头必须有明确的 title（标题）、action（动作）和 result（结果）
 - 景别选择必须符合叙事节奏（不要连续使用同一景别）
 - 情绪强度必须准确反映剧本氛围变化
-- **角色一致性**：每个镜头的characters列表必须与该镜头action/dialogue中实际描写的人物严格一致，不得把（在场景中存在但本镜头动作未涉及）的角色列入
-
-5. **构图与视觉设计参考**（生成分镜时运用）：
-   - 景别变化规律：禁止连续3个及以上镜头使用相同景别，情绪递进时逐步推近（远→中→近→特写）
-   - 构图建议：三分法（稳定叙事）/ 对角线（动态张力）/ 框架构图（增加纵深）/ 中心构图（庄重仪式感）
-   - 光线方向：在 atmosphere 字段中注明光源方向和色温（如"左侧冷蓝光，逆光轮廓"）
-   - 对话场景：使用正反打（过肩镜头交替），避免连续同向构图`;
+- segment_index 必须从0开始递增的整数，同一段落内所有镜头共享相同的 segment_index 和 segment_title`;
 }
 
 function formatUserPrompt(cfg, key, ...args) {
@@ -208,6 +234,8 @@ function formatUserPrompt(cfg, key, ...args) {
       task_instruction: 'Break down the novel script into storyboard shots based on **independent action units**.',
       character_constraint: '**Important** — characters field rules:\n1. Only use character IDs (numbers) from the above character list. Do not invent IDs.\n2. Only include characters who **physically appear and act** in this specific shot. Do NOT list characters who are merely mentioned, offscreen, or appear in the overall scene but not in this shot.\n3. The number of characters listed must match who is described in the action/dialogue fields. If the action only describes one person, list only that one character.',
       scene_constraint: '**Important**: In the scene_id field, select the most matching background ID (number) from the above background list. If no suitable background exists, use null.',
+      prop_list_label: '【Available Prop List】',
+      prop_constraint: '**Important** — props field rules:\n1. Only use prop IDs (numbers) from the above prop list. Do not invent IDs.\n2. Only include props that are **visually present and actively used or prominently featured** in this specific shot.\n3. If no props from the list appear in the shot, use an empty array [].',
       frame_info: 'Shot information:\n%s\n\nPlease directly generate the image prompt for the first frame without any explanation:',
       key_frame_info: 'Shot information:\n%s\n\nPlease directly generate the image prompt for the key frame without any explanation:',
       last_frame_info: 'Shot information:\n%s\n\nPlease directly generate the image prompt for the last frame without any explanation:',
@@ -234,6 +262,8 @@ function formatUserPrompt(cfg, key, ...args) {
       task_instruction: '将小说剧本按**独立动作单元**拆解为分镜头方案。',
       character_constraint: '**重要** — characters字段填写规则：\n1. 只能使用上述角色列表中的角色ID（数字），不得自创ID。\n2. 只填写在**本镜头中实际出现并有具体行为**的角色。不要把"提到的"、"画面外的"、或整个场景里有但本镜头动作中未描述的角色也列进去。\n3. characters数量必须与action/dialogue中实际描写的人物数量一致。如果action只描述了一个人的动作，characters里就只填那一个人的ID。',
       scene_constraint: '**重要**：在scene_id字段中，必须从上述背景列表中选择最匹配的背景ID（数字）。如果没有合适的背景，则填null。',
+      prop_list_label: '【本集可用道具列表】',
+      prop_constraint: '**重要** — props字段填写规则：\n1. 只能使用上述道具列表中的道具ID（数字），不得自创ID。\n2. 只填写在**本镜头中视觉上出现并被使用或显著展示**的道具。\n3. 如果本镜头中没有列表中的道具出现，则填空数组[]。',
       frame_info: '镜头信息：\n%s\n\n请直接生成首帧的图像提示词，不要任何解释：',
       key_frame_info: '镜头信息：\n%s\n\n请直接生成关键帧的图像提示词，不要任何解释：',
       last_frame_info: '镜头信息：\n%s\n\n请直接生成尾帧的图像提示词，不要任何解释：',
@@ -258,25 +288,37 @@ function formatUserPrompt(cfg, key, ...args) {
   return t.replace(/%[sd]/g, () => (args[i] != null ? String(args[i++]) : ''));
 }
 
-/** 分镜用户提示词后缀：详细输出格式与要求 */
-function getStoryboardUserPromptSuffix(cfg) {
+/** 分镜用户提示词后缀：详细输出格式与要求
+ * @param {object} cfg - 配置对象
+ * @param {number|null} shotDuration - 单镜建议时长（秒），由后端从项目配置或总时长/数量推算后注入
+ */
+function getStoryboardUserPromptSuffix(cfg, shotDuration) {
   const lang = isEnglish(cfg) ? 'en' : 'zh';
+  const durationHint = shotDuration && Number.isFinite(Number(shotDuration)) && Number(shotDuration) > 0
+    ? Number(shotDuration)
+    : null;
   if (lang === 'en') {
+    const durationInstruction = durationHint
+      ? `approximately ${durationHint}s per shot (project setting), adjust ±1s based on dialogue length and action complexity`
+      : 'estimate per shot from dialogue length, action complexity, and emotion';
     return `
 
 **dialogue field**: "Character: \"line\"". Multiple: "A: \"...\" B: \"...\"". Monologue: "(Monologue) content". No dialogue: "".
 
-**Character and scene**: characters = array of character IDs of those who **actively appear and act in this shot** (must match what is described in action/dialogue — do not list bystanders or offscreen characters); scene_id = ID from scene list or null.
+**scene_id**: Select the most matching background ID from the scene list above, or null if none suitable.
 
-**duration (seconds)**: 4-12 per shot. Estimate from dialogue length, action complexity, emotion.
+**duration (seconds)**: ${durationInstruction}.
 
-**Output**: JSON with "storyboards" array. Each item: shot_number, title, shot_type, angle, time, location, scene_id, movement, action, dialogue, result, atmosphere, emotion, duration, bgm_prompt, sound_effect, characters (array of IDs), is_primary. Return ONLY valid JSON, no markdown.`;
+**Output**: JSON with "storyboards" array. Each item: shot_number, segment_index, segment_title, title, shot_type, angle, time, location, scene_id, movement, action, dialogue, result, atmosphere, emotion, duration, bgm_prompt, sound_effect, characters (array of IDs), props (array of prop IDs), is_primary. Return ONLY valid JSON, no markdown.`;
   }
-  const _sbUserLocked = `\n\n【输出格式】请以JSON格式输出，包含 "storyboards" 数组。每个镜头包含：shot_number, title, shot_type, angle, time, location, scene_id, movement, action, dialogue, result, atmosphere, emotion, duration, bgm_prompt, sound_effect, characters, is_primary。**必须只返回纯JSON，不要markdown。**`;
+  const _sbUserLocked = `\n\n【输出格式】请以JSON格式输出，包含 "storyboards" 数组。每个镜头包含：shot_number, segment_index, segment_title, title, shot_type, angle, time, location, scene_id, movement, action, dialogue, result, atmosphere, emotion, duration, bgm_prompt, sound_effect, characters（角色ID数组）, props（道具ID数组）, is_primary。**必须只返回纯JSON，不要markdown。**`;
   const _sbUserOverride = _overrideCache['storyboard_user_suffix'];
   if (_sbUserOverride) {
     return '\n\n' + _sbUserOverride + _sbUserLocked;
   }
+  const durationInstruction = durationHint
+    ? `每镜头约${durationHint}秒（项目配置），综合对话、动作、情绪可适当调整±1秒`
+    : '综合对话、动作、情绪估算每镜时长（秒）';
   return `
 
 【分镜要素】每个镜头聚焦单一动作，描述要详尽具体：
@@ -292,10 +334,10 @@ function getStoryboardUserPromptSuffix(cfg) {
 10. **观众情绪**：[情绪类型]（[强度：↑↑↑/↑↑/↑/→/↓]）
 
 **dialogue字段说明**：角色名："台词内容"。无对话时填空字符串""。
-**角色和背景要求**：characters只填**在本镜头action/dialogue中有实际描写行为**的角色ID，数量必须与动作描述中出现的人物一致（路人、画面外角色、仅被提及的角色均不填）；scene_id从场景列表选或null。
-**duration时长**：每镜头4-12秒，综合对话、动作、情绪估算。
+**scene_id**：从上方场景列表中选择最匹配的背景ID，如无合适背景则填null。
+**duration时长**：${durationInstruction}。
 
-【输出格式】请以JSON格式输出，包含 "storyboards" 数组。每个镜头包含：shot_number, title, shot_type, angle, time, location, scene_id, movement, action, dialogue, result, atmosphere, emotion, duration, bgm_prompt, sound_effect, characters, is_primary。**必须只返回纯JSON，不要markdown。**`;
+【输出格式】请以JSON格式输出，包含 "storyboards" 数组。每个镜头包含：shot_number, segment_index, segment_title, title, shot_type, angle, time, location, scene_id, movement, action, dialogue, result, atmosphere, emotion, duration, bgm_prompt, sound_effect, characters（角色ID数组）, props（道具ID数组）, is_primary。**必须只返回纯JSON，不要markdown。**`;
 }
 
 function getFirstFramePrompt(cfg) {
@@ -357,10 +399,18 @@ Return a JSON object containing:
 - 远景/全景：深景深，前后均清晰，交代空间关系
 - **风格要求**：${style}
 - **图片比例**：${imageRatio}
-输出格式：
-返回一个JSON对象，包含：
-- prompt：完整的中文图片生成提示词（详细的电影语言描述）
-- description：简化的中文描述（供参考）`;
+
+【5层结构输出格式】
+返回JSON对象，prompt 字段按以下5层顺序拼接成英文，各层间用逗号分隔（不加层标签文字）：
+第1层-镜头设计：景别 + 机位角度 + 构图方式（如 "medium shot, eye-level angle, rule of thirds"）
+第2层-光线：光源方向 + 光线质感 + 色温（如 "left-side soft warm light, golden hour glow"）
+第3层-内容焦点：角色（外貌特征+初始姿态+表情）+ 场景环境关键细节
+第4层-氛围：情绪基调 + 色彩倾向（如 "quiet tense atmosphere, desaturated cool palette"）
+第5层-视觉风格：${style ? style + ', ' : ''}cinematic storyboard, ${imageRatio} aspect ratio, high detail
+
+JSON字段：
+- prompt：按上述5层组装的英文图片提示词（直接给图片AI使用）
+- description：一句话中文描述（供人类参考）`;
 }
 
 function getKeyFramePrompt(cfg) {
@@ -424,10 +474,18 @@ Return a JSON object containing:
 - 高对比度色调强化高潮感
 - **风格要求**：${style}
 - **图片比例**：${imageRatio}
-输出格式：
-返回一个JSON对象，包含：
-- prompt：完整的中文图片生成提示词（详细的电影语言描述）
-- description：简化的中文描述（供参考）`;
+
+【5层结构输出格式】
+返回JSON对象，prompt 字段按以下5层顺序拼接成英文，各层间用逗号分隔（不加层标签文字）：
+第1层-镜头设计：景别 + 机位角度 + 构图方式（如 "close-up, low angle, diagonal composition"）
+第2层-光线：光源方向 + 光线质感 + 色温（如 "dramatic rim light, strong chiaroscuro, warm saturated"）
+第3层-内容焦点：角色（外貌特征+高潮姿态+情绪表情）+ 场景关键细节
+第4层-氛围：情绪基调 + 色彩倾向（如 "intense confrontation, high contrast, vivid saturated palette"）
+第5层-视觉风格：${style ? style + ', ' : ''}cinematic storyboard, ${imageRatio} aspect ratio, dynamic tension
+
+JSON字段：
+- prompt：按上述5层组装的英文图片提示词（直接给图片AI使用）
+- description：一句话中文描述（供人类参考）`;
 }
 
 function getLastFramePrompt(cfg) {
@@ -493,10 +551,18 @@ Return a JSON object containing:
 - 整体色调和氛围承载本镜头情绪的收尾重量
 - **风格要求**：${style}
 - **图片比例**：${imageRatio}
-输出格式：
-返回一个JSON对象，包含：
-- prompt：完整的中文图片生成提示词（详细的电影语言描述）
-- description：简化的中文描述（供参考）`;
+
+【5层结构输出格式】
+返回JSON对象，prompt 字段按以下5层顺序拼接成英文，各层间用逗号分隔（不加层标签文字）：
+第1层-镜头设计：景别 + 机位角度 + 构图方式（如 "wide shot, high angle, centered composition"）
+第2层-光线：光源方向 + 光线质感 + 色温（如 "fading side light, soft diffused, cool blue tone"）
+第3层-内容焦点：角色（外貌特征+结果姿态+情绪余韵）+ 场景最终状态
+第4层-氛围：情绪基调 + 色彩倾向（如 "quiet melancholy, muted desaturated palette, stillness"）
+第5层-视觉风格：${style ? style + ', ' : ''}cinematic storyboard, ${imageRatio} aspect ratio, emotional resolution
+
+JSON字段：
+- prompt：按上述5层组装的英文图片提示词（直接给图片AI使用）
+- description：一句话中文描述（供人类参考）`;
 }
 
 /** 道具提取系统提示词（system prompt，剧本内容由 user prompt 单独传入） */
@@ -685,7 +751,7 @@ function getDefaultPromptBody(key) {
       return '你是一位专业的剧本道具分析师，擅长从剧本中提取具有视觉特征的关键道具。\n\n你的任务是根据提供的剧本内容，提取并整理所有对剧情有重要作用或有特殊视觉特征的关键道具。\n\n要求：\n1. 只提取对剧情发展有重要作用、或有特殊视觉特征的关键道具。\n2. 普通的生活用品（如普通的杯子、笔）如果无特殊剧情意义不需要提取。\n3. 如果道具有明确的归属者，请在描述中注明。\n4. "image_prompt"字段是用于AI生成图片的英文提示词，必须详细描述道具的外观、材质、颜色、风格。';
 
     case 'storyboard_user_suffix':
-      return '【分镜要素】每个镜头聚焦单一动作，描述要详尽具体：\n1. **镜头标题(title)**：用3-5个字概括该镜头的核心内容或情绪\n2. **时间**：[清晨/午后/深夜/具体时分+详细光线描述]\n3. **地点**：[场景完整描述+空间布局+环境细节]\n4. **镜头设计**：**景别(shot_type)**、**镜头角度(angle)**、**运镜方式(movement)**\n5. **人物行为**：**详细动作描述**\n6. **对话/独白**：提取该镜头中的完整对话或独白内容（如无对话则为空字符串）\n7. **画面结果**：动作的即时后果+视觉细节+氛围变化\n8. **环境氛围**：光线质感+色调+声音环境+整体氛围\n9. **配乐提示(bgm_prompt)**、**音效描述(sound_effect)**\n10. **观众情绪**：[情绪类型]（[强度：↑↑↑/↑↑/↑/→/↓]）\n\n**dialogue字段说明**：角色名："台词内容"。无对话时填空字符串""。\n**角色和背景要求**：characters只填**在本镜头action/dialogue中有实际描写行为**的角色ID，数量必须与动作描述中出现的人物一致（路人、画面外角色、仅被提及的角色均不填）；scene_id从场景列表选或null。\n**duration时长**：每镜头4-12秒，综合对话、动作、情绪估算。';
+      return '【分镜要素】每个镜头聚焦单一动作，描述要详尽具体：\n1. **镜头标题(title)**：用3-5个字概括该镜头的核心内容或情绪\n2. **时间**：[清晨/午后/深夜/具体时分+详细光线描述]\n3. **地点**：[场景完整描述+空间布局+环境细节]\n4. **镜头设计**：**景别(shot_type)**、**镜头角度(angle)**、**运镜方式(movement)**\n5. **人物行为**：**详细动作描述**\n6. **对话/独白**：提取该镜头中的完整对话或独白内容（如无对话则为空字符串）\n7. **画面结果**：动作的即时后果+视觉细节+氛围变化\n8. **环境氛围**：光线质感+色调+声音环境+整体氛围\n9. **配乐提示(bgm_prompt)**、**音效描述(sound_effect)**\n10. **观众情绪**：[情绪类型]（[强度：↑↑↑/↑↑/↑/→/↓]）\n\n**dialogue字段说明**：角色名："台词内容"。无对话时填空字符串""。\n**scene_id**：从上方场景列表中选择最匹配的背景ID，如无合适背景则填null。\n**duration时长**：综合对话、动作、情绪估算每镜时长（具体目标秒数由系统自动注入）。';
 
     case 'first_frame_prompt':
       return '你是一个专业的电影分镜图像生成提示词专家。请根据提供的镜头信息，生成适合AI图像生成的提示词。\n\n重要：这是镜头的首帧 - 一个完全静态的画面，展示动作发生之前的初始状态。\n\n核心规则：\n1. 聚焦初始静态状态 - 动作发生之前的那一瞬间，禁止包含任何动作或运动描述\n2. 描述角色在画面中的位置（画面左/中/右）、朝向（面向/背对/侧面）、初始姿态和表情\n3. 如提供了角色外貌信息，必须将其融入提示词（服装、发型、面部特征等）\n\n【电影语言规范（必须应用）】\n\n构图规则（根据景别选择）：\n- 三分法：主体置于三分线交点，稳定平衡，适合大多数叙事镜头\n- 框架构图：用门窗/树枝/栏杆形成自然画框，突出主体，增加纵深\n- 中心构图：对称庄重，适合特写和仪式感场景\n- 前景遮挡：前景虚化元素增加层次感\n\n光线设计（必须描述）：\n- 光源方向：左侧光/右侧光/顶光/逆光（轮廓光）/底光\n- 光线质感：硬光（强烈阴影，戏剧张力）/ 柔光（柔和过渡，自然温馨）\n- 色温：暖光（金黄/橙红，温暖怀旧）/ 冷光（蓝调/青白，冷漠疏离）\n\n景深设置：\n- 特写/近景：浅景深，背景虚化，突出人物情绪\n- 中景：中等景深，人物与环境均清晰\n- 远景/全景：深景深，前后均清晰，交代空间关系';
@@ -1002,6 +1068,89 @@ function getRoleGenerateImagePrompt() {
 - Soft, even lighting with no harsh shadows`;
 }
 
+/**
+ * 分镜图片 prompt 二次优化：将分镜叙事描述转化为图片生成模型优化的 prompt
+ * 供 imageService.js Step3.5 调用，结果回写 image_generations.prompt
+ */
+function getImagePolishPrompt() {
+  return `You are an expert image prompt engineer specializing in cinematic storyboard visuals.
+
+Your task: Transform a storyboard description into an optimized image generation prompt.
+
+Rules:
+1. Output ONLY the optimized prompt — no explanations, no labels, no JSON
+2. Length: 60–120 words (concise but rich in visual detail)
+3. Structure: [Shot framing] + [Scene/environment] + [Character(s) action/pose] + [Lighting] + [Atmosphere/mood] + [Style]
+4. Use vivid, concrete visual language — painterly, cinematic, photorealistic
+5. Include: camera angle, depth of field, lighting direction, color palette hint
+6. Preserve: character names as provided (they map to reference images)
+7. Avoid: abstract emotions ("feels sad"), narrative descriptions ("she thinks about"), plot summaries
+8. End with style tokens if a style was provided
+
+Input format you will receive:
+PROMPT: <original storyboard prompt>
+STYLE: <art style if any>
+ASSETS: <character/scene names mapped to reference images>`;
+}
+
+/**
+ * 角色视觉锚点提取：从 appearance 文本中提炼 6层结构化锚点 JSON
+ * 供 characterGenerationService 调用，生成结果存入 identity_anchors 字段
+ */
+function getIdentityAnchorsPrompt() {
+  return `You are a character visual analyst. Extract precise visual identity anchors from character appearance descriptions.
+
+Output ONLY a valid JSON object with these exact 6 keys:
+{
+  "face_shape": "precise description of face/skull shape, jawline, cheekbones (e.g. oval face, sharp jawline, high cheekbones)",
+  "facial_features": "eye shape+color+Hex, nose bridge+tip, lip thickness+shape (e.g. almond eyes #3D2B1F, straight nose, thin lips)",
+  "unique_marks": "scars, moles, tattoos, birthmarks, distinctive features — or 'none'",
+  "color_anchors": {
+    "hair": "#HexCode (e.g. #1A0A00 for black, #C8A96E for blonde)",
+    "eyes": "#HexCode",
+    "skin": "#HexCode (e.g. #F5DEB3 for wheat, #FDDBB4 for fair)",
+    "primary_outfit": "#HexCode of dominant clothing color"
+  },
+  "skin_texture": "skin tone description + texture (e.g. fair porcelain smooth, tanned slightly weathered)",
+  "hair_style": "length + style + texture (e.g. shoulder-length wavy black hair with loose strands, short crew cut)"
+}
+
+Rules:
+- Use Hex color codes for ALL color values — never use color names like "black" or "brown"
+- Extract ONLY what is explicitly stated; infer Hex values from color descriptions
+- Keep each field concise (1-2 sentences max)
+- If information is missing for a field, write "unspecified"
+- Output ONLY the JSON object, no markdown, no explanation`;
+}
+
+/**
+ * 道具单视图图片提示词润色器
+ * 将道具描述转换为精准的 AI 绘图提示词（单图，突出道具本体）
+ */
+function getPropPolishPrompt(cfg) {
+  const style = cfg?.style?.default_style || '';
+  return `# 道具图片提示词生成器
+
+## 你的身份
+你是专业的影视道具设计师，负责将道具描述转换为 AI 绘图的精准提示词。
+
+## 核心规则
+
+### 提取与聚焦
+- **主体突出**：画面中心必须是道具本体，占据画面 60% 以上
+- **背景简洁**：纯色背景或渐变背景，禁止复杂环境背景
+- **细节精准**：材质质感、光泽、颜色要具体可描绘（如"哑光黑色金属表面，轻微划痕，油迹反光"）
+- **禁止添加**：人物、角色手持、场景环境、文字标注${style ? '\n- **画风风格**：' + style : ''}
+
+### 视角与构图
+- 使用 3/4 俯视角或正面视角，展示道具最具辨识度的面
+- 光线为柔和的工作室灯光（Studio lighting），避免强烈阴影遮挡细节
+
+### 输出格式
+直接输出一段英文 prompt（约 60-120 词），不要任何解释、标题或列表。
+格式：[道具名称及类型], [材质与质感描述], [颜色与光泽], [尺寸感与细节], [构图], [背景], [光线], [画风]${style ? ', ' + style + ' style' : ''}`;
+}
+
 module.exports = {
   getLanguage,
   isEnglish,
@@ -1020,6 +1169,9 @@ module.exports = {
   getRoleGenerateImagePrompt,
   getScenePolishPrompt,
   getSceneGenerateImagePrompt,
+  getImagePolishPrompt,
+  getIdentityAnchorsPrompt,
+  getPropPolishPrompt,
   loadOverridesIntoCache,
   setOverrideInMemory,
   clearOverrideInMemory,

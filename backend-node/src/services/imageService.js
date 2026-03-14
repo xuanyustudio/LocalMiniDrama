@@ -58,6 +58,8 @@ const fs = require('fs');
 const imageClient = require('./imageClient');
 const taskService = require('./taskService');
 const uploadService = require('./uploadService');
+const aiClient = require('./aiClient');
+const promptI18n = require('./promptI18n');
 
 /**
  * 将四宫格整图拆成 4 张子图，保存到本地，并在 image_generations 表中分别建立记录。
@@ -537,22 +539,27 @@ async function processImageGeneration(db, log, imageGenId) {
         const cfg = loadConfig();
         const sbRow = db.prepare('SELECT * FROM storyboards WHERE id = ? AND deleted_at IS NULL').get(Number(row.storyboard_id));
         const sbAngle = sbRow?.angle || null;
+        const sbAngleH = sbRow?.angle_h || null;
+        const sbAngleV = sbRow?.angle_v || null;
+        const sbAngleS = sbRow?.angle_s || null;
         log.info('[图生] 单张分镜图 ── 调试信息', {
           id: imageGenId,
           storyboard_id: row.storyboard_id,
           angle_in_db: sbAngle,
+          angle_struct: sbAngleH ? `${sbAngleH}/${sbAngleV}/${sbAngleS}` : '(旧格式)',
           prompt_preview: (row.prompt || '').slice(0, 200),
         });
-        if (sbAngle) {
+        if (sbAngle || sbAngleH) {
           const isEn = (cfg?.language || 'zh') !== 'zh';
-          const angleDesc = framePromptService.expandAngleDescription(sbAngle, isEn);
+          // 优先使用结构化三元组（更精准），降级到旧文本
+          const angleDesc = framePromptService.expandAngleDescription(sbAngle, isEn, sbAngleH, sbAngleV, sbAngleS);
           if (angleDesc) {
             const alreadyHas = row.prompt && row.prompt.toLowerCase().includes(angleDesc.toLowerCase().slice(0, 15));
             if (!alreadyHas) {
               row.prompt = (row.prompt || '') + ', ' + angleDesc;
               db.prepare('UPDATE image_generations SET prompt = ?, updated_at = ? WHERE id = ?')
                 .run(row.prompt, new Date().toISOString(), imageGenId);
-              log.info('[图生] 已注入角度描述到提示词', { id: imageGenId, angle: sbAngle, angleDesc });
+              log.info('[图生] 已注入角度描述到提示词', { id: imageGenId, angle: sbAngle, angle_struct: `${sbAngleH}/${sbAngleV}/${sbAngleS}`, angleDesc });
             }
           }
         }
@@ -643,6 +650,35 @@ async function processImageGeneration(db, log, imageGenId) {
             }
           } catch (_) {}
         }
+        // ── 补充：从 storyboard_characters 关联表查 character_libraries 的四视图 URL ──
+        // 角色库中生成了四视图（four_view_image_url）的角色优先作为参考图
+        try {
+          const libLinks = db.prepare('SELECT character_id FROM storyboard_characters WHERE storyboard_id = ?').all(row.storyboard_id);
+          const coveredNames = new Set();
+          for (const link of libLinks.slice(0, 3)) {
+            const lib = db.prepare(
+              'SELECT id, name, four_view_image_url, image_url, local_path FROM character_libraries WHERE id = ? AND deleted_at IS NULL'
+            ).get(link.character_id);
+            if (!lib) continue;
+            if (coveredNames.has(lib.name)) continue;
+            // 优先使用四视图拆分面板（quad_panel_1=正面全身），次选 four_view_image_url，再选普通主图
+            const libPanel = db.prepare(
+              `SELECT local_path, image_url FROM image_generations
+               WHERE character_id = ? AND frame_type = 'quad_panel_1' AND status = 'completed'
+               ORDER BY id DESC LIMIT 1`
+            ).get(lib.id);
+            const libRef = (libPanel && (libPanel.local_path || libPanel.image_url))
+              || lib.four_view_image_url || lib.local_path || lib.image_url;
+            if (libRef && !refs.includes(libRef)) {
+              refs.push(libRef);
+              const isPanel = !!(libPanel && (libPanel.local_path || libPanel.image_url));
+              const isFourView = !isPanel && !!lib.four_view_image_url;
+              refLabels.push(`Image ${refs.length}: character appearance reference for "${lib.name || 'character'}"${isPanel ? ' (front full-body view)' : isFourView ? ' (four-view reference sheet)' : ' (character image)'}`);
+              coveredNames.add(lib.name);
+            }
+          }
+        } catch (_) {}
+
         if (refs.length > 0) {
           reference_image_urls = refs;
           reference_source = 'storyboard 自动解析';
@@ -660,6 +696,61 @@ async function processImageGeneration(db, log, imageGenId) {
       paths: (reference_image_urls || []).map(s => String(s).slice(0, 80)),
       elapsed: elapsed(),
     });
+
+    // ── Step 2.3: 参考图智能过滤（仅单帧分镜 + 多张参考图时生效）────────────────────────────
+    // 策略：从 reference_context_note 中提取角色名，判断是否在当前镜头的提示词里被提及。
+    // 场景参考图始终保留；未被提及的角色参考图跳过，减少无关图片对模型的干扰。
+    if (
+      row.storyboard_id &&
+      row.frame_type !== 'quad_grid' &&
+      row.frame_type !== 'nine_grid' &&
+      reference_image_urls && reference_image_urls.length > 1 &&
+      reference_context_note
+    ) {
+      try {
+        const promptText = ((row.prompt || '') + ' ' + (row.description || '')).toLowerCase();
+        const labels = reference_context_note.split('\n');
+        const filteredRefs = [];
+        const filteredLabels = [];
+
+        for (let fi = 0; fi < reference_image_urls.length; fi++) {
+          const label = labels[fi] || '';
+          const isCharRef = /character appearance reference/i.test(label);
+          if (!isCharRef) {
+            // 场景/其它参考图 → 始终保留
+            filteredRefs.push(reference_image_urls[fi]);
+            filteredLabels.push(label);
+            continue;
+          }
+          // 提取角色名（格式：character appearance reference for "姓名"）
+          const nameMatch = label.match(/for\s+"([^"]+)"/i);
+          const charName = nameMatch ? nameMatch[1].trim() : '';
+          const nameInPrompt = charName && promptText.includes(charName.toLowerCase());
+          if (nameInPrompt || !charName) {
+            filteredRefs.push(reference_image_urls[fi]);
+            filteredLabels.push(label);
+          } else {
+            log.info('[图生] Step2.3 过滤不相关角色参考图', { id: imageGenId, name: charName });
+          }
+        }
+
+        // 若过滤后至少有 1 张，则更新；否则保留全部（避免误杀）
+        if (filteredRefs.length > 0 && filteredRefs.length < reference_image_urls.length) {
+          reference_image_urls = filteredRefs;
+          // 重新编号 Image N: 标签
+          reference_context_note = filteredLabels
+            .map((lbl, idx) => lbl.replace(/^Image\s+\d+/i, `Image ${idx + 1}`))
+            .join('\n');
+          log.info('[图生] Step2.3 参考图过滤完成', {
+            id: imageGenId,
+            before: reference_image_urls.length + filteredLabels.length - filteredRefs.length,
+            after: filteredRefs.length,
+          });
+        }
+      } catch (filterErr) {
+        log.warn('[图生] Step2.3 参考图过滤异常，使用全部参考图', { id: imageGenId, error: filterErr.message });
+      }
+    }
 
     // ── Step 2.5: 单张分镜图 + 有参考图时，记录参考图映射（由 callGeminiImageApi 处理 parts 结构）───
     // Gemini 正确做法：文字说明→参考图→生成指令（交替结构），在 imageClient 中组装
@@ -696,16 +787,51 @@ async function processImageGeneration(db, log, imageGenId) {
     }
     log.info('[图生] Step3 尺寸', { id: imageGenId, size: imageSize, elapsed: elapsed() });
 
+    // ── Step 3.5: 分镜 prompt 文本AI二次优化（仅分镜单帧，且 ai_model_map 中配置了 image_polish 才启用）──
+    let finalPrompt = row.prompt;
+    const isSingleStoryboard = row.storyboard_id && row.frame_type !== 'quad_grid' && row.frame_type !== 'nine_grid';
+    if (isSingleStoryboard && row.prompt) {
+      try {
+        const polishMapped = aiClient.getConfigFromModelMap(db, 'image_polish');
+        if (polishMapped) {
+          log.info('[图生] Step3.5 文本AI优化 prompt 开始', { id: imageGenId, elapsed: elapsed() });
+          const style = cfg?.style?.default_style || '';
+          const assetNames = (reference_context_note || '').split('\n').map((l) => l.replace(/^Image \d+: [^"]*"([^"]+)".*/, '$1')).filter(Boolean).join(', ');
+          const userPrompt = `PROMPT: ${row.prompt}\nSTYLE: ${style || 'cinematic'}\nASSETS: ${assetNames || 'none'}`;
+          const systemPrompt = promptI18n.getImagePolishPrompt();
+          const polishedPrompt = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+            scene_key: 'image_polish',
+            max_tokens: 300,
+            temperature: 0.3,
+          });
+          if (polishedPrompt && polishedPrompt.trim().length > 10) {
+            finalPrompt = polishedPrompt.trim();
+            db.prepare('UPDATE image_generations SET prompt = ?, updated_at = ? WHERE id = ?').run(
+              finalPrompt, new Date().toISOString(), imageGenId
+            );
+            log.info('[图生] Step3.5 prompt 优化完成', {
+              id: imageGenId,
+              original_len: row.prompt.length,
+              polished_len: finalPrompt.length,
+              preview: finalPrompt.slice(0, 100),
+              elapsed: elapsed(),
+            });
+          }
+        }
+      } catch (polishErr) {
+        log.warn('[图生] Step3.5 prompt 优化失败，使用原始 prompt', { id: imageGenId, error: polishErr.message });
+      }
+    }
+
     // ── Step 4: 调用图生 API ─────────────────────────────────────────
     log.info('[图生] Step4 调用图生 API →', { id: imageGenId, elapsed: elapsed() });
     const tApi = Date.now();
     // 单张分镜图时，把参考图标签（reference_context_note）传给 Gemini，
     // 在 callGeminiImageApi 里解析为 per-image 标签，交替插入 parts 结构
-    const isSingleStoryboard = row.storyboard_id && row.frame_type !== 'quad_grid' && row.frame_type !== 'nine_grid';
     const apiSystemPrompt = (isSingleStoryboard && reference_context_note) ? reference_context_note : undefined;
 
     const result = await imageClient.callImageApi(db, log, {
-      prompt: row.prompt,
+      prompt: finalPrompt,
       model: row.model,
       size: imageSize,
       quality: row.quality,

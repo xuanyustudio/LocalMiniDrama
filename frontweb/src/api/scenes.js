@@ -1,6 +1,12 @@
 import request from '@/utils/request'
 
 export const sceneAPI = {
+  get(sceneId) {
+    return request.get(`/scenes/${sceneId}`)
+  },
+  generatePrompt(sceneId, model, style) {
+    return request.post(`/scenes/${sceneId}/generate-prompt`, { model, style })
+  },
   create(data) {
     return request.post('/scenes', data)
   },

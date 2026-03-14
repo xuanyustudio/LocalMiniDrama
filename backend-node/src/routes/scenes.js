@@ -5,6 +5,32 @@ const imageService = require('../services/imageService');
 
 function routes(db, log, cfg) {
   return {
+    getOne: (req, res) => {
+      try {
+        const scene = sceneService.getSceneById(db, Number(req.params.scene_id));
+        if (!scene) return response.notFound(res, '场景不存在');
+        response.success(res, { scene });
+      } catch (err) {
+        log.error('scenes getOne', { error: err.message });
+        response.internalError(res, err.message);
+      }
+    },
+    generatePrompt: async (req, res) => {
+      try {
+        const body = req.body || {};
+        const out = await sceneService.generateScenePromptOnly(
+          db, log, cfg, req.params.scene_id, body.model || undefined, body.style || undefined
+        );
+        if (!out.ok) {
+          if (out.error === 'scene not found') return response.notFound(res, '场景不存在');
+          return response.badRequest(res, out.error);
+        }
+        response.success(res, { message: '提示词已生成', polished_prompt: out.polished_prompt });
+      } catch (err) {
+        log.error('scenes generatePrompt', { error: err.message });
+        response.internalError(res, err.message);
+      }
+    },
     update: (req, res) => {
       try {
         const out = sceneService.updateScene(db, log, req.params.scene_id, req.body || {});

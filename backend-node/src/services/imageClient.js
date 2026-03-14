@@ -7,6 +7,46 @@ const uploadService = require('./uploadService');
 const taskService = require('./taskService');
 const { loadConfig } = require('../config');
 
+// sharp 惰性加载（参考图压缩用，sharp 已在 package.json 中声明）
+let _sharp = null;
+function getSharp() {
+  if (!_sharp) {
+    try { _sharp = require('sharp'); } catch (_) {}
+  }
+  return _sharp;
+}
+
+/**
+ * 压缩单张参考图 buffer，目标 ≤ targetKB（默认 2048KB=2MB）
+ * 用 JPEG 递减质量压缩直到达标或质量降到最低阈值。
+ * 若 sharp 不可用或压缩后更大，返回原始 buffer。
+ */
+async function compressImageBuffer(buffer, mimeType, targetKB = 2048, log = null) {
+  const sharp = getSharp();
+  if (!sharp) return { buffer, mimeType };
+  const targetBytes = targetKB * 1024;
+  if (buffer.length <= targetBytes) return { buffer, mimeType };
+  try {
+    let quality = 80;
+    let compressed = await sharp(buffer).jpeg({ quality }).toBuffer();
+    while (compressed.length > targetBytes && quality > 30) {
+      quality -= 15;
+      compressed = await sharp(buffer).jpeg({ quality }).toBuffer();
+    }
+    if (compressed.length < buffer.length) {
+      if (log) log.info('[参考图压缩] 压缩完成', {
+        original_kb: Math.round(buffer.length / 1024),
+        compressed_kb: Math.round(compressed.length / 1024),
+        quality,
+      });
+      return { buffer: compressed, mimeType: 'image/jpeg' };
+    }
+  } catch (e) {
+    if (log) log.warn('[参考图压缩] sharp 压缩失败，使用原图', { error: e.message });
+  }
+  return { buffer, mimeType };
+}
+
 // 惰性加载配置，避免循环依赖与启动顺序问题
 let _appConfig = null;
 function getAppConfig() {
@@ -759,9 +799,17 @@ async function callGeminiImageApi(db, config, log, opts) {
       read_ms: Date.now() - tRead, elapsed: elapsed(),
     });
 
+    // 超过 10MB 直接跳过（Gemini 硬限制）
     if (imageBuffer.length > 10 * 1024 * 1024) {
       log.warn('[Gemini图生] 参考图 超过10MB，跳过', { image_gen_id, ref_index: i, size_mb: (imageBuffer.length / 1024 / 1024).toFixed(1) });
       continue;
+    }
+
+    // 单张超过 2MB 时用 sharp 压缩到 2MB 以内（防止单图过大拖慢或超出模型限制）
+    if (imageBuffer.length > 2 * 1024 * 1024) {
+      const compressed = await compressImageBuffer(imageBuffer, mimeType, 2048, log);
+      imageBuffer = compressed.buffer;
+      mimeType = compressed.mimeType;
     }
 
     let imagePart;

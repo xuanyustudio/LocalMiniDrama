@@ -68,23 +68,44 @@ async function processBackgroundExtraction(db, cfg, log, taskID, episodeId, mode
     taskService.updateTaskStatus(db, taskID, 'failed', 0, '剧本内容为空');
     return;
   }
+
+  // 合并风格：优先用传入的 style 参数，其次用 drama.style，最后用 cfg.style.default_style（与角色/道具提取保持一致）
+  let effectiveCfg = cfg;
+  try {
+    const dramaRow = db.prepare('SELECT style, metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(episode.drama_id);
+    const resolvedStyle = (style && String(style).trim())
+      || (dramaRow?.style && String(dramaRow.style).trim())
+      || '';
+    const styleOverrides = {};
+    if (resolvedStyle) styleOverrides.default_style = resolvedStyle;
+    if (dramaRow?.metadata) {
+      const meta = typeof dramaRow.metadata === 'string' ? JSON.parse(dramaRow.metadata) : dramaRow.metadata;
+      if (meta?.aspect_ratio) styleOverrides.default_image_ratio = meta.aspect_ratio;
+    }
+    if (Object.keys(styleOverrides).length > 0) {
+      effectiveCfg = { ...cfg, style: { ...(cfg?.style || {}), ...styleOverrides } };
+    }
+    // 更新最终采用的风格，供后续异步生成使用
+    style = resolvedStyle || style;
+  } catch (_) {}
+
   const requestedLanguage = normalizeLanguage(language);
-  const configuredLanguage = normalizeLanguage(promptI18n.getLanguage(cfg));
+  const configuredLanguage = normalizeLanguage(promptI18n.getLanguage(effectiveCfg));
   let effectiveLanguage = requestedLanguage || configuredLanguage;
   if (!requestedLanguage && effectiveLanguage === 'en' && hasChinese(scriptContent)) {
     effectiveLanguage = 'zh';
   }
-  const cfgForPrompt = withLanguage(cfg, effectiveLanguage);
+  const cfgForPrompt = withLanguage(effectiveCfg, effectiveLanguage);
   let backgroundsInfo;
   try {
     backgroundsInfo = await extractBackgroundsFromScript(
       db,
-      cfgForPrompt,
+      cfgForPrompt,  // 已包含 effectiveCfg + language
       log,
       String(scriptContent),
       episode.drama_id,
       model,
-      style
+      style  // 作为 prompt 追加（extractBackgroundsFromScript 内部会用到）
     );
   } catch (err) {
     log.error('Background extraction AI failed', { error: err.message, task_id: taskID });
@@ -116,7 +137,18 @@ async function processBackgroundExtraction(db, cfg, log, taskID, episodeId, mode
       time: bg.time,
       prompt: bg.prompt,
     });
-    if (scene) scenes.push(scene);
+    if (scene) {
+      scenes.push(scene);
+      // polished_prompt 是完整四视图图片提示词，提取后始终为空，需要异步预生成
+      if (effectiveCfg) {
+        const capturedStyle = style;
+        setImmediate(() => {
+          sceneService.generateScenePromptOnly(db, log, effectiveCfg, scene.id, undefined, capturedStyle).catch((err) => {
+            log.warn('[提取场景] 预生成polished_prompt失败', { scene_id: scene.id, error: err.message });
+          });
+        });
+      }
+    }
   }
   taskService.updateTaskResult(db, taskID, {
     scenes,

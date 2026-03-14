@@ -153,6 +153,11 @@ function ensureAllColumns(database) {
     { name: 'composed_image',    type: 'TEXT' },
     { name: 'result',            type: 'TEXT' },
     { name: 'error_msg',         type: 'TEXT' },
+    { name: 'segment_index',     type: 'INTEGER DEFAULT 0' },  // 剧情段落索引（0-based）
+    { name: 'segment_title',     type: 'TEXT' },               // 剧情段落名称
+    { name: 'angle_h',           type: 'TEXT' },               // 水平方向（front/left/back/right...）
+    { name: 'angle_v',           type: 'TEXT' },               // 俯仰角度（worm/low/eye_level/high）
+    { name: 'angle_s',           type: 'TEXT' },               // 景别（close_up/medium/wide）
     { name: 'status',            type: 'TEXT DEFAULT \'draft\'' },
     { name: 'created_at',        type: 'TEXT' },
     { name: 'updated_at',        type: 'TEXT' },
@@ -161,21 +166,26 @@ function ensureAllColumns(database) {
 
   // --- characters ---
   ensureColumns(database, 'characters', [
-    { name: 'drama_id',    type: 'INTEGER DEFAULT 0' },
-    { name: 'name',        type: 'TEXT NOT NULL DEFAULT \'\'' },
-    { name: 'role',        type: 'TEXT' },
-    { name: 'description', type: 'TEXT' },
-    { name: 'personality', type: 'TEXT' },
-    { name: 'appearance',  type: 'TEXT' },
-    { name: 'image_url',    type: 'TEXT' },
-    { name: 'local_path',   type: 'TEXT' },
-    { name: 'extra_images', type: 'TEXT' },
-    { name: 'voice_style',  type: 'TEXT' },
-    { name: 'sort_order',  type: 'INTEGER DEFAULT 0' },
-    { name: 'error_msg',   type: 'TEXT' },
-    { name: 'created_at',  type: 'TEXT' },
-    { name: 'updated_at',  type: 'TEXT' },
-    { name: 'deleted_at',  type: 'TEXT' },
+    { name: 'drama_id',          type: 'INTEGER DEFAULT 0' },
+    { name: 'name',              type: 'TEXT NOT NULL DEFAULT \'\'' },
+    { name: 'role',              type: 'TEXT' },
+    { name: 'description',       type: 'TEXT' },
+    { name: 'personality',       type: 'TEXT' },
+    { name: 'appearance',        type: 'TEXT' },
+    { name: 'image_url',         type: 'TEXT' },
+    { name: 'local_path',        type: 'TEXT' },
+    { name: 'extra_images',      type: 'TEXT' },
+    { name: 'voice_style',       type: 'TEXT' },
+    { name: 'sort_order',        type: 'INTEGER DEFAULT 0' },
+    { name: 'error_msg',         type: 'TEXT' },
+    { name: 'identity_anchors',  type: 'TEXT' },   // JSON: 6层视觉锚点（骨相/五官/辨识标记/色值/皮肤/发型）
+    { name: 'style_tokens',      type: 'TEXT' },   // 风格词 token 列表
+    { name: 'color_palette',     type: 'TEXT' },   // JSON: Hex 色值数组
+    { name: 'four_view_image_url', type: 'TEXT' }, // 四视图参考图 URL
+    { name: 'polished_prompt',   type: 'TEXT' },   // 文字AI润色后的完整图片生成提示词（可编辑，生图时直接使用）
+    { name: 'created_at',        type: 'TEXT' },
+    { name: 'updated_at',        type: 'TEXT' },
+    { name: 'deleted_at',        type: 'TEXT' },
   ]);
 
   // --- scenes ---
@@ -185,6 +195,7 @@ function ensureAllColumns(database) {
     { name: 'location',         type: 'TEXT' },
     { name: 'time',             type: 'TEXT' },
     { name: 'prompt',           type: 'TEXT' },
+    { name: 'polished_prompt',  type: 'TEXT' },  // 文字AI润色后的完整四视图图片提示词，生图时直接使用
     { name: 'image_url',        type: 'TEXT' },
     { name: 'local_path',       type: 'TEXT' },
     { name: 'extra_images',     type: 'TEXT' },
@@ -342,17 +353,22 @@ function ensureAllColumns(database) {
 
   // --- character_libraries ---
   ensureColumns(database, 'character_libraries', [
-    { name: 'drama_id',    type: 'INTEGER' },   // NULL = 全局素材库；有值 = 本剧专属
-    { name: 'name',        type: 'TEXT NOT NULL DEFAULT \'\'' },
-    { name: 'category',    type: 'TEXT' },
-    { name: 'image_url',   type: 'TEXT' },
-    { name: 'local_path',  type: 'TEXT' },
-    { name: 'description', type: 'TEXT' },
-    { name: 'tags',        type: 'TEXT' },
-    { name: 'source_type', type: 'TEXT' },
-    { name: 'created_at',  type: 'TEXT' },
-    { name: 'updated_at',  type: 'TEXT' },
-    { name: 'deleted_at',  type: 'TEXT' },
+    { name: 'drama_id',          type: 'INTEGER' },   // NULL = 全局素材库；有值 = 本剧专属
+    { name: 'name',              type: 'TEXT NOT NULL DEFAULT \'\'' },
+    { name: 'category',          type: 'TEXT' },
+    { name: 'image_url',         type: 'TEXT' },
+    { name: 'local_path',        type: 'TEXT' },
+    { name: 'description',       type: 'TEXT' },
+    { name: 'appearance',        type: 'TEXT' },
+    { name: 'tags',              type: 'TEXT' },
+    { name: 'source_type',       type: 'TEXT' },
+    { name: 'identity_anchors',  type: 'TEXT' },   // JSON: 6层视觉锚点（骨相/五官/辨识标记/色值/皮肤/发型）
+    { name: 'style_tokens',      type: 'TEXT' },   // 风格词 token 列表
+    { name: 'color_palette',     type: 'TEXT' },   // JSON: Hex 色值数组
+    { name: 'four_view_image_url', type: 'TEXT' }, // 四视图参考图 URL（分镜图生图参考用）
+    { name: 'created_at',        type: 'TEXT' },
+    { name: 'updated_at',        type: 'TEXT' },
+    { name: 'deleted_at',        type: 'TEXT' },
   ]);
 
   // --- scene_libraries ---
@@ -401,6 +417,29 @@ function ensureAllColumns(database) {
     { name: 'cache_key',  type: 'TEXT NOT NULL DEFAULT \'\'' },
     { name: 'proxy_url',  type: 'TEXT NOT NULL DEFAULT \'\'' },
     { name: 'created_at', type: 'TEXT NOT NULL DEFAULT \'\'' },
+  ]);
+
+  // --- ai_model_map（业务场景→模型路由映射表） ---
+  try {
+    database.exec(`CREATE TABLE IF NOT EXISTS ai_model_map (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      key            TEXT NOT NULL UNIQUE,
+      service_type   TEXT NOT NULL DEFAULT 'text',
+      config_id      INTEGER,
+      model_override TEXT,
+      description    TEXT,
+      created_at     TEXT NOT NULL DEFAULT '',
+      updated_at     TEXT NOT NULL DEFAULT ''
+    )`);
+  } catch (_) {}
+  ensureColumns(database, 'ai_model_map', [
+    { name: 'key',            type: 'TEXT NOT NULL DEFAULT \'\'' },
+    { name: 'service_type',   type: 'TEXT NOT NULL DEFAULT \'text\'' },
+    { name: 'config_id',      type: 'INTEGER' },
+    { name: 'model_override', type: 'TEXT' },
+    { name: 'description',    type: 'TEXT' },
+    { name: 'created_at',     type: 'TEXT NOT NULL DEFAULT \'\'' },
+    { name: 'updated_at',     type: 'TEXT NOT NULL DEFAULT \'\'' },
   ]);
 
   // --- storyboard_characters（分镜与角色库的关联表） ---

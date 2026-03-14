@@ -39,6 +39,22 @@ function getDrama(db, dramaId, baseUrl) {
       'SELECT * FROM storyboards WHERE episode_id = ? AND deleted_at IS NULL ORDER BY storyboard_number ASC'
     ).all(ep.id);
     ep.storyboards = storyboards.map((s) => rowToStoryboard(s));
+    // 批量加载 storyboard_props，附加到对应分镜
+    try {
+      const sbIds = ep.storyboards.map((s) => s.id);
+      if (sbIds.length > 0) {
+        const placeholders = sbIds.map(() => '?').join(',');
+        const spRows = db.prepare(`SELECT storyboard_id, prop_id FROM storyboard_props WHERE storyboard_id IN (${placeholders})`).all(...sbIds);
+        const spMap = {};
+        for (const row of spRows) {
+          if (!spMap[row.storyboard_id]) spMap[row.storyboard_id] = [];
+          spMap[row.storyboard_id].push(row.prop_id);
+        }
+        for (const sb of ep.storyboards) {
+          sb.prop_ids = spMap[sb.id] || [];
+        }
+      }
+    } catch (_) {}
     ep.duration = ep.storyboards.reduce((sum, s) => sum + (s.duration || 0), 0);
     if (ep.duration > 0) ep.duration = Math.ceil(ep.duration / 60); // 转为分钟
     // 本集关联的角色（与 Go Preload("Episodes.Characters") 一致）
@@ -142,6 +158,19 @@ function listDramas(db, query) {
         'SELECT * FROM storyboards WHERE episode_id = ? AND deleted_at IS NULL ORDER BY storyboard_number ASC'
       ).all(ep.id);
       ep.storyboards = storyboards.map((s) => rowToStoryboard(s));
+      try {
+        const sbIds = ep.storyboards.map((s) => s.id);
+        if (sbIds.length > 0) {
+          const placeholders = sbIds.map(() => '?').join(',');
+          const spRows = db.prepare(`SELECT storyboard_id, prop_id FROM storyboard_props WHERE storyboard_id IN (${placeholders})`).all(...sbIds);
+          const spMap = {};
+          for (const row of spRows) {
+            if (!spMap[row.storyboard_id]) spMap[row.storyboard_id] = [];
+            spMap[row.storyboard_id].push(row.prop_id);
+          }
+          for (const sb of ep.storyboards) sb.prop_ids = spMap[sb.id] || [];
+        }
+      } catch (_) {}
       ep.duration = ep.storyboards.reduce((sum, s) => sum + (s.duration || 0), 0);
       if (ep.duration > 0) ep.duration = Math.ceil(ep.duration / 60);
       return ep;
@@ -278,20 +307,25 @@ function rowToStoryboard(r) {
     atmosphere: r.atmosphere,
     image_prompt: r.image_prompt,
     video_prompt: r.video_prompt,
-    shot_type: r.shot_type ?? null,
-    angle: r.angle ?? null,
-    movement: r.movement ?? null,
-    characters: parseStoryboardCharacters(r.characters),
-    composed_image: r.composed_image,
-    image_url: r.image_url ?? null,
-    local_path: r.local_path ?? null,
-    main_panel_idx: r.main_panel_idx != null ? Number(r.main_panel_idx) : null,
-    video_url: r.video_url,
-    status: r.status || 'pending',
-    error_msg: r.error_msg,
-    created_at: r.created_at,
-    updated_at: r.updated_at,
-  };
+      shot_type: r.shot_type ?? null,
+      angle: r.angle ?? null,
+      angle_h: r.angle_h ?? null,
+      angle_v: r.angle_v ?? null,
+      angle_s: r.angle_s ?? null,
+      movement: r.movement ?? null,
+      segment_index: r.segment_index ?? 0,
+      segment_title: r.segment_title ?? null,
+      characters: parseStoryboardCharacters(r.characters),
+      composed_image: r.composed_image,
+      image_url: r.image_url ?? null,
+      local_path: r.local_path ?? null,
+      main_panel_idx: r.main_panel_idx != null ? Number(r.main_panel_idx) : null,
+      video_url: r.video_url,
+      status: r.status || 'pending',
+      error_msg: r.error_msg,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    };
 }
 
 function rowToCharacter(r) {
@@ -311,6 +345,8 @@ function rowToCharacter(r) {
     seed_value: r.seed_value,
     sort_order: r.sort_order ?? 0,
     error_msg: r.error_msg,
+    polished_prompt: r.polished_prompt || null,
+    four_view_image_url: r.four_view_image_url || null,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -323,6 +359,7 @@ function rowToScene(r) {
     location: r.location,
     time: r.time,
     prompt: r.prompt,
+    polished_prompt: r.polished_prompt || null,
     storyboard_count: r.storyboard_count ?? 1,
     image_url: r.image_url,
     local_path: r.local_path,

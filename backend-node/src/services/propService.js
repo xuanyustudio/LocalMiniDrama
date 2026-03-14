@@ -1,3 +1,6 @@
+const aiClient = require('./aiClient');
+const promptI18n = require('./promptI18n');
+
 function listByDramaId(db, dramaId) {
   const rows = db.prepare(
     'SELECT * FROM props WHERE drama_id = ? AND deleted_at IS NULL ORDER BY id ASC'
@@ -90,6 +93,48 @@ function associateWithStoryboard(db, log, storyboardId, propIds) {
   return true;
 }
 
+/**
+ * 用文字 AI 生成道具图片提示词并保存到 props.prompt
+ * 供「提取道具后异步预生成」和「重新生成提示词」按钮调用
+ */
+async function generatePropPromptOnly(db, log, cfg, propId, modelName, style) {
+  const prop = getById(db, propId);
+  if (!prop) return { ok: false, error: 'prop not found' };
+
+  const descText = [
+    prop.name ? `道具名称：${prop.name}` : '',
+    prop.type ? `道具类型：${prop.type}` : '',
+    prop.description ? `道具描述：${prop.description}` : '',
+  ].filter(Boolean).join('\n') || prop.name || '';
+
+  const styleText = (style && String(style).trim()) || cfg?.style?.default_style || '';
+  const polishCfg = { ...cfg, style: { ...(cfg?.style || {}), default_style: styleText } };
+  const systemPrompt = promptI18n.getPropPolishPrompt(polishCfg);
+  const userPrompt = `请为以下道具生成图片提示词：\n\n${descText}`;
+
+  log.info('[道具提示词] 开始生成', { prop_id: propId, name: prop.name });
+
+  let generatedPrompt;
+  try {
+    generatedPrompt = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+      model: modelName || undefined,
+      max_tokens: 800,
+    });
+  } catch (err) {
+    log.error('[道具提示词] 文字AI失败', { error: err.message });
+    return { ok: false, error: err.message };
+  }
+
+  if (generatedPrompt && generatedPrompt.trim()) {
+    db.prepare('UPDATE props SET prompt = ?, updated_at = ? WHERE id = ?').run(
+      generatedPrompt.trim(), new Date().toISOString(), Number(propId)
+    );
+    log.info('[道具提示词] 生成并保存完成', { prop_id: propId, length: generatedPrompt.length });
+    return { ok: true, prompt: generatedPrompt.trim() };
+  }
+  return { ok: false, error: 'AI返回内容为空' };
+}
+
 module.exports = {
   listByDramaId,
   create,
@@ -97,4 +142,5 @@ module.exports = {
   update,
   deleteById,
   associateWithStoryboard,
+  generatePropPromptOnly,
 };

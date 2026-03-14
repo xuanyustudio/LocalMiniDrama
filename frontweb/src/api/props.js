@@ -1,6 +1,9 @@
 import request from '@/utils/request'
 
 export const propAPI = {
+  get(id) {
+    return request.get(`/props/${id}`)
+  },
   list(dramaId) {
     return request.get(`/dramas/${dramaId}/props`)
   },
@@ -9,6 +12,9 @@ export const propAPI = {
   },
   update(id, data) {
     return request.put(`/props/${id}`, data)
+  },
+  generatePrompt(id, model, style) {
+    return request.post(`/props/${id}/generate-prompt`, { model, style })
   },
   generateImage(id, model, style) {
     const body = { model, style }

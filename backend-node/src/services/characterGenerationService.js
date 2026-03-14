@@ -3,6 +3,32 @@ const taskService = require('./taskService');
 const aiClient = require('./aiClient');
 const promptI18n = require('./promptI18n');
 const { safeParseAIJSON, extractFirstArray } = require('../utils/safeJson');
+const characterLibraryService = require('./characterLibraryService');
+
+/**
+ * 从角色外貌描述中提炼 6层视觉锚点，写入 characters.identity_anchors
+ * 异步后台执行，不阻塞角色生成主流程
+ */
+async function enrichIdentityAnchors(db, log, characterId, appearance) {
+  if (!appearance || !String(appearance).trim()) return;
+  try {
+    const systemPrompt = promptI18n.getIdentityAnchorsPrompt();
+    const userPrompt = `Character appearance description:\n${appearance}`;
+    const raw = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+      max_tokens: 800,
+      temperature: 0.1,
+    });
+    const anchors = safeParseAIJSON(raw, log);
+    if (!anchors || typeof anchors !== 'object') return;
+    const colorPalette = anchors.color_anchors ? JSON.stringify(Object.values(anchors.color_anchors)) : null;
+    db.prepare(
+      'UPDATE characters SET identity_anchors = ?, color_palette = ?, updated_at = ? WHERE id = ?'
+    ).run(JSON.stringify(anchors), colorPalette, new Date().toISOString(), characterId);
+    log.info('[锚点] identity_anchors 提炼完成', { character_id: characterId });
+  } catch (err) {
+    log.warn('[锚点] identity_anchors 提炼失败', { character_id: characterId, error: err.message });
+  }
+}
 
 async function processCharacterGeneration(db, cfg, log, taskID, req) {
   taskService.updateTaskStatus(db, taskID, 'processing', 0, '正在生成角色...');
@@ -109,8 +135,18 @@ async function processCharacterGeneration(db, cfg, log, taskID, req) {
       now,
       now
     );
+    const newCharId = info.lastInsertRowid;
+    // 异步后台提炼视觉锚点 + 预生成图片提示词，不阻塞主流程
+    if (char.appearance) {
+      setImmediate(() => {
+        enrichIdentityAnchors(db, log, newCharId, char.appearance).catch(() => {});
+        characterLibraryService.generateCharacterPromptOnly(db, log, effectiveCfg, newCharId, undefined, undefined).catch((err) => {
+          log.warn('[提取角色] 预生成polished_prompt失败', { character_id: newCharId, error: err.message });
+        });
+      });
+    }
     characters.push({
-      id: info.lastInsertRowid,
+      id: newCharId,
       drama_id: dramaId,
       name,
       role: char.role ?? null,

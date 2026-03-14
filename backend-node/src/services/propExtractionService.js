@@ -4,6 +4,7 @@ const aiClient = require('./aiClient');
 const promptI18n = require('./promptI18n');
 const propService = require('./propService');
 const { safeParseAIJSON, extractFirstArray } = require('../utils/safeJson');
+let _cfg = null; // 由 extractPropsForEpisode 注入，供异步任务使用
 
 async function processPropExtraction(db, log, taskId, episodeId) {
   taskService.updateTaskStatus(db, taskId, 'processing', 0, '正在分析剧本...');
@@ -105,7 +106,17 @@ async function processPropExtraction(db, log, taskId, episodeId) {
       description: (p.description && String(p.description).trim()) || null,
       prompt: (p.image_prompt && String(p.image_prompt).trim()) || null,
     });
-    if (prop) createdProps.push(prop);
+    if (prop) {
+      createdProps.push(prop);
+      // 若提取时没有生成 prompt，异步后台补生成
+      if (!prop.prompt && _cfg) {
+        setImmediate(() => {
+          propService.generatePropPromptOnly(db, log, _cfg, prop.id, undefined, undefined).catch((err) => {
+            log.warn('[提取道具] 预生成提示词失败', { prop_id: prop.id, error: err.message });
+          });
+        });
+      }
+    }
   }
 
   taskService.updateTaskResult(db, taskId, {
@@ -121,7 +132,8 @@ async function processPropExtraction(db, log, taskId, episodeId) {
   });
 }
 
-function extractPropsForEpisode(db, log, episodeId) {
+function extractPropsForEpisode(db, log, episodeId, cfg) {
+  if (cfg) _cfg = cfg;
   const episode = db.prepare(
     'SELECT id, drama_id, script_content FROM episodes WHERE id = ? AND deleted_at IS NULL'
   ).get(Number(episodeId));

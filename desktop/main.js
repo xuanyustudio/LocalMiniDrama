@@ -45,35 +45,30 @@ function ensureBackendCwd(backendCwd) {
   const dataDir = path.join(backendCwd, 'data');
   const logsDir = path.join(backendCwd, 'logs');
   const configPath = path.join(configsDir, 'config.yaml');
-  const examplePath = path.join(configsDir, 'config.example.yaml');
 
   if (!fs.existsSync(configsDir)) fs.mkdirSync(configsDir, { recursive: true });
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
-  const sourceExample = path.join(getBackendModulePath(), 'configs', 'config.example.yaml');
-
-  if (!fs.existsSync(configPath) && fs.existsSync(sourceExample)) {
-    fs.copyFileSync(sourceExample, configPath);
-  }
-  if (!fs.existsSync(configPath) && fs.existsSync(examplePath)) {
-    fs.copyFileSync(examplePath, configPath);
+  // 首次安装时，从打包内置的 config.yaml 复制到用户数据目录
+  const bundledConfig = path.join(getBackendModulePath(), 'configs', 'config.yaml');
+  if (!fs.existsSync(configPath) && fs.existsSync(bundledConfig)) {
+    fs.copyFileSync(bundledConfig, configPath);
   }
 
-  // 每次启动时，将内置 example 中的 vendor_lock 节强制同步到用户 config.yaml，
+  // 每次启动时，将内置 config.yaml 中的 vendor_lock 节强制同步到用户 config.yaml，
   // 确保打包时配置的锁定策略对所有用户生效，不受首次安装后遗留旧配置影响。
-  const bundledExample = fs.existsSync(sourceExample) ? sourceExample : (fs.existsSync(examplePath) ? examplePath : null);
-  if (bundledExample && fs.existsSync(configPath)) {
+  if (fs.existsSync(bundledConfig) && fs.existsSync(configPath)) {
     try {
       const yaml = require('js-yaml');
       const userCfg = yaml.load(fs.readFileSync(configPath, 'utf8')) || {};
-      const exampleCfg = yaml.load(fs.readFileSync(bundledExample, 'utf8')) || {};
-      if (exampleCfg.vendor_lock !== undefined) {
-        userCfg.vendor_lock = exampleCfg.vendor_lock;
+      const bundledCfg = yaml.load(fs.readFileSync(bundledConfig, 'utf8')) || {};
+      if (bundledCfg.vendor_lock !== undefined) {
+        userCfg.vendor_lock = bundledCfg.vendor_lock;
         fs.writeFileSync(configPath, yaml.dump(userCfg, { lineWidth: -1 }), 'utf8');
       }
     } catch (e) {
-      console.warn('[config] Failed to sync vendor_lock from bundled example:', e.message);
+      console.warn('[config] Failed to sync vendor_lock from bundled config:', e.message);
     }
   }
 }

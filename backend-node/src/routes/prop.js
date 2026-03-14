@@ -62,13 +62,13 @@ function generateImage(db, log) {
   };
 }
 
-function extractProps(db, log) {
+function extractProps(db, log, cfg) {
   const propExtractionService = require('../services/propExtractionService');
   return (req, res) => {
     const episodeId = req.params.episode_id;
     if (!episodeId) return response.badRequest(res, '缺少 episode_id');
     try {
-      const taskId = propExtractionService.extractPropsForEpisode(db, log, episodeId);
+      const taskId = propExtractionService.extractPropsForEpisode(db, log, episodeId, cfg);
       response.success(res, { task_id: taskId });
     } catch (err) {
       if (err.message === 'episode not found' || err.message?.includes('剧本内容为空')) {
@@ -116,14 +116,45 @@ function addToMaterialLibrary(db, log) {
   };
 }
 
-module.exports = function propRoutes(db, log) {
+function getPropById(db, log) {
+  return (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return response.badRequest(res, '无效的ID');
+    const prop = propService.getById(db, id);
+    if (!prop) return response.notFound(res, '道具不存在');
+    response.success(res, { prop });
+  };
+}
+
+function generatePropPrompt(db, log, cfg) {
+  return async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return response.badRequest(res, '无效的ID');
+    try {
+      const body = req.body || {};
+      const out = await propService.generatePropPromptOnly(db, log, cfg, id, body.model || undefined, body.style || undefined);
+      if (!out.ok) {
+        if (out.error === 'prop not found') return response.notFound(res, '道具不存在');
+        return response.badRequest(res, out.error);
+      }
+      response.success(res, { message: '提示词已生成', prompt: out.prompt });
+    } catch (err) {
+      log.error('generatePropPrompt failed', { error: err.message });
+      response.internalError(res, err.message);
+    }
+  };
+}
+
+module.exports = function propRoutes(db, log, cfg) {
   return {
     listProps: listProps(db),
     createProp: createProp(db, log),
     updateProp: updateProp(db, log),
     deleteProp: deleteProp(db, log),
+    getPropById: getPropById(db, log),
     generateImage: generateImage(db, log),
-    extractProps: extractProps(db, log),
+    generatePropPrompt: generatePropPrompt(db, log, cfg),
+    extractProps: extractProps(db, log, cfg),
     associateProps: associateProps(db, log),
     addToLibrary: addToLibrary(db, log),
     addToMaterialLibrary: addToMaterialLibrary(db, log),

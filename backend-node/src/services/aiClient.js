@@ -129,11 +129,48 @@ function getModelFromConfig(config, preferredModel) {
   return models[0] || 'gpt-3.5-turbo';
 }
 
+/**
+ * 从 ai_model_map 表查找业务场景对应的模型配置
+ * 返回 { config, modelOverride } 或 null（未配置时）
+ */
+function getConfigFromModelMap(db, sceneKey) {
+  try {
+    const row = db.prepare('SELECT * FROM ai_model_map WHERE key = ?').get(sceneKey);
+    if (!row) return null;
+    const configs = aiConfigService.listConfigs(db, row.service_type || 'text');
+    let config = null;
+    if (row.config_id) {
+      config = configs.find((c) => c.id === row.config_id && c.is_active) || null;
+    }
+    if (!config) {
+      config = configs.find((c) => c.is_active && c.is_default) || configs.find((c) => c.is_active) || null;
+    }
+    return config ? { config, modelOverride: row.model_override || null } : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function generateText(db, log, serviceType, userPrompt, systemPrompt, options = {}) {
-  const { model: preferredModel, temperature = 0.7, json_mode = false, min_max_tokens = null, streamCallback = null } = options;
-  let config = preferredModel
-    ? getConfigForModel(db, serviceType, preferredModel)
-    : getDefaultConfig(db, serviceType);
+  const { model: preferredModel, temperature = 0.7, json_mode = false, min_max_tokens = null, streamCallback = null, scene_key = null } = options;
+
+  // F2: 若传入 scene_key，优先从 ai_model_map 查找对应的模型路由配置
+  let config = null;
+  let routedModelOverride = null;
+  if (scene_key) {
+    const mapped = getConfigFromModelMap(db, scene_key);
+    if (mapped) {
+      config = mapped.config;
+      routedModelOverride = mapped.modelOverride;
+      log.info('AI generateText: scene_key routing', { scene_key, config_id: config.id, model_override: routedModelOverride });
+    }
+  }
+
+  if (!config) {
+    config = preferredModel
+      ? getConfigForModel(db, serviceType, preferredModel)
+      : getDefaultConfig(db, serviceType);
+  }
   if (!config && preferredModel === undefined) {
     // 兜底：如果前端传了 undefined，且没找到默认，尝试重新找一下（可能 serviceType 传值问题，或者数据库问题）
     config = getDefaultConfig(db, 'text');
@@ -141,7 +178,9 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
   if (!config) {
     throw new Error(`未配置文本模型，请在「AI 配置」中添加 ${serviceType} 类型 且已启用的配置`);
   }
-  const model = getModelFromConfig(config, preferredModel);
+  // scene_key 路由的模型覆盖优先级 > preferredModel
+  const effectivePreferredModel = routedModelOverride || preferredModel;
+  const model = getModelFromConfig(config, effectivePreferredModel);
   const url = buildChatUrl(config);
 
   // 解析 settings 里的 max_tokens 上限（用户在 AI 配置里可设置 {"max_tokens": 8192}）
@@ -217,5 +256,6 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
 module.exports = {
   getDefaultConfig,
   getConfigForModel,
+  getConfigFromModelMap,
   generateText,
 };

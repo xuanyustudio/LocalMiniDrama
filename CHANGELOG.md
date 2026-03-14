@@ -8,6 +8,42 @@
 
 ---
 
+## [1.2.0] - 2026-03-14
+
+### 新增
+
+- **角色图生提示词（polished_prompt）**：提取角色后异步自动生成 AI 润色的最终图像提示词并保存到数据库；编辑弹窗展示该提示词，支持手动编辑与一键重新生成；生成图片时直接使用该提示词，无需临时拼接
+- **道具图生提示词（prompt）**：同上，道具提取后异步生成专业英文图像提示词，展示在编辑弹窗，可编辑和重新生成
+- **场景四视图提示词（polished_prompt）**：场景提取后异步生成完整四视图图像提示词，展示在编辑弹窗，与角色/道具体验一致
+- **结构化镜头角度三元组**：新增 `angleService.js`，定义 8 水平方向 × 4 仰俯角度 × 3 景别共 96 种组合，分镜表新增 `angle_h`、`angle_v`、`angle_s` 字段；分镜编辑区原单行文本输入替换为三个下拉选择器（景别 / 俯仰 / 方向），旁边实时显示中文标签（如「特写·俯拍·正面」）
+- **分镜道具自动关联**：分镜 AI 生成时自动提取该镜头使用的道具 ID，写入 `storyboard_props` 表；分镜卡片显示关联道具，编辑弹窗可手动调整
+- **分镜段落分组（segment）**：分镜生成时 AI 自动分配幕次/段落（`segment_index` + `segment_title`），前端以段落标题分组展示（如「第一幕：相遇」）
+- **角色身份类型下拉**：编辑角色弹窗将「身份/定位」由文本框改为下拉选择器（主角 / 配角 / 次要角色），与 AI 提取的固定值 `main/supporting/minor` 对齐；角色卡片名称旁显示对应颜色 Tag
+- **风格双语提示词**：24 种创作风格每项新增 `promptEn`（英文）字段，`prompt` 保留中文说明；图像/视频 AI 调用时自动使用英文版（效果更好），中文版用于界面展示；`getSelectedStylePrompt()` 返回英文，`getSelectedStylePromptZh()` 返回中文
+- **分镜图片/视频提示词全中文**：重构 `generateImagePrompt` / `generateVideoPrompt`，输出全中文提示词，角度部分使用中文标签（`特写·俯拍·正面`），视频提示词同时附上英文括号说明兼容双语模型
+- **配置文件统一**：合并 `config.yaml` 与 `config.example.yaml` 为单一 `config.yaml`，简化配置管理；Electron 打包与开发环境均只依赖 `config.yaml`
+
+### 优化
+
+- **编辑弹窗体验**：角色、道具、场景编辑弹窗宽度从固定 720px 改为屏幕 75%；所有多行文本框改为 `autosize` 自适应高度（最少 3~5 行，内容多时自动撑高最多 16 行），提示词框不再需要手动滚动
+- **默认风格质量描述**：`config.yaml` 中 `default_role_style`、`default_scene_style`、`default_prop_style` 改为风格无关的通用画质描述词，不再预置特定艺术风格，避免覆盖用户在 UI 选择的风格
+
+### 修复
+
+- **场景 polished_prompt 前端轮询不结束**：修正 Axios 拦截器自动解包 `data` 层导致的路径多嵌套问题（`res?.data?.scene` → `res?.scene`），轮询现可正确检测到生成完成
+- **分镜段落生成后刷新丢失**：`dramaService.rowToStoryboard` 和 `storyboardService` 补充返回 `segment_index`、`segment_title`、`angle_h`、`angle_v`、`angle_s` 字段，刷新页面后分组和角度信息不再丢失
+- **分镜道具批量保存缺失**：`saveStoryboards`（整批保存路径）补充道具关联写入逻辑，与 `insertOneStoryboard`（流式逐条路径）保持一致
+- **风格切换不生效**：修复 `backgroundExtractionService.js` 未将请求 `style` 参数透传给异步 `generateScenePromptOnly` 的问题；修复 `generationStyleOptions` value 字段曾改为长描述导致旧项目 v-model 不匹配的问题
+
+### 架构
+
+- 新增 `angleService.js`：结构化角度定义、`toChineseLabel()`、`toPromptFragment()`、`parseFromLegacyText()` 方法
+- 新增迁移文件：`15_storyboard_angle_structured.sql`、`16_character_polished_prompt.sql`（`migrate.js` 自动执行）
+- `characterLibraryService` 新增 `generateCharacterPromptOnly()`；`sceneService` 新增 `generateScenePromptOnly()`；`propService` 新增 `generatePropPromptOnly()`
+- 新增 API 路由：`GET /characters/:id`、`POST /characters/:id/generate-prompt`；`GET /scenes/:id`、`POST /scenes/:id/generate-prompt`；`GET /props/:id`、`POST /props/:id/generate-prompt`
+
+---
+
 ## [1.1.16] - 2026-03-14
 
 ### 修复

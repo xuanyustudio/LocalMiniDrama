@@ -5,12 +5,26 @@ const aiClient = require('./aiClient');
 const taskService = require('./taskService');
 const { safeParseAIJSON } = require('../utils/safeJson');
 const storyboardService = require('./storyboardService');
+const angleService = require('./angleService');
 
 /**
  * 将分镜角度值扩展为带透视含义的完整描述，注入图像提示词上下文
- * 让 AI 根据相机角度生成正确视角的背景（仰视/俯视/侧面/背面）
+ * 优先使用结构化三元组（angle_h/angle_v/angle_s），降级到旧文本解析
  */
-function expandAngleDescription(angle, isEn) {
+function expandAngleDescription(angle, isEn, angleH, angleV, angleS) {
+  // 如果提供了结构化三元组，直接用 angleService 生成高质量描述（英文）
+  if (angleH && angleV && angleS) {
+    return angleService.toPromptFragment(angleH, angleV, angleS);
+  }
+  // 如果只有旧文本，用 angleService 解析后生成
+  if (angle) {
+    return angleService.fromLegacyText(angle, '');
+  }
+  return null;
+}
+
+/** 旧版兼容：仅传 angle 文本时的快捷调用（保持向后兼容） */
+function expandAngleDescriptionLegacy(angle, isEn) {
   if (!angle) return null;
   const a = String(angle).trim().toLowerCase();
   if (isEn) {
@@ -66,16 +80,56 @@ function loadStoryboard(db, storyboardId) {
     : null;
 }
 
+/**
+ * 将 identity_anchors JSON 转换为适合注入分镜提示词的结构化描述
+ * 优先使用结构化锚点，无锚点时 fallback 到 appearance 文本
+ */
+function buildCharacterAnchorText(name, anchors, appearance) {
+  if (anchors && typeof anchors === 'object' && Object.keys(anchors).length > 0) {
+    const parts = [`Character: ${name}`];
+    if (anchors.face_shape && anchors.face_shape !== 'unspecified') {
+      parts.push(`Face: ${anchors.face_shape}`);
+    }
+    if (anchors.facial_features && anchors.facial_features !== 'unspecified') {
+      parts.push(`Features: ${anchors.facial_features}`);
+    }
+    if (anchors.hair_style && anchors.hair_style !== 'unspecified') {
+      parts.push(`Hair: ${anchors.hair_style}`);
+    }
+    if (anchors.skin_texture && anchors.skin_texture !== 'unspecified') {
+      parts.push(`Skin: ${anchors.skin_texture}`);
+    }
+    if (anchors.color_anchors && typeof anchors.color_anchors === 'object') {
+      const colors = Object.entries(anchors.color_anchors)
+        .filter(([, v]) => v && v !== 'unspecified')
+        .map(([k, v]) => `${k}=${v}`)
+        .join(', ');
+      if (colors) parts.push(`Colors: ${colors}`);
+    }
+    if (anchors.unique_marks && anchors.unique_marks !== 'none' && anchors.unique_marks !== 'unspecified') {
+      parts.push(`Marks: ${anchors.unique_marks}`);
+    }
+    return parts.join('; ');
+  }
+  // fallback: 使用 appearance 文本
+  const app = (appearance || '').toString().trim();
+  return app ? `${name}（${app}）` : name;
+}
+
 function loadStoryboardCharacterNames(db, storyboardId) {
   const links = db.prepare('SELECT character_id FROM storyboard_characters WHERE storyboard_id = ?').all(Number(storyboardId));
   if (!links.length) return [];
   const ids = links.map((r) => r.character_id);
   const placeholders = ids.map(() => '?').join(',');
-  const rows = db.prepare(`SELECT id, name, appearance FROM character_libraries WHERE id IN (${placeholders}) AND deleted_at IS NULL`).all(...ids);
-  // 返回带外貌描述的格式：若有 appearance 则拼成 "姓名（外貌描述）"，否则仅返回姓名
+  const rows = db.prepare(
+    `SELECT id, name, appearance, identity_anchors FROM character_libraries WHERE id IN (${placeholders}) AND deleted_at IS NULL`
+  ).all(...ids);
   return rows.map((r) => {
-    const app = (r.appearance || '').toString().trim();
-    return app ? `${r.name}（${app}）` : r.name;
+    let anchors = null;
+    if (r.identity_anchors) {
+      try { anchors = JSON.parse(r.identity_anchors); } catch (_) {}
+    }
+    return buildCharacterAnchorText(r.name, anchors, r.appearance);
   });
 }
 
@@ -113,9 +167,9 @@ function buildStoryboardContext(cfg, sb, scene, characterNames) {
   if (sb.shot_type) {
     parts.push(promptI18n.formatUserPrompt(cfg, 'shot_type_label', sb.shot_type));
   }
-  if (sb.angle) {
+  if (sb.angle || (sb.angle_h && sb.angle_v && sb.angle_s)) {
     const isEn = promptI18n.isEnglish(cfg);
-    const angleDesc = expandAngleDescription(sb.angle, isEn);
+    const angleDesc = expandAngleDescription(sb.angle, isEn, sb.angle_h, sb.angle_v, sb.angle_s);
     if (angleDesc) parts.push(angleDesc);
   }
   if (sb.movement) {
@@ -337,6 +391,7 @@ module.exports = {
   loadStoryboard,
   loadStoryboardCharacterNames,
   loadScene,
+  buildCharacterAnchorText,
   getFramePrompts: (db, storyboardId) => storyboardService.getFramePrompts(db, storyboardId),
   generateSingleFrameExported: generateSingleFrame,
   expandAngleDescription,

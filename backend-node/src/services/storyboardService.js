@@ -31,7 +31,7 @@ function createStoryboard(db, log, req) {
 function updateStoryboard(db, log, id, req) {
   const row = db.prepare('SELECT id FROM storyboards WHERE id = ? AND deleted_at IS NULL').get(Number(id));
   if (!row) return null;
-  const allowed = ['title', 'description', 'location', 'time', 'duration', 'dialogue', 'action', 'result', 'atmosphere', 'image_prompt', 'video_prompt', 'scene_id', 'characters', 'composed_image', 'image_url', 'local_path', 'main_panel_idx', 'video_url', 'status', 'shot_type', 'angle', 'movement'];
+  const allowed = ['title', 'description', 'location', 'time', 'duration', 'dialogue', 'action', 'result', 'atmosphere', 'image_prompt', 'video_prompt', 'scene_id', 'characters', 'composed_image', 'image_url', 'local_path', 'main_panel_idx', 'video_url', 'status', 'shot_type', 'angle', 'angle_h', 'angle_v', 'angle_s', 'movement', 'segment_index', 'segment_title'];
   const updates = [];
   const params = [];
   // 前端可能传 character_ids，与 characters 统一：存为 JSON 字符串
@@ -48,9 +48,18 @@ function updateStoryboard(db, log, id, req) {
       params.push(val);
     }
   }
-  if (updates.length === 0) return getStoryboardById(db, id);
-  params.push(new Date().toISOString(), id);
-  db.prepare('UPDATE storyboards SET ' + updates.join(', ') + ', updated_at = ? WHERE id = ?').run(...params);
+  if (updates.length === 0 && req.prop_ids === undefined) return getStoryboardById(db, id);
+  if (updates.length > 0) {
+    params.push(new Date().toISOString(), id);
+    db.prepare('UPDATE storyboards SET ' + updates.join(', ') + ', updated_at = ? WHERE id = ?').run(...params);
+  }
+  // 道具关联：写入 storyboard_props 表
+  if (req.prop_ids !== undefined) {
+    const propIds = Array.isArray(req.prop_ids) ? req.prop_ids : [];
+    db.prepare('DELETE FROM storyboard_props WHERE storyboard_id = ?').run(Number(id));
+    const ins = db.prepare('INSERT OR IGNORE INTO storyboard_props (storyboard_id, prop_id) VALUES (?, ?)');
+    for (const pid of propIds) ins.run(Number(id), Number(pid));
+  }
   log.info('Storyboard updated', { id });
   return getStoryboardById(db, id);
 }
@@ -72,6 +81,11 @@ function getStoryboardById(db, id) {
       try { characters = JSON.parse(r.characters); } catch (_) {}
     } else if (Array.isArray(r.characters)) characters = r.characters;
   }
+  let propIds = [];
+  try {
+    const propLinks = db.prepare('SELECT prop_id FROM storyboard_props WHERE storyboard_id = ?').all(Number(id));
+    propIds = propLinks.map((p) => p.prop_id);
+  } catch (_) {}
   return {
     id: r.id,
     episode_id: r.episode_id,
@@ -90,8 +104,14 @@ function getStoryboardById(db, id) {
     video_prompt: r.video_prompt,
     shot_type: r.shot_type,
     angle: r.angle,
+    angle_h: r.angle_h ?? null,
+    angle_v: r.angle_v ?? null,
+    angle_s: r.angle_s ?? null,
     movement: r.movement,
+    segment_index: r.segment_index ?? 0,
+    segment_title: r.segment_title ?? null,
     characters,
+    prop_ids: propIds,
     composed_image: r.composed_image,
     image_url: r.image_url ?? null,
     local_path: r.local_path ?? null,

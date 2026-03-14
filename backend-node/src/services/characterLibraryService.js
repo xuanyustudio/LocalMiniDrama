@@ -229,6 +229,7 @@ function updateCharacter(db, log, characterId, req) {
   if (req.description != null) { updates.push('description = ?'); params.push(req.description); }
   if (req.image_url != null) { updates.push('image_url = ?'); params.push(req.image_url); }
   if (req.local_path != null) { updates.push('local_path = ?'); params.push(req.local_path); }
+  if (req.polished_prompt != null) { updates.push('polished_prompt = ?'); params.push(req.polished_prompt); }
   if (updates.length === 0) return { ok: true };
   params.push(new Date().toISOString(), characterId);
   db.prepare('UPDATE characters SET ' + updates.join(', ') + ', updated_at = ? WHERE id = ?').run(...params);
@@ -295,15 +296,27 @@ function rowToItem(r) {
  * Step 1: 文本AI将 appearance 转换为标准四视图绘图描述
  * Step 2: 图片AI根据描述生成 16:9 四格角色参考图
  */
-async function generateCharacterFourViewImage(db, log, cfg, characterId, modelName, style) {
+/**
+ * 组装最终图片生成 prompt（布局指令 + 角色描述 + 风格 + 硬性要求）
+ * 这是实际发给图片AI的完整 prompt，与 polished_prompt 字段内容一致。
+ */
+function buildFourViewImagePrompt(fourViewDescription, styleText) {
+  const imageLayoutInstruction = promptI18n.getRoleGenerateImagePrompt();
+  const styleAppend = styleText ? ` Art style: ${styleText}.` : '';
+  return `${imageLayoutInstruction}\n\n---\n\n${fourViewDescription}\n\n---\n\nCRITICAL OUTPUT REQUIREMENT: Generate ONE single image containing a 2×2 grid (4 panels): top-left=head close-up, top-right=front full body, bottom-left=left side full body, bottom-right=back full body. Pure white background. No text labels. No props in hands. Neutral expression. Arms at sides.${styleAppend}`;
+}
+
+/**
+ * 仅生成（并保存）角色四视图提示词，不触发图片生成。
+ * 供前端「生成提示词」按钮调用，或提取角色后后台异步调用。
+ * @returns {{ ok: boolean, polished_prompt?: string, error?: string }}
+ */
+async function generateCharacterPromptOnly(db, log, cfg, characterId, modelName, style) {
   const charRow = db.prepare(
     'SELECT id, drama_id, name, appearance, description FROM characters WHERE id = ? AND deleted_at IS NULL'
   ).get(Number(characterId));
   if (!charRow) return { ok: false, error: 'character not found' };
-  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
-  if (!drama) return { ok: false, error: 'unauthorized' };
 
-  // 构建角色描述：优先用 appearance，其次 description，最后仅用名字
   let appearanceText = '';
   if (charRow.appearance && String(charRow.appearance).trim()) {
     appearanceText = String(charRow.appearance).trim();
@@ -314,15 +327,11 @@ async function generateCharacterFourViewImage(db, log, cfg, characterId, modelNa
   }
 
   const styleText = (style && String(style).trim()) || cfg?.style?.default_style || '';
-
-  // 构建 cfg（带风格，不带 image ratio，四视图固定 16:9）
   const fourViewCfg = { ...cfg, style: { ...(cfg?.style || {}), default_style: styleText } };
-
-  // Step 1: 文本 AI 生成四视图提示词描述
   const systemPrompt = promptI18n.getRolePolishPrompt(fourViewCfg);
   const userPrompt = `角色名称：${charRow.name}\n\n角色描述：\n${appearanceText}`;
 
-  log.info('[四视图] Step1 开始生成四视图提示词', { character_id: characterId, name: charRow.name });
+  log.info('[四视图提示词] 开始生成', { character_id: characterId, name: charRow.name });
 
   let fourViewDescription;
   try {
@@ -331,16 +340,75 @@ async function generateCharacterFourViewImage(db, log, cfg, characterId, modelNa
       max_tokens: 4000,
     });
   } catch (err) {
-    log.error('[四视图] Step1 文本AI失败，降级为直接使用外貌描述', { error: err.message });
+    log.error('[四视图提示词] 文本AI失败，降级为外貌描述', { error: err.message });
     fourViewDescription = appearanceText;
   }
 
-  log.info('[四视图] Step1 完成，开始Step2生图', { character_id: characterId, desc_length: (fourViewDescription || '').length });
+  const polishedPrompt = buildFourViewImagePrompt(fourViewDescription, styleText);
 
-  // Step 2: 图片AI生成四视图，固定 16:9
-  // 注意：图片生成API不支持独立 system_prompt，必须将布局规则合并进 prompt
-  const imageLayoutInstruction = promptI18n.getRoleGenerateImagePrompt();
-  const imagePrompt = `${imageLayoutInstruction}\n\n---\n\n${fourViewDescription}\n\n---\n\nCRITICAL OUTPUT REQUIREMENT: Generate ONE single image containing a 2×2 grid (4 panels): top-left=head close-up, top-right=front full body, bottom-left=left side full body, bottom-right=back full body. Pure white background. No text labels. No props in hands. Neutral expression. Arms at sides.`;
+  // 保存到 characters.polished_prompt
+  db.prepare('UPDATE characters SET polished_prompt = ?, updated_at = ? WHERE id = ?').run(
+    polishedPrompt, new Date().toISOString(), Number(characterId)
+  );
+
+  log.info('[四视图提示词] 生成并保存完成', { character_id: characterId, length: polishedPrompt.length });
+  return { ok: true, polished_prompt: polishedPrompt };
+}
+
+async function generateCharacterFourViewImage(db, log, cfg, characterId, modelName, style) {
+  const charRow = db.prepare(
+    'SELECT id, drama_id, name, appearance, description, polished_prompt FROM characters WHERE id = ? AND deleted_at IS NULL'
+  ).get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
+  if (!drama) return { ok: false, error: 'unauthorized' };
+
+  const styleText = (style && String(style).trim()) || cfg?.style?.default_style || '';
+  let imagePrompt;
+
+  if (charRow.polished_prompt && String(charRow.polished_prompt).trim()) {
+    // 直接使用已保存的提示词（用户可能已编辑过）
+    imagePrompt = String(charRow.polished_prompt).trim();
+    log.info('[四视图] 使用已保存的 polished_prompt，跳过文字AI', { character_id: characterId });
+  } else {
+    // 没有预生成提示词，临时生成（与 generateCharacterPromptOnly 同逻辑）
+    let appearanceText = '';
+    if (charRow.appearance && String(charRow.appearance).trim()) {
+      appearanceText = String(charRow.appearance).trim();
+    } else if (charRow.description && String(charRow.description).trim()) {
+      appearanceText = String(charRow.description).trim();
+    } else {
+      appearanceText = charRow.name || '';
+    }
+
+    const fourViewCfg = { ...cfg, style: { ...(cfg?.style || {}), default_style: styleText } };
+    const systemPrompt = promptI18n.getRolePolishPrompt(fourViewCfg);
+    const userPrompt = `角色名称：${charRow.name}\n\n角色描述：\n${appearanceText}`;
+
+    log.info('[四视图] Step1 开始生成四视图提示词', { character_id: characterId, name: charRow.name });
+
+    let fourViewDescription;
+    try {
+      fourViewDescription = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+        model: modelName || undefined,
+        max_tokens: 4000,
+      });
+    } catch (err) {
+      log.error('[四视图] Step1 文本AI失败，降级为直接使用外貌描述', { error: err.message });
+      fourViewDescription = appearanceText;
+    }
+
+    imagePrompt = buildFourViewImagePrompt(fourViewDescription, styleText);
+
+    // 顺带保存，供下次复用
+    try {
+      db.prepare('UPDATE characters SET polished_prompt = ?, updated_at = ? WHERE id = ?').run(
+        imagePrompt, new Date().toISOString(), Number(characterId)
+      );
+    } catch (_) {}
+
+    log.info('[四视图] Step1 完成，开始Step2生图', { character_id: characterId });
+  }
 
   const imageGen = imageClient.createAndGenerateImage(db, log, {
     drama_id: charRow.drama_id,
@@ -372,4 +440,5 @@ module.exports = {
   generateCharacterImage,
   batchGenerateCharacterImages,
   generateCharacterFourViewImage,
+  generateCharacterPromptOnly,
 };

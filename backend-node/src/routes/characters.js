@@ -3,6 +3,18 @@ const characterLibraryService = require('../services/characterLibraryService');
 
 function routes(db, cfg, log, uploadService) {
   return {
+    getOne: (req, res) => {
+      try {
+        const row = db.prepare(
+          'SELECT id, drama_id, name, role, appearance, description, personality, voice_style, image_url, local_path, polished_prompt, four_view_image_url, identity_anchors, updated_at FROM characters WHERE id = ? AND deleted_at IS NULL'
+        ).get(Number(req.params.id));
+        if (!row) return response.notFound(res, '角色不存在');
+        response.success(res, { character: row });
+      } catch (err) {
+        log.error('characters getOne', { error: err.message });
+        response.internalError(res, err.message);
+      }
+    },
     update: (req, res) => {
       try {
         const out = characterLibraryService.updateCharacter(db, log, req.params.id, req.body || {});
@@ -195,6 +207,22 @@ function routes(db, cfg, log, uploadService) {
         response.success(res, { message: '四视图生成任务已提交', image_generation: out.image_generation });
       } catch (err) {
         log.error('characters generate-four-view-image', { error: err.message });
+        response.internalError(res, err.message);
+      }
+    },
+    generatePrompt: async (req, res) => {
+      try {
+        const body = req.body || {};
+        const modelName = body.model_name || body.model || undefined;
+        const style = body.style || undefined;
+        const out = await characterLibraryService.generateCharacterPromptOnly(db, log, cfg, req.params.id, modelName, style);
+        if (!out.ok) {
+          if (out.error === 'character not found') return response.notFound(res, '角色不存在');
+          return response.badRequest(res, out.error);
+        }
+        response.success(res, { message: '提示词已生成', polished_prompt: out.polished_prompt });
+      } catch (err) {
+        log.error('characters generate-prompt', { error: err.message });
         response.internalError(res, err.message);
       }
     },

@@ -26,7 +26,7 @@ function setupRouter(cfg, db, log) {
   const task = taskRoutes(db, log);
   const settings = settingsRoutes(db, cfg, log);
   const aiConfig = aiConfigRoutes(db, log, cfg);
-  const prop = propRoutes(db, log);
+  const prop = propRoutes(db, log, cfg);
   const stub = stubRoutes(db, cfg, log);
 
   const uploadService = require('../services/uploadService');
@@ -129,11 +129,13 @@ function setupRouter(cfg, db, log) {
   r.delete('/prop-library/:id', propLibrary.delete);
 
   // ---------- characters ----------
+  r.get('/characters/:id', characters.getOne);
   r.put('/characters/:id', characters.update);
   r.delete('/characters/:id', characters.delete);
   r.post('/characters/batch-generate-images', characters.batchGenerateImages);
   r.post('/characters/:id/generate-image', characters.generateImage);
   r.post('/characters/:id/generate-four-view-image', characters.generateFourViewImage);
+  r.post('/characters/:id/generate-prompt', characters.generatePrompt);
   r.post('/characters/:id/upload-image', uploadModule.multerSingle, characters.uploadImage);
   r.put('/characters/:id/image', characters.putImage);
   r.put('/characters/:id/image-from-library', characters.imageFromLibrary);
@@ -141,10 +143,12 @@ function setupRouter(cfg, db, log) {
   r.post('/characters/:id/add-to-material-library', characters.addToMaterialLibrary);
 
   // ---------- props ----------
+  r.get('/props/:id', prop.getPropById);
   r.post('/props', prop.createProp);
   r.put('/props/:id', prop.updateProp);
   r.delete('/props/:id', prop.deleteProp);
   r.post('/props/:id/generate', prop.generateImage);
+  r.post('/props/:id/generate-prompt', prop.generatePropPrompt);
   r.post('/props/:id/add-to-library', prop.addToLibrary);
   r.post('/props/:id/add-to-material-library', prop.addToMaterialLibrary);
 
@@ -166,6 +170,8 @@ function setupRouter(cfg, db, log) {
   r.get('/tasks', task.getResourceTasks);
 
   // ---------- scenes ----------
+  r.get('/scenes/:scene_id', scenes.getOne);
+  r.post('/scenes/:scene_id/generate-prompt', scenes.generatePrompt);
   r.put('/scenes/:scene_id', scenes.update);
   r.put('/scenes/:scene_id/prompt', scenes.updatePrompt);
   r.delete('/scenes/:scene_id', scenes.delete);
