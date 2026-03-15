@@ -24,6 +24,9 @@ function runOne(database, sql, file, index) {
     const msg = (err.message || '').toLowerCase();
     if (err.code === 'SQLITE_ERROR' && (msg.includes('duplicate column') || msg.includes('already exists'))) {
       console.log('Skip (already exists):', file + (index >= 0 ? ' #' + (index + 1) : ''));
+    } else if (err.code === 'SQLITE_ERROR' && msg.includes('no such table')) {
+      // ALTER TABLE 遇到表不存在时，记录警告并跳过（启动后 ensureAllColumns 会兜底建表补列）
+      console.warn('Skip migration (table not found, will be ensured later):', file, '-', err.message);
     } else {
       throw err;
     }
@@ -230,7 +233,28 @@ function ensureAllColumns(database) {
     { name: 'deleted_at',   type: 'TEXT' },
   ]);
 
-  // --- ai_service_configs ---
+  // --- ai_service_configs ---（兜底建表：旧版 01_init.sql 可能未包含此表）
+  try {
+    database.exec(`CREATE TABLE IF NOT EXISTS ai_service_configs (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      service_type  TEXT NOT NULL DEFAULT 'text',
+      provider      TEXT DEFAULT '',
+      name          TEXT DEFAULT '',
+      base_url      TEXT DEFAULT '',
+      api_key       TEXT,
+      model         TEXT,
+      default_model TEXT,
+      endpoint      TEXT,
+      query_endpoint TEXT,
+      priority      INTEGER DEFAULT 0,
+      is_default    INTEGER DEFAULT 0,
+      is_active     INTEGER DEFAULT 1,
+      settings      TEXT,
+      created_at    TEXT,
+      updated_at    TEXT,
+      deleted_at    TEXT
+    )`);
+  } catch (_) {}
   ensureColumns(database, 'ai_service_configs', [
     { name: 'service_type',   type: 'TEXT NOT NULL DEFAULT \'text\'' },
     { name: 'provider',       type: 'TEXT DEFAULT \'\'' },
