@@ -310,10 +310,62 @@ function rowToItem(r) {
  * 组装最终图片生成 prompt（布局指令 + 角色描述 + 风格 + 硬性要求）
  * 这是实际发给图片AI的完整 prompt，与 polished_prompt 字段内容一致。
  */
+/**
+ * 从描述文本中识别性别，用于在英文约束里强调，防止图片 AI 生成错误性别。
+ * @returns {'MALE'|'FEMALE'|null}
+ */
+function detectGenderFromDescription(text) {
+  if (!text) return null;
+  const t = text;
+
+  // ── 第1层：最明确的性别词 ───────────────────────────────────────────
+  if (/男性|男生|男孩|男人|帅哥|先生/.test(t)) return 'MALE';
+  if (/女性|女生|女孩|女人|美女|小姐|女士/.test(t)) return 'FEMALE';
+
+  // ── 第2层：亲属/称谓（复合词，误判率极低）────────────────────────
+  // 男：哥哥 大哥 二哥 老哥 / 兄长 兄弟 / 弟弟 老弟 小弟 /
+  //     爸爸 父亲 老爸 / 爷爷 老爷 大爷 / 叔叔 伯伯 舅舅
+  if (/哥哥|大哥|二哥|老哥|小哥|兄长|兄弟|弟弟|老弟|小弟|爸爸|父亲|老爸|爷爷|老爷|叔叔|伯伯|舅舅/.test(t)) return 'MALE';
+  // 女：姐姐 大姐 二姐 / 妹妹 小妹 / 妈妈 母亲 老妈 /
+  //     奶奶 姑姑 婶婶 阿姨
+  if (/姐姐|大姐|二姐|老姐|小姐姐|妹妹|小妹|大妹|妈妈|母亲|老妈|奶奶|姑姑|婶婶|阿姨/.test(t)) return 'FEMALE';
+
+  // ── 第3层：角色定位词 ──────────────────────────────────────────────
+  if (/男主|男二|男三|男配|男反|男一号/.test(t)) return 'MALE';
+  if (/女主|女二|女三|女配|女反|女一号/.test(t)) return 'FEMALE';
+
+  // ── 第4层：常见中文名字模式 ───────────────────────────────────────
+  // 「小/大/老/阿 + 典型男性用字」
+  // 典型男性字：明刚强磊军勇鹏龙伟超豪杰浩宇轩博远志峰涛
+  if (/小明|小刚|小强|小磊|小军|小勇|小鹏|小龙|小伟|小超|小豪|小杰|小浩|小宇|小轩|小博|小远|小志|小峰|小涛|大壮|阿强|阿勇|阿明|阿刚|阿豪|老刚|老强/.test(t)) return 'MALE';
+  // 「小/大/老/阿 + 典型女性用字」
+  // 典型女性字：美红花丽燕芳英敏静娟慧梅香秀玲萍云雪莹晴
+  if (/小美|小红|小花|小丽|小燕|小芳|小英|小敏|小静|小娟|小慧|小梅|小香|小秀|小玲|小萍|小云|小雪|小莹|小晴|阿美|阿花|阿丽|阿燕|阿芳|阿英|阿梅/.test(t)) return 'FEMALE';
+
+  // ── 第5层：单字称谓（放最后，避免误判）───────────────────────────
+  // 只匹配单独作称谓出现的情况（前后有汉字边界或标点）
+  if (/[（(【「\s：:]哥[）)】」\s,，。！!]|^哥[,，。]|[他]哥\b/.test(t)) return 'MALE';
+
+  // ── 第6层：英文兜底 ────────────────────────────────────────────────
+  if (/\b(male|man|boy|gentleman|he|his)\b/i.test(t)) return 'MALE';
+  if (/\b(female|woman|girl|lady|she|her)\b/i.test(t)) return 'FEMALE';
+
+  return null;
+}
+
 function buildFourViewImagePrompt(fourViewDescription, styleText) {
   const imageLayoutInstruction = promptI18n.getRoleGenerateImagePrompt();
   const styleAppend = styleText ? ` Art style: ${styleText}.` : '';
-  return `${imageLayoutInstruction}\n\n---\n\n${fourViewDescription}\n\n---\n\nCRITICAL OUTPUT REQUIREMENT: Generate ONE single image containing a 2×2 grid (4 panels): top-left=head close-up, top-right=front full body, bottom-left=left side full body, bottom-right=back full body. Pure white background. No text labels. No props in hands. Neutral expression. Arms at sides.${styleAppend}`;
+
+  // 从描述中检测性别，在 CRITICAL 约束里用英文强调，防止图片 AI 生成错误性别
+  const gender = detectGenderFromDescription(fourViewDescription);
+  const genderEnforcement = gender === 'MALE'
+    ? ' GENDER CRITICAL: The character is MALE. Masculine body structure, male facial features. Do NOT generate a female character under any circumstances.'
+    : gender === 'FEMALE'
+      ? ' GENDER CRITICAL: The character is FEMALE. Feminine body structure, female facial features. Do NOT generate a male character under any circumstances.'
+      : '';
+
+  return `${imageLayoutInstruction}\n\n---\n\n${fourViewDescription}\n\n---\n\nCRITICAL OUTPUT REQUIREMENT: Generate ONE single image containing a 2×2 grid (4 panels): top-left=head close-up, top-right=front full body, bottom-left=left side full body, bottom-right=back full body. Pure white background. No text labels. No props in hands. Neutral expression. Arms at sides.${genderEnforcement}${styleAppend}`;
 }
 
 /**
