@@ -180,6 +180,15 @@ async function processVideoGeneration(db, log, videoGenId) {
           ).run('completed', result.video_url, localPath, now2, videoGenId);
         } else throw e;
       }
+      // 自动更新分镜的主视频
+      if (row.storyboard_id) {
+        try {
+          db.prepare('UPDATE storyboards SET video_url = ?, local_path = ?, updated_at = ? WHERE id = ?').run(
+            result.video_url, localPath, now2, row.storyboard_id
+          );
+          log.info('Updated storyboard video', { storyboard_id: row.storyboard_id, video_url: result.video_url });
+        } catch (_) {}
+      }
       if (row.task_id) taskService.updateTaskResult(db, row.task_id, { video_generation_id: videoGenId, video_url: result.video_url, status: 'completed' });
       log.info('Video generation completed', { id: videoGenId, video_url: result.video_url, local_path: localPath });
       return;
@@ -212,6 +221,15 @@ async function processVideoGeneration(db, log, videoGenId) {
               'UPDATE video_generations SET status = ?, video_url = ?, local_path = ?, updated_at = ? WHERE id = ?'
             ).run('completed', pollResult.video_url, localPath, now3, videoGenId);
           } else throw e;
+        }
+        // 自动更新分镜的主视频
+        if (row.storyboard_id) {
+          try {
+            db.prepare('UPDATE storyboards SET video_url = ?, local_path = ?, updated_at = ? WHERE id = ?').run(
+              pollResult.video_url, localPath, now3, row.storyboard_id
+            );
+            log.info('Updated storyboard video (poll)', { storyboard_id: row.storyboard_id, video_url: pollResult.video_url });
+          } catch (_) {}
         }
         if (row.task_id) taskService.updateTaskResult(db, row.task_id, { video_generation_id: videoGenId, video_url: pollResult.video_url, status: 'completed' });
         log.info('Video generation completed (after poll)', { id: videoGenId, local_path: localPath });

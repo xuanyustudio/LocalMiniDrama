@@ -1076,6 +1076,17 @@ async function callVideoApi(db, log, opts) {
   // ?????doubao-seedance-1-5-pro ??? r2v?????? task_type???? i2v ??? reference_image ?????? r2v
   const volcTaskType = isVolc ? (hasImage ? 'i2v' : 't2v') : null;
 
+  // 针对火山引擎 (Doubao) 修正 duration：只支持 5 或 10 秒
+  // 若传入非标准值（如 3, 4, 8 等），自动吸附到最近的有效值
+  let effectiveDuration = dur;
+  if (isVolc) {
+    if (effectiveDuration <= 7) effectiveDuration = 5;
+    else effectiveDuration = 10;
+    if (effectiveDuration !== dur) {
+      log.info('Adjusted duration for Volcengine', { original: dur, adjusted: effectiveDuration, video_gen_id });
+    }
+  }
+
   // ???? localhost URL????????????? base64?? DashScope ???
   let imageUrlForApi = image_url && image_url.trim();
   if (hasImage && imageUrlForApi && (opts.files_base_url || '').match(/localhost|127\.0\.0\.1/i) && opts.storage_local_path) {
@@ -1100,7 +1111,7 @@ async function callVideoApi(db, log, opts) {
     model: finalModel,
     content: [{ type: 'text', text: prompt || '' }],
     ratio,
-    duration: dur,
+    duration: effectiveDuration,
     watermark: (watermark != null) ? Boolean(watermark) : false,
   };
   if (resolution) body.resolution = resolution;
