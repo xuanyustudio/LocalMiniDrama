@@ -7,8 +7,8 @@ const uploadService = require('./uploadService');
 const taskService = require('./taskService');
 const { loadConfig } = require('../config');
 
-// 多参考图时注入到所有支持 negative_prompt 的模型，防止生成分割/拼贴布局
-const ANTI_SPLIT_NEGATIVE_PROMPT = 'split panels, side-by-side layout, collage, diptych, triptych, grid layout, multiple panels, comparison view, composite image, two images in one frame';
+// 多参考图时注入到所有支持 negative_prompt 的模型，防止生成分割/拼贴布局；同时加入安全词以减少敏感拦截
+const ANTI_SPLIT_NEGATIVE_PROMPT = 'nsfw, nudity, naked, violence, blood, gore, sensitive content, split panels, side-by-side layout, collage, diptych, triptych, grid layout, multiple panels, comparison view, composite image, two images in one frame';
 
 // sharp 惰性加载（参考图压缩用，sharp 已在 package.json 中声明）
 let _sharp = null;
@@ -1222,7 +1222,9 @@ async function callImageApi(db, log, opts) {
 
   // 多参考图时统一生成 negative_prompt（供各子函数使用）
   const refCountForNeg = Array.isArray(opts.reference_image_urls) ? opts.reference_image_urls.filter(Boolean).length : 0;
-  const autoNegativePrompt = refCountForNeg > 1 ? ANTI_SPLIT_NEGATIVE_PROMPT : '';
+  // Seedream/Volcengine 模型强制启用安全词负面提示，其他模型仅在多参考图时启用
+  const isVolcOrSeedream = (protocol === 'volcengine' || /seedream|doubao/i.test(model));
+  const autoNegativePrompt = (refCountForNeg > 1 || isVolcOrSeedream) ? ANTI_SPLIT_NEGATIVE_PROMPT : '';
 
   if (protocol === 'dashscope') {
     return callDashScopeImageApi(config, log, {
@@ -1291,7 +1293,7 @@ async function callImageApi(db, log, opts) {
     ...((isVolc || isSeedream) ? { watermark: false } : {}),
     // 多张参考图时加 negative_prompt，防止模型把参考图拼成左右分割的合图
     // Doubao/Seedream 原生支持；通用 OpenAI-compat 接口大多也会接受该字段（不支持的会忽略）
-    ...(resolvedRefs.length > 1 ? { negative_prompt: autoNegativePrompt } : {}),
+    ...(autoNegativePrompt ? { negative_prompt: autoNegativePrompt } : {}),
     // 参考图字段：volcengine doubao-seedream API 规范使用 image（数组），见官方文档
     ...(resolvedRefs.length > 0 ? { image: resolvedRefs } : {}),
   };
