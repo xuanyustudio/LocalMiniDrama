@@ -67,7 +67,7 @@ function buildQueryUrl(config, taskId) {
   else if (isDashScope) defaultEp = '/api/v1/tasks/{taskId}';
   else defaultEp = '/video/task/{taskId}';
   let ep = config.query_endpoint || defaultEp;
-  ep = String(ep).replace(/\{taskId\}/gi, encodeURIComponent(taskId)).replace(/\{task_id\}/gi, encodeURIComponent(taskId));
+  ep = String(ep).replace(/\{taskId\}/gi, encodeURIComponent(taskId)).replace(/\{task_id\}/gi, encodeURIComponent(taskId)).replace(/\{id\}/gi, encodeURIComponent(taskId));
   if (!ep.startsWith('/')) ep = '/' + ep;
   return base + ep;
 }
@@ -1204,7 +1204,7 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
         else if (taskId.startsWith('mc:'))  { actualTaskId = taskId.slice(3); videoType = 'motion-control'; }
         // 若用户配置了 query_endpoint，优先使用
         let qep = config.query_endpoint || `/v1/videos/${videoType}/{taskId}`;
-        qep = String(qep).replace(/\{taskId\}/gi, encodeURIComponent(actualTaskId)).replace(/\{task_id\}/gi, encodeURIComponent(actualTaskId));
+        qep = String(qep).replace(/\{taskId\}/gi, encodeURIComponent(actualTaskId)).replace(/\{task_id\}/gi, encodeURIComponent(actualTaskId)).replace(/\{id\}/gi, encodeURIComponent(actualTaskId));
         if (!qep.startsWith('/')) qep = '/' + qep;
         url = klingBase + qep;
         headers = { Authorization: 'Bearer ' + (config.api_key || '') };
@@ -1217,7 +1217,7 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
         const isOfficialVidu = /api\.vidu\.cn/i.test(viduBase);
         const defaultQep = isOfficialVidu ? '/ent/v2/tasks/{taskId}/creations' : '/ent/v2/tasks/{taskId}/creations';
         let qep = config.query_endpoint || defaultQep;
-        qep = String(qep).replace(/\{taskId\}/gi, encodeURIComponent(taskId)).replace(/\{task_id\}/gi, encodeURIComponent(taskId));
+        qep = String(qep).replace(/\{taskId\}/gi, encodeURIComponent(taskId)).replace(/\{task_id\}/gi, encodeURIComponent(taskId)).replace(/\{id\}/gi, encodeURIComponent(taskId));
         if (!qep.startsWith('/')) qep = '/' + qep;
         url = viduBase + qep;
         headers = { Authorization: (isOfficialVidu ? 'Token ' : 'Bearer ') + (config.api_key || '') };
