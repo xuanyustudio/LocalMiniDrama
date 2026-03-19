@@ -144,9 +144,9 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
     const localPath = saveMediaFile(storagePath, 'characters', files, c.image_file, 'char_imp');
     const extraImagesJson = saveExtraImages(storagePath, 'characters', files, c.extra_image_files, 'char_extra_imp');
     const info = db.prepare(
-      `INSERT INTO characters (drama_id, name, role, description, personality, appearance, voice_style, local_path, extra_images, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(dramaId, c.name, c.role || null, c.description || null, c.personality || null, c.appearance || null, c.voice_style || null, localPath, extraImagesJson, i, now, now);
+      `INSERT INTO characters (drama_id, name, role, description, personality, appearance, voice_style, polished_prompt, local_path, extra_images, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(dramaId, c.name, c.role || null, c.description || null, c.personality || null, c.appearance || null, c.voice_style || null, c.polished_prompt || null, localPath, extraImagesJson, i, now, now);
     charNewIds.push(info.lastInsertRowid);
   }
 
@@ -189,9 +189,9 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
     const localPath = saveMediaFile(storagePath, 'scenes', files, s.image_file, 'scene_imp');
     const extraImagesJson = saveExtraImages(storagePath, 'scenes', files, s.extra_image_files, 'scene_extra_imp');
     const info = db.prepare(
-      `INSERT INTO scenes (drama_id, episode_id, location, time, prompt, local_path, extra_images, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(dramaId, epId, s.location || '', s.time || '', s.prompt || '', localPath, extraImagesJson, now, now);
+      `INSERT INTO scenes (drama_id, episode_id, location, time, prompt, polished_prompt, local_path, extra_images, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(dramaId, epId, s.location || '', s.time || '', s.prompt || '', s.polished_prompt || null, localPath, extraImagesJson, now, now);
     sceneNewIds.push(info.lastInsertRowid);
     sceneDedupeMap.set(dedupeKey, info.lastInsertRowid);
   }
@@ -241,8 +241,8 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
         .filter(id => id != null);
 
       const sbInfo = db.prepare(
-        `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, dialogue, action, atmosphere, result, shot_type, angle, movement, image_prompt, video_prompt, duration, emotion, emotion_intensity, characters, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, dialogue, action, atmosphere, result, shot_type, angle, angle_h, angle_v, angle_s, movement, lighting_style, depth_of_field, image_prompt, polished_prompt, video_prompt, duration, emotion, emotion_intensity, segment_index, segment_title, continuity_snapshot, characters, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         episodeId,
         sbSceneId,
@@ -257,12 +257,21 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
         sb.result || null,
         sb.shot_type || null,
         sb.angle || null,
+        sb.angle_h || null,
+        sb.angle_v || null,
+        sb.angle_s || null,
         sb.movement || null,
+        sb.lighting_style || null,
+        sb.depth_of_field || null,
         sb.image_prompt || null,
+        sb.polished_prompt || null,
         sb.video_prompt || null,
         sb.duration || 0,
         sb.emotion || null,
         sb.emotion_intensity != null ? sb.emotion_intensity : null,
+        sb.segment_index ?? 0,
+        sb.segment_title || null,
+        sb.continuity_snapshot || null,
         charactersJson,
         now,
         now

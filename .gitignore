@@ -8,3 +8,4 @@ data/drama_generator.db
 data/drama_generator.db-shm
 data/drama_generator.db-wal
 .opencode
+.cursor

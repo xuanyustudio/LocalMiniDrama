@@ -204,15 +204,24 @@ function exportDrama(db, cfg, log, dramaId) {
             result: sb.result,
             shot_type: sb.shot_type,
             angle: sb.angle,
+            angle_h: sb.angle_h || null,
+            angle_v: sb.angle_v || null,
+            angle_s: sb.angle_s || null,
             movement: sb.movement,
+            lighting_style: sb.lighting_style || null,
+            depth_of_field: sb.depth_of_field || null,
             image_prompt: sb.image_prompt,
+            polished_prompt: sb.polished_prompt || null,
             video_prompt: sb.video_prompt,
             duration: sb.duration,
             emotion: sb.emotion,
             emotion_intensity: sb.emotion_intensity,
-            character_indices: characterIndices,  // 角色下标数组
-            scene_index: sceneIndex,              // 场景下标
-            prop_indices: propIndices,            // 道具下标数组（storyboard_props）
+            segment_index: sb.segment_index ?? 0,
+            segment_title: sb.segment_title || null,
+            continuity_snapshot: sb.continuity_snapshot || null,
+            character_indices: characterIndices,
+            scene_index: sceneIndex,
+            prop_indices: propIndices,
             image_file: sbImageFile,
             video_file: sbVideoFile,
           };
@@ -234,6 +243,7 @@ function exportDrama(db, cfg, log, dramaId) {
         personality: c.personality,
         appearance: c.appearance,
         voice_style: c.voice_style,
+        polished_prompt: c.polished_prompt || null,
         image_file: c.local_path ? `media/characters/char_${c.id}${extOf(c.local_path)}` : null,
         extra_image_files: extraFiles,
       };
@@ -250,6 +260,7 @@ function exportDrama(db, cfg, log, dramaId) {
         location: s.location,
         time: s.time,
         prompt: s.prompt,
+        polished_prompt: s.polished_prompt || null,
         episode_index: epIdx >= 0 ? epIdx : null,
         image_file: s.local_path ? `media/scenes/scene_${s.id}${extOf(s.local_path)}` : null,
         extra_image_files: extraFiles,
