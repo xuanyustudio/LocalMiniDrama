@@ -8,6 +8,30 @@
 
 ---
 
+## [1.2.3] - 2026-03-24
+
+### 新增
+
+- **分镜解说旁白（narration）**：分镜生成请求支持 `include_narration`；数据库 `storyboards` 表新增 `narration` 字段；提示词要求与角色对白 `dialogue` 分离的纪录片式/第三人称解说文案
+- **导出解说 SRT**：前端按分镜顺序与 `duration` 累计时间轴，导出非空解说为 SubRip 文件；项目 `metadata.storyboard_include_narration` 持久化勾选状态
+- **解说 TTS**：分镜视频区在存在解说文案时提供「解说配音」按钮，沿用现有音频合成接口
+
+### 修复
+
+- **首镜（及前几镜）解说永久为空**：流式增量写入会先插入不完整对象；原逻辑在最终 `saveStoryboards` 时跳过已插入行且不再更新，导致 `narration` 等后出字段无法落库；改为对增量已写入的 `storyboard_number` 用最终解析结果执行 `UPDATE` 合并（`deriveStoryboardFieldsFromAi` + `updateStoryboardRowFromDerived`）
+- **解说漏写**：用户提示与系统提示增加最高优先级说明（首镜开场解说、全镜非空等），减少模型将建立镜头留空
+
+### 优化
+
+- **解说相关 UI**：`FilmCreate.vue` 中解说多行输入框、复选框说明与「导出解说 SRT」按钮在浅色/深色主题下的字色与背景对比度；导出按钮白字紫底
+
+### 文档
+
+- 根目录 `README.md`、`docs/en.md` 版本徽章与「最新亮点」同步至 v1.2.3
+- `frontweb` / `backend-node` / `desktop` 的 `package.json` 版本号统一为 1.2.3
+
+---
+
 ## [1.2.2] - 2026-03-17
 
 ### 新增

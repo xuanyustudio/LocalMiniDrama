@@ -612,6 +612,22 @@
             <span class="sb-config-hint">四/九宫格自动按视角拆分</span>
           </label>
         </div>
+        <div class="sb-config-row sb-narration-export-row" style="margin-top:10px;flex-wrap:wrap;align-items:center;gap:12px">
+          <el-checkbox v-model="storyboardIncludeNarration" @change="saveProjectSettings">
+            生成分镜时生成解说旁白（narration，与对白分开，便于后期 TTS）
+          </el-checkbox>
+          <el-button
+            v-if="storyboards.length > 0"
+            class="sb-export-srt-btn"
+            size="small"
+            plain
+            type="primary"
+            :disabled="!currentEpisodeId"
+            @click="onExportNarrationSrt"
+          >
+            导出解说 SRT
+          </el-button>
+        </div>
         <div class="asset-actions sb-batch-actions">
           <div class="flex">
             <el-button
@@ -864,6 +880,20 @@
                 <span class="sb-prompt-text">{{ sb.image_prompt || '暂无图片提示词' }}</span>
                 <el-button size="small" link type="primary" @click="onOpenSbPromptDialog(sb)">编辑</el-button>
               </div>
+              <template v-if="storyboardIncludeNarration || (sbNarration[sb.id] || '').trim() || (sb.narration || '').trim()">
+                <div class="sb-prompt-label">
+                  <span class="sb-dot"></span>
+                  <span>解说旁白</span>
+                </div>
+                <el-input
+                  v-model="sbNarration[sb.id]"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="本镜解说文案（画外音 / 纪录片式旁白，供 TTS 或导出 SRT）"
+                  class="sb-narration-input"
+                  @blur="() => onSaveSbNarrationField(sb)"
+                />
+              </template>
             </div>
             <!-- 中：分镜图（优先用 /images?storyboard_id 拉取到的图，否则用 composed_image） -->
             <div class="sb-panel sb-image">
@@ -1002,6 +1032,11 @@
                 <el-tooltip v-if="sb.dialogue" content="对白配音（TTS）" placement="top">
                   <el-button size="small" :loading="ttsSbIds.has(sb.id)" @click="onTtsSbDialogue(sb)">
                     配音
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip v-if="(sbNarration[sb.id] || sb.narration || '').toString().trim()" content="解说旁白配音（TTS）" placement="top">
+                  <el-button size="small" :loading="ttsSbNarrationIds.has(sb.id)" @click="onTtsSbNarration(sb)">
+                    解说配音
                   </el-button>
                 </el-tooltip>
               </div>
@@ -1753,6 +1788,9 @@
         <el-form-item label="对白">
           <el-input v-model="sbDialogue[videoParamsTarget.id]" type="textarea" :rows="2" placeholder="角色对白" />
         </el-form-item>
+        <el-form-item label="解说旁白">
+          <el-input v-model="sbNarration[videoParamsTarget.id]" type="textarea" :rows="2" class="sb-narration-input" placeholder="画外解说 / 纪录片式旁白（与对白分开）" />
+        </el-form-item>
         <el-form-item label="画面结果">
           <el-input v-model="sbResult[videoParamsTarget.id]" type="textarea" :rows="2" placeholder="动作完成后的画面结果" />
         </el-form-item>
@@ -2191,6 +2229,7 @@ const sbCharacterIds = ref({})  // sbId -> number[] 多选角色
 const sbPropIds = ref({})       // sbId -> number[] 多选物品
 const sbSceneId = ref({})
 const sbDialogue = ref({})
+const sbNarration = ref({})
 const sbShotType = ref({})
 /** 视频提示词组成（可编辑），key 为分镜 id */
 const sbTitle = ref({})
@@ -2238,6 +2277,7 @@ const upscalingSbIds = reactive(new Set())
 const generatingSceneMultiViewIds = reactive(new Set())
 // P2-4: TTS 状态
 const ttsSbIds = reactive(new Set())
+const ttsSbNarrationIds = reactive(new Set())
 const sbAudioPaths = ref({})
 /** 正在编辑视频提示词的分镜 id；编辑中显示文本框与保存/取消 */
 const editingSbVideoPromptId = ref(null)
@@ -2266,6 +2306,8 @@ const dragOverSbId = ref(null)
 // 公共库弹窗状态已移至各 composable
 const storyboardCount = ref(null) // 分镜数量
 const videoDuration = ref(null) // 视频总长度
+/** 分镜生成时是否要求 AI 输出 narration（解说旁白） */
+const storyboardIncludeNarration = ref(false)
 const gridMode = ref('single') // 序列图模式：single / quad_grid / nine_grid
 
 
@@ -2763,6 +2805,7 @@ function syncStoryboardStateFromEpisode(ep) {
   const nextPropIds = {}
   const nextScene = {}
   const nextDialogue = {}
+  const nextNarration = {}
   const nextShot = {}
   const nextTitle = {}
   const nextLocation = {}
@@ -2781,6 +2824,7 @@ function syncStoryboardStateFromEpisode(ep) {
   for (const sb of boards) {
     nextScene[sb.id] = sb.scene_id ?? null
     nextDialogue[sb.id] = sb.dialogue ?? ''
+    nextNarration[sb.id] = sb.narration ?? ''
     nextShot[sb.id] = (sb.shot_type ?? '').toString() || ''
     nextTitle[sb.id] = (sb.title ?? '').toString()
     nextLocation[sb.id] = (sb.location ?? '').toString()
@@ -2804,6 +2848,7 @@ function syncStoryboardStateFromEpisode(ep) {
   sbPropIds.value = nextPropIds
   sbSceneId.value = nextScene
   sbDialogue.value = nextDialogue
+  sbNarration.value = nextNarration
   sbShotType.value = nextShot
   sbTitle.value = nextTitle
   sbLocation.value = nextLocation
@@ -2851,6 +2896,7 @@ async function loadDrama() {
     generationStyle.value = d.style || ''
     projectAspectRatio.value = (d.metadata && d.metadata.aspect_ratio) ? d.metadata.aspect_ratio : '16:9'
     videoClipDuration.value = (d.metadata && d.metadata.video_clip_duration) ? Number(d.metadata.video_clip_duration) : 5
+    storyboardIncludeNarration.value = !!(d.metadata && d.metadata.storyboard_include_narration)
     const list = d.episodes || []
     // 优先保持当前选中的集（按 id 在最新列表中查找），避免 AI 生成角色等操作后误切到其他集
     const currentId = selectedEpisodeId.value
@@ -3088,6 +3134,7 @@ async function saveProjectSettings() {
       story_style: storyStyle.value || undefined,
       aspect_ratio: projectAspectRatio.value || '16:9',
       video_clip_duration: videoClipDuration.value || 5,
+      storyboard_include_narration: !!storyboardIncludeNarration.value,
     }
   }).catch(e => console.error('Settings auto-save failed', e))
 }
@@ -3502,6 +3549,94 @@ async function onTtsSbDialogue(sb) {
   }
 }
 
+/** 为分镜解说旁白生成 TTS（与对白共用接口，文本不同） */
+async function onTtsSbNarration(sb) {
+  if (!sb?.id || ttsSbNarrationIds.has(sb.id)) return
+  const text = ((sbNarration.value[sb.id] ?? sb.narration) || '').toString().trim()
+  if (!text) {
+    ElMessage.warning('该分镜没有解说旁白内容')
+    return
+  }
+  ttsSbNarrationIds.add(sb.id)
+  try {
+    const res = await fetch('/api/v1/audio/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storyboard_id: sb.id, text }),
+    })
+    const data = await res.json()
+    if (!res.ok || data.code !== 200) throw new Error(data.message || '解说配音失败')
+    if (data.data?.local_path) {
+      sbAudioPaths.value = { ...sbAudioPaths.value, [sb.id]: data.data.local_path }
+      ElMessage.success('解说配音已生成')
+    }
+  } catch (e) {
+    ElMessage.error(e.message || '解说 TTS 失败')
+  } finally {
+    ttsSbNarrationIds.delete(sb.id)
+  }
+}
+
+function formatSrtTimestamp(ms) {
+  if (!Number.isFinite(ms) || ms < 0) ms = 0
+  const h = Math.floor(ms / 3600000)
+  const m = Math.floor((ms % 3600000) / 60000)
+  const s = Math.floor((ms % 60000) / 1000)
+  const z = Math.floor(ms % 1000)
+  const p2 = (n) => String(n).padStart(2, '0')
+  return `${p2(h)}:${p2(m)}:${p2(s)},${String(z).padStart(3, '0')}`
+}
+
+/** 按分镜顺序与 duration 累计时间轴，导出非空解说为 SRT */
+function onExportNarrationSrt() {
+  const boards = storyboards.value || []
+  if (!boards.length) {
+    ElMessage.warning('暂无分镜')
+    return
+  }
+  let tMs = 0
+  const lines = []
+  let idx = 1
+  for (const sb of boards) {
+    const durSec = Number(sbDuration.value[sb.id] ?? sb.duration)
+    const sec = Number.isFinite(durSec) && durSec > 0 ? durSec : 5
+    const durMs = Math.round(sec * 1000)
+    const text = ((sbNarration.value[sb.id] ?? sb.narration) || '').toString().trim()
+    if (text) {
+      const start = formatSrtTimestamp(tMs)
+      const end = formatSrtTimestamp(tMs + durMs)
+      lines.push(String(idx++), `${start} --> ${end}`, text, '')
+    }
+    tMs += durMs
+  }
+  if (!lines.length) {
+    ElMessage.warning('当前分镜没有可导出的解说文案')
+    return
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `narration-${currentEpisodeId.value || 'episode'}.srt`
+  a.click()
+  URL.revokeObjectURL(a.href)
+  ElMessage.success('已下载解说 SRT')
+}
+
+async function onSaveSbNarrationField(sb) {
+  if (!sb?.id) return
+  const next = (sbNarration.value[sb.id] || '').toString().trim()
+  const prev = (sb.narration || '').toString().trim()
+  if (next === prev) return
+  try {
+    await storyboardsAPI.update(sb.id, { narration: next || null })
+    const list = store.currentEpisode?.storyboards
+    if (Array.isArray(list)) {
+      const row = list.find((x) => Number(x.id) === Number(sb.id))
+      if (row) row.narration = next || null
+    }
+  } catch (_) { /* 静默失败，避免打断输入 */ }
+}
+
 /** P2-3: 生成场景多视角图 */
 async function onGenerateSceneMultiView(scene) {
   if (!scene?.id || generatingSceneMultiViewIds.has(scene.id)) return
@@ -3642,6 +3777,8 @@ function buildVideoPromptFromFields(sbId) {
   if (action) parts.push('动作：' + action)
   const dialogue = (sbDialogue.value[sbId] || '').toString().trim()
   if (dialogue) parts.push('对话：' + dialogue)
+  const narr = (sbNarration.value[sbId] || '').toString().trim()
+  if (narr) parts.push('解说旁白：' + narr)
   const shotType = (sbShotType.value[sbId] || '').toString().trim()
   if (shotType) parts.push('景别：' + shotType)
   // 优先使用结构化三元组：中文标签 + 英文描述（兼顾中英文视频模型）
@@ -3678,6 +3815,7 @@ async function onSaveSbVideoFields(sb) {
       duration: Number(sbDuration.value[sb.id]) || 5,
       action: (sbAction.value[sb.id] || '').toString().trim() || null,
       dialogue: (sbDialogue.value[sb.id] || '').toString().trim() || null,
+      narration: (sbNarration.value[sb.id] || '').toString().trim() || null,
       atmosphere: (sbAtmosphere.value[sb.id] || '').toString().trim() || null,
       result: (sbResult.value[sb.id] || '').toString().trim() || null,
       angle: (sbAngle.value[sb.id] || '').toString().trim() || null,
@@ -3824,7 +3962,8 @@ async function onGenerateStoryboard() {
       style: getSelectedStyle(),
       storyboard_count: storyboardCount.value || undefined,
       video_duration: videoDuration.value || undefined,
-      aspect_ratio: projectAspectRatio.value
+      aspect_ratio: projectAspectRatio.value,
+      include_narration: !!storyboardIncludeNarration.value,
     })
     const taskId = res?.task_id ?? (typeof res === 'string' ? res : null)
     if (taskId) {
@@ -4391,6 +4530,7 @@ async function runOneClickPipeline() {
           aspect_ratio: projectAspectRatio.value,
           storyboard_count: storyboardCount.value || undefined,
           video_duration: videoDuration.value || undefined,
+          include_narration: !!storyboardIncludeNarration.value,
         })
         const taskId = res?.task_id ?? (typeof res === 'string' ? res : null)
         if (taskId) {
@@ -4845,6 +4985,7 @@ async function runRepairPipeline() {
           aspect_ratio: projectAspectRatio.value,
           storyboard_count: storyboardCount.value || undefined,
           video_duration: videoDuration.value || undefined,
+          include_narration: !!storyboardIncludeNarration.value,
         })
         const taskId = res?.task_id ?? (typeof res === 'string' ? res : null)
         if (taskId) {
@@ -6894,6 +7035,49 @@ html.light .sb-video-placeholder {
   color: #3f3f46;
   font-size: 0.85rem;
   margin: 0 4px;
+}
+/* 解说导出行：避免浅色主题下勾选文案与卡片背景对比度不足 */
+.sb-narration-export-row :deep(.el-checkbox__label) {
+  color: #e4e4e7;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+html.light .sb-narration-export-row :deep(.el-checkbox__label) {
+  color: #374151;
+}
+.sb-export-srt-btn.el-button--primary.is-plain {
+  --el-button-bg-color: rgba(124, 58, 237, 0.75);
+  --el-button-border-color: #a78bfa;
+  --el-button-text-color: #fff;
+  --el-button-hover-text-color: #fff;
+  --el-button-hover-bg-color: #8b5cf6;
+  --el-button-hover-border-color: #c4b5fd;
+}
+html.light .sb-export-srt-btn.el-button--primary.is-plain {
+  --el-button-bg-color: #7c3aed;
+  --el-button-border-color: #6d28d9;
+  --el-button-text-color: #fff;
+  --el-button-hover-text-color: #fff;
+  --el-button-hover-bg-color: #6d28d9;
+  --el-button-hover-border-color: #5b21b6;
+}
+/* 分镜内解说旁白输入框：强制字/底对比，避免主题变量与页面继承冲突导致「看不见字」 */
+.sb-narration-input :deep(.el-textarea__inner) {
+  color: #e4e4e7 !important;
+  background-color: rgba(24, 24, 27, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none;
+}
+.sb-narration-input :deep(.el-textarea__inner::placeholder) {
+  color: #71717a !important;
+}
+html.light .sb-narration-input :deep(.el-textarea__inner) {
+  color: #1e1b4b !important;
+  background-color: #ffffff !important;
+  border-color: rgba(139, 92, 246, 0.22) !important;
+}
+html.light .sb-narration-input :deep(.el-textarea__inner::placeholder) {
+  color: #9ca3af !important;
 }
 .sub-title {
   font-size: 1rem;

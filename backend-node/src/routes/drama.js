@@ -253,7 +253,8 @@ function generateStoryboard(db, log) {
         style: body.style,
         storyboard_count: body.storyboard_count,
         video_duration: body.video_duration,
-        aspect_ratio: body.aspect_ratio
+        aspect_ratio: body.aspect_ratio,
+        include_narration: body.include_narration,
       });
       response.success(res, resData);
     } catch (err) {

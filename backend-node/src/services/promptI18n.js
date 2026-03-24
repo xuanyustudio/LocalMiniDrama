@@ -224,6 +224,28 @@ function getStoryboardSystemPrompt(cfg) {
 - segment_index 必须从0开始递增的整数，同一段落内所有镜头共享相同的 segment_index 和 segment_title`;
 }
 
+/** 分镜生成勾选「解说旁白」时追加到用户提示词末尾 */
+function getStoryboardNarrationExtraInstructions(cfg) {
+  if (isEnglish(cfg)) {
+    return `
+
+【VO / Narration mode — STRICT (user enabled full VO pipeline)】
+- Add string field "narration" to **each** shot. **Every "narration" MUST be a non-empty string** (at least one full sentence), readable within this shot's "duration".
+- **Shot with shot_number = 1 MUST** open with narrator lines: set time/place/mood or a hook — never leave empty because the shot is "establishing only".
+- **Shot 2** should also carry narration if it is still wide/establishing; do not leave both 1 and 2 empty.
+- Third-person / documentary narrator voice — **not** character dialogue (keep spoken lines in "dialogue" only). Do not copy dialogue text into "narration".
+- 1–3 short sentences per shot; forbid consecutive shots with empty "narration".`;
+  }
+  return `
+
+【解说旁白模式 — 硬性要求（用户已开启全片解说管线）】
+- 在 "storyboards" 数组的**每一个**镜头对象中必须有字符串字段 "narration"，且 **narration 一律不得为空字符串**（每镜至少一句完整解说，约 10～50 字，须在本镜 duration 秒内能读完）。
+- **shot_number 为 1 的第一个镜头**：必须有**开场解说**（交代时间、空间、氛围或悬念钩子），禁止以「纯建立镜头、无对白所以无旁白」为由留空；大远景/远景用旁白描述环境与基调，把观众带进故事。
+- **第 2 个镜头**：若仍为远景/大远景/环境铺垫，同样必须写旁白；**禁止第 1、2 镜连续留空**。
+- narration 为画外第三人称或纪录片式解说，与角色对白 dialogue 严格区分；对白只写在 dialogue，不要把对白原文复制进 narration。
+- 每镜 1～3 句为宜；禁止连续多个镜头的 narration 为空。`;
+}
+
 function formatUserPrompt(cfg, key, ...args) {
   const style = cfg?.style?.default_style || '';
   const imageRatio = cfg?.style?.default_image_ratio || '16:9';
@@ -1216,6 +1238,7 @@ module.exports = {
   getSceneExtractionPrompt,
   getStoryboardSystemPrompt,
   getStoryboardUserPromptSuffix,
+  getStoryboardNarrationExtraInstructions,
   getStoryExpansionSystemPrompt,
   buildStoryExpansionUserPrompt,
   getRolePolishPrompt,

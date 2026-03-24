@@ -6,7 +6,7 @@
 
 *LocalMiniDrama · AI-powered short drama creator*
 
-[![version](https://img.shields.io/badge/version-1.2.1-blue?style=flat-square)](../../releases)
+[![version](https://img.shields.io/badge/version-1.2.3-blue?style=flat-square)](../../releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)](#)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#)
@@ -237,7 +237,17 @@ LocalMiniDrama/
 
 查看完整更新记录 → **[CHANGELOG](docs/changelog.md)**
 
-**最新版 v1.2.1 亮点：**
+**最新版 v1.2.3 亮点：**
+- 🆕 **分镜解说旁白（narration）**：分镜生成可选「生成分镜时生成解说旁白」，AI 为每镜输出独立 `narration` 字段（与角色对白 `dialogue` 分离），便于后期 TTS 与成片旁轨
+- 🆕 **导出解说 SRT**：按分镜顺序与单镜时长累计时间轴，一键导出字幕文件；支持「解说配音」走现有 TTS 接口
+- 🔧 **首镜解说为空修复**：流式增量先入库的分镜在任务结束后会用**最终完整 JSON** 再 `UPDATE` 合并，避免第 1/2 镜解说因早写库而永久缺失
+- 🔧 **解说模式提示词强化**：系统与用户提示中明确首镜开场解说、全镜非空等硬性要求，减少模型漏写
+- 🎨 **解说相关 UI**：解说输入框与「导出解说 SRT」按钮在深浅色主题下对比度优化；导出按钮白字紫底易辨认
+
+**v1.2.2 亮点：**
+- 🆕 **视频帧连贯性（连贯帧模式）**、**小说/长文导入**、**ffmpeg 自动解压** 等（详见 [CHANGELOG](CHANGELOG.md)）
+
+**v1.2.1 亮点：**
 - 🆕 **可灵 Kling AI 接入**：新增可灵图片（kling-image / kling-omni-image）与视频（kling-video / kling-omni-video / kling-motion-control）协议支持，AI 配置页可直接选择
 - 🆕 **场景/道具"加入本集"**：场景库与道具库新增"加入本集"按钮，与角色库体验一致，一键复用素材
 - 🆕 **视频历史记录与主视频选择**：视频重新生成后自动保留历史版本，缩略图条带一览，点击切换主视频；合成视频时自动使用当前选定版本

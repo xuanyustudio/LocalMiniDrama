@@ -1,10 +1,10 @@
 # LocalMiniDrama 桌面客户端
 
-基于 Electron 的本地桌面应用，内嵌 `backend-node` 与 `frontweb`，打包为 Windows exe / macOS dmg 后可直接运行。当前版本：**v1.1.12**
+基于 Electron 的本地桌面应用，内嵌 `backend-node` 与 `frontweb`，打包为 Windows exe / macOS dmg 后可直接运行。当前版本：**v1.2.3**
 
 ---
 
-## 主要功能（v1.1.12）
+## 主要功能（v1.2.3）
 
 | 模块 | 功能 |
 |------|------|

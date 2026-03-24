@@ -4,7 +4,7 @@
 
 **A locally-running AI short drama & comic generator — download and run, no cloud required, fully open source**
 
-[![version](https://img.shields.io/badge/version-1.1.10-blue?style=flat-square)](../../releases)
+[![version](https://img.shields.io/badge/version-1.2.3-blue?style=flat-square)](../../releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](../LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)](#)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#)
@@ -180,12 +180,14 @@ LocalMiniDrama/
 
 Full version history → **[CHANGELOG](changelog.md)**
 
-**Latest v1.1.6 highlights:**
-- 🆕 **Project Export / Import** — pack entire project as ZIP with all media and configs
-- 🆕 **Aspect Ratio** — project-level ratio setting; all generation adapts automatically
-- 🆕 **Extended Video Params** — `resolution`, `seed`, `camera_fixed`, `watermark` support
-- 🆕 **Video Merge Progress** — real-time progress bar during episode synthesis
-- 🔧 **Watermark-free Images** — Volcengine image generation disables watermark by default
+**Latest v1.2.3 highlights:**
+- 🆕 **Storyboard narrator (narration)** — optional per-shot voice-over text separate from character `dialogue`, for TTS and editing
+- 🆕 **Export narration SRT** — build subtitle cues from shot order and durations
+- 🔧 **First-shot empty narration fix** — incrementally saved rows are merged from the final parsed JSON so stream-early inserts are not stuck without `narration`
+- 🔧 **Stricter narration prompts** — system/user instructions require opening VO and non-empty lines when the mode is enabled
+- 🎨 **Narration UI** — textarea/button contrast in light & dark themes; high-contrast “Export SRT” button
+
+**Earlier releases:** see **[CHANGELOG.md](../CHANGELOG.md)** for v1.2.2 (coherent frames, novel import, ffmpeg) and full history.
 
 ---
 

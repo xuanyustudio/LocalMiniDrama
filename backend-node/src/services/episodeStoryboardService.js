@@ -111,6 +111,7 @@ function getStoryboardsForEpisode(db, episodeId) {
       time: r.time,
       duration: normalizeDuration(r.duration),
       dialogue: r.dialogue,
+      narration: r.narration ?? null,
       action: r.action,
       result: r.result,
       atmosphere: r.atmosphere,
@@ -199,6 +200,7 @@ function generateVideoPrompt(sb, style, videoRatio) {
   // 动作与对白（核心叙事）
   if (sb.action) parts.push('动作：' + sb.action);
   if (sb.dialogue) parts.push('对话：' + sb.dialogue);
+  if (sb.narration) parts.push('解说旁白：' + sb.narration);
   if (sb.result) parts.push('结果：' + sb.result);
   // 镜头与运镜
   const shotType = sb.shot_type || sb.camera_shot_type;
@@ -233,27 +235,27 @@ function generateVideoPrompt(sb, style, videoRatio) {
 }
 
 /**
- * 将单个分镜对象插入 DB，供增量流式保存使用。
- * 返回插入后的 id，出错则返回 null（不抛异常）。
+ * 从 AI 输出的单个分镜对象计算入库字段（INSERT/UPDATE 共用）。
+ * 会就地写入 sb.location / sb.time（由 scene_description 拆分）。
  */
-function insertOneStoryboard(db, episodeIdNum, sb, style, videoRatio, now) {
+function deriveStoryboardFieldsFromAi(sb, style, videoRatio) {
+  const angleValFn = (x) => x.angle ?? x.camera_angle ?? null;
   const shotNumber = sb.shot_number ?? sb.storyboard_number ?? 0;
   const title = sb.title ?? '';
   const shotType = sb.shot_type ?? '';
   const movement = sb.movement ?? sb.camera_movement ?? '';
-  const angle = sb.angle ?? sb.camera_angle ?? null;
-  const lightingStyle = sb.lighting_style ?? null;
-  const depthOfField = sb.depth_of_field ?? null;
+  const angle = angleValFn(sb);
   const action = sb.action ?? '';
   const dialogue = sb.dialogue ?? '';
+  const narration = sb.narration ?? '';
   const result = sb.result ?? '';
   const emotion = sb.emotion ?? '';
   const segmentIndex = sb.segment_index != null ? Number(sb.segment_index) : 0;
   const segmentTitle = sb.segment_title ?? null;
-  // scene_description 向后兼容（旧版 AI 输出合并字段，尝试拆分为 location+time）
+  const lightingStyle = sb.lighting_style ?? null;
+  const depthOfField = sb.depth_of_field ?? null;
   if (!sb.location && sb.scene_description) {
     const sceneDesc = String(sb.scene_description).trim();
-    // 格式通常是 "地点，时间" 或 "location, time"
     const sepIdx = sceneDesc.search(/[，,、]/);
     if (sepIdx > 0) {
       sb.location = sceneDesc.slice(0, sepIdx).trim();
@@ -262,36 +264,116 @@ function insertOneStoryboard(db, episodeIdNum, sb, style, videoRatio, now) {
       sb.location = sceneDesc;
     }
   }
-  // 结构化视角三元组：优先使用 AI 直接输出的字段，否则从旧文本解析
   const { h: angleH, v: angleV, s: angleS } = (angle || shotType)
     ? angleService.parseFromLegacyText(angle || '', shotType || '')
     : { h: null, v: null, s: null };
-  const description = `【镜头类型】${shotType}\n【运镜】${movement}\n【动作】${action}\n【对话】${dialogue}\n【结果】${result}\n【情绪】${emotion}`;
-  // 将解析好的结构化三元组写回 sb，供 generateImagePrompt/generateVideoPrompt 使用
+  const description = `【镜头类型】${shotType}\n【运镜】${movement}\n【动作】${action}\n【对话】${dialogue}\n【解说】${narration}\n【结果】${result}\n【情绪】${emotion}`;
   const sbWithAngles = { ...sb, angle_h: angleH, angle_v: angleV, angle_s: angleS };
   const imagePrompt = generateImagePrompt(sbWithAngles, style);
   const videoPrompt = generateVideoPrompt(sbWithAngles, style, videoRatio);
   const sceneId = sb.scene_id != null ? Number(sb.scene_id) : null;
   const charactersJson = Array.isArray(sb.characters) ? JSON.stringify(sb.characters) : (sb.characters ? JSON.stringify([].concat(sb.characters)) : '[]');
+  const propIds = Array.isArray(sb.props) ? sb.props.map(Number).filter(Number.isFinite) : [];
+  return {
+    shotNumber,
+    title,
+    shotType,
+    movement,
+    angle,
+    action,
+    dialogue,
+    narration,
+    result,
+    emotion,
+    segmentIndex,
+    segmentTitle,
+    lightingStyle,
+    depthOfField,
+    description,
+    imagePrompt,
+    videoPrompt,
+    sceneId,
+    charactersJson,
+    angleH,
+    angleV,
+    angleS,
+    propIds,
+  };
+}
+
+/** 用最终解析的分镜对象覆盖已存在的行（修正流式增量先入库时缺 narration 等字段的问题） */
+function updateStoryboardRowFromDerived(db, existingId, episodeIdNum, d, sb, now) {
+  db.prepare(
+    `UPDATE storyboards SET
+      scene_id = ?, title = ?, description = ?, location = ?, time = ?, duration = ?,
+      dialogue = ?, narration = ?, action = ?, result = ?, atmosphere = ?,
+      image_prompt = ?, video_prompt = ?, characters = ?,
+      shot_type = ?, angle = ?, angle_h = ?, angle_v = ?, angle_s = ?, movement = ?,
+      lighting_style = ?, depth_of_field = ?, segment_index = ?, segment_title = ?,
+      updated_at = ?
+     WHERE id = ? AND episode_id = ? AND deleted_at IS NULL`
+  ).run(
+    d.sceneId,
+    d.title || null,
+    d.description,
+    sb.location ?? null,
+    sb.time ?? null,
+    sb.duration ?? 5,
+    d.dialogue || null,
+    d.narration || null,
+    d.action || null,
+    d.result || null,
+    sb.atmosphere ?? null,
+    d.imagePrompt,
+    d.videoPrompt,
+    d.charactersJson,
+    d.shotType || null,
+    d.angle,
+    d.angleH,
+    d.angleV,
+    d.angleS,
+    d.movement || null,
+    d.lightingStyle,
+    d.depthOfField,
+    d.segmentIndex,
+    d.segmentTitle,
+    now,
+    existingId,
+    episodeIdNum
+  );
+  try {
+    db.prepare('DELETE FROM storyboard_props WHERE storyboard_id = ?').run(existingId);
+    if (d.propIds.length > 0) {
+      const insProp = db.prepare('INSERT OR IGNORE INTO storyboard_props (storyboard_id, prop_id) VALUES (?, ?)');
+      for (const pid of d.propIds) insProp.run(existingId, pid);
+    }
+  } catch (_) {}
+}
+
+/**
+ * 将单个分镜对象插入 DB，供增量流式保存使用。
+ * 返回插入后的 id，出错则返回 null（不抛异常）。
+ */
+function insertOneStoryboard(db, episodeIdNum, sb, style, videoRatio, now) {
+  const d = deriveStoryboardFieldsFromAi(sb, style, videoRatio);
+  const shotNumber = d.shotNumber;
   try {
     db.prepare(
-      `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, duration, dialogue, action, result, atmosphere, image_prompt, video_prompt, characters, shot_type, angle, angle_h, angle_v, angle_s, movement, lighting_style, depth_of_field, segment_index, segment_title, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
+      `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, duration, dialogue, narration, action, result, atmosphere, image_prompt, video_prompt, characters, shot_type, angle, angle_h, angle_v, angle_s, movement, lighting_style, depth_of_field, segment_index, segment_title, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
     ).run(
-      episodeIdNum, sceneId, shotNumber, title || null, description,
+      episodeIdNum, d.sceneId, shotNumber, d.title || null, d.description,
       sb.location ?? null, sb.time ?? null, sb.duration ?? 5,
-      dialogue || null, action || null, result || null, sb.atmosphere ?? null,
-      imagePrompt, videoPrompt, charactersJson,
-      shotType || null, angle, angleH, angleV, angleS,
-      movement || null, lightingStyle, depthOfField, segmentIndex, segmentTitle, now, now
+      d.dialogue || null, d.narration || null, d.action || null, d.result || null, sb.atmosphere ?? null,
+      d.imagePrompt, d.videoPrompt, d.charactersJson,
+      d.shotType || null, d.angle, d.angleH, d.angleV, d.angleS,
+      d.movement || null, d.lightingStyle, d.depthOfField, d.segmentIndex, d.segmentTitle, now, now
     );
     const newId = db.prepare('SELECT last_insert_rowid() as id').get().id;
-    // 保存道具关联（AI 输出的 props 字段为道具 ID 数组）
-    const propIds = Array.isArray(sb.props) ? sb.props.map(Number).filter(Number.isFinite) : [];
-    if (propIds.length > 0) {
+    if (d.propIds.length > 0) {
       try {
         const insProp = db.prepare('INSERT OR IGNORE INTO storyboard_props (storyboard_id, prop_id) VALUES (?, ?)');
-        for (const pid of propIds) insProp.run(newId, pid);
+        for (const pid of d.propIds) insProp.run(newId, pid);
       } catch (_) {}
     }
     return newId;
@@ -372,143 +454,124 @@ function saveStoryboards(db, log, episodeId, storyboards, cfg, styleOverride, sk
   }
 
   const saved = [];
-  const angleVal = (sb) => sb.angle ?? sb.camera_angle ?? null;
   for (const sb of storyboards) {
     const shotNumber = sb.shot_number ?? sb.storyboard_number ?? 0;
 
-    // 已由增量流式保存过的分镜：直接从 DB 读取已保存记录，无需重复 INSERT
+    // 已由增量流式保存过的分镜：必须用**最终完整 JSON** 再 UPDATE 一行（否则首镜常在流式阶段缺 narration 等字段且永不修正）
     if (skipShotNumbers && skipShotNumbers.has(shotNumber)) {
       const existing = db.prepare(
         'SELECT * FROM storyboards WHERE episode_id = ? AND storyboard_number = ? AND deleted_at IS NULL'
       ).get(episodeIdNum, shotNumber);
       if (existing) {
-        saved.push({
-          id: existing.id,
+        const d = deriveStoryboardFieldsFromAi(sb, style, videoRatio);
+        updateStoryboardRowFromDerived(db, existing.id, episodeIdNum, d, sb, now);
+        log.info('Storyboard merged from final parse after incremental save', {
           episode_id: episodeIdNum,
-          scene_id: existing.scene_id,
+          storyboard_id: existing.id,
           storyboard_number: shotNumber,
-          title: existing.title,
-          description: existing.description,
-          location: existing.location,
-          time: existing.time,
-          duration: existing.duration,
-          dialogue: existing.dialogue,
-          action: existing.action,
-          result: existing.result,
-          atmosphere: existing.atmosphere,
-          image_prompt: existing.image_prompt,
-          video_prompt: existing.video_prompt,
-          shot_type: existing.shot_type,
-          angle: existing.angle,
-          movement: existing.movement,
-          segment_index: existing.segment_index ?? 0,
-          segment_title: existing.segment_title ?? null,
-          characters: (() => { try { return JSON.parse(existing.characters || '[]'); } catch(_) { return []; } })(),
-          status: existing.status,
-          created_at: existing.created_at,
-          updated_at: existing.updated_at,
+        });
+        const refreshed = db.prepare(
+          'SELECT * FROM storyboards WHERE id = ? AND deleted_at IS NULL'
+        ).get(existing.id);
+        let propIds = [];
+        try {
+          const propLinks = db.prepare('SELECT prop_id FROM storyboard_props WHERE storyboard_id = ?').all(refreshed.id);
+          propIds = propLinks.map((p) => p.prop_id);
+        } catch (_) {}
+        saved.push({
+          id: refreshed.id,
+          episode_id: episodeIdNum,
+          scene_id: refreshed.scene_id,
+          storyboard_number: shotNumber,
+          title: refreshed.title,
+          description: refreshed.description,
+          location: refreshed.location,
+          time: refreshed.time,
+          duration: refreshed.duration,
+          dialogue: refreshed.dialogue,
+          narration: refreshed.narration ?? null,
+          action: refreshed.action,
+          result: refreshed.result,
+          atmosphere: refreshed.atmosphere,
+          image_prompt: refreshed.image_prompt,
+          video_prompt: refreshed.video_prompt,
+          shot_type: refreshed.shot_type,
+          angle: refreshed.angle,
+          movement: refreshed.movement,
+          segment_index: refreshed.segment_index ?? 0,
+          segment_title: refreshed.segment_title ?? null,
+          characters: (() => { try { return JSON.parse(refreshed.characters || '[]'); } catch (_) { return []; } })(),
+          prop_ids: propIds,
+          status: refreshed.status,
+          created_at: refreshed.created_at,
+          updated_at: refreshed.updated_at,
         });
         continue;
       }
       // 若 DB 中找不到（极少情况），fallthrough 正常 INSERT
     }
 
-    const title = sb.title ?? '';
-    const shotType = sb.shot_type ?? '';
-    const movement = sb.movement ?? sb.camera_movement ?? '';
-    const angle = angleVal(sb);
-    const action = sb.action ?? '';
-    const dialogue = sb.dialogue ?? '';
-    const result = sb.result ?? '';
-    const emotion = sb.emotion ?? '';
-    const segmentIndex = sb.segment_index != null ? Number(sb.segment_index) : 0;
-    const segmentTitle = sb.segment_title ?? null;
-    const lightingStyle = sb.lighting_style ?? null;
-    const depthOfField = sb.depth_of_field ?? null;
-    // scene_description 向后兼容（旧版 AI 输出合并字段，尝试拆分为 location+time）
-    if (!sb.location && sb.scene_description) {
-      const sceneDesc = String(sb.scene_description).trim();
-      const sepIdx = sceneDesc.search(/[，,、]/);
-      if (sepIdx > 0) {
-        sb.location = sceneDesc.slice(0, sepIdx).trim();
-        if (!sb.time) sb.time = sceneDesc.slice(sepIdx + 1).trim();
-      } else {
-        sb.location = sceneDesc;
-      }
-    }
-    // 结构化视角三元组
-    const { h: angleH, v: angleV, s: angleS } = (angle || shotType)
-      ? angleService.parseFromLegacyText(angle || '', shotType || '')
-      : { h: null, v: null, s: null };
-    const description = `【镜头类型】${shotType}\n【运镜】${movement}\n【动作】${action}\n【对话】${dialogue}\n【结果】${result}\n【情绪】${emotion}`;
-    // 将解析好的结构化三元组写回 sb，供 generateImagePrompt/generateVideoPrompt 使用
-    const sbWithAngles = { ...sb, angle_h: angleH, angle_v: angleV, angle_s: angleS };
-    const imagePrompt = generateImagePrompt(sbWithAngles, style);
-    const videoPrompt = generateVideoPrompt(sbWithAngles, style, videoRatio);
-    const sceneId = sb.scene_id != null ? Number(sb.scene_id) : null;
-    const charactersJson = Array.isArray(sb.characters) ? JSON.stringify(sb.characters) : (sb.characters ? JSON.stringify([].concat(sb.characters)) : '[]');
+    const d = deriveStoryboardFieldsFromAi(sb, style, videoRatio);
 
     try {
       db.prepare(
-        `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, duration, dialogue, action, result, atmosphere, image_prompt, video_prompt, characters, shot_type, angle, angle_h, angle_v, angle_s, movement, lighting_style, depth_of_field, segment_index, segment_title, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
+        `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, duration, dialogue, narration, action, result, atmosphere, image_prompt, video_prompt, characters, shot_type, angle, angle_h, angle_v, angle_s, movement, lighting_style, depth_of_field, segment_index, segment_title, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
       ).run(
-        episodeIdNum, sceneId, shotNumber, title || null, description,
+        episodeIdNum, d.sceneId, shotNumber, d.title || null, d.description,
         sb.location ?? null, sb.time ?? null, sb.duration ?? 5,
-        dialogue || null, action || null, result || null, sb.atmosphere ?? null,
-        imagePrompt, videoPrompt, charactersJson,
-        shotType || null, angle, angleH, angleV, angleS,
-        movement || null, lightingStyle, depthOfField, segmentIndex, segmentTitle,
+        d.dialogue || null, d.narration || null, d.action || null, d.result || null, sb.atmosphere ?? null,
+        d.imagePrompt, d.videoPrompt, d.charactersJson,
+        d.shotType || null, d.angle, d.angleH, d.angleV, d.angleS,
+        d.movement || null, d.lightingStyle, d.depthOfField, d.segmentIndex, d.segmentTitle,
         now, now
       );
     } catch (e) {
-      if ((e.message || '').includes('shot_type') || (e.message || '').includes('angle') || (e.message || '').includes('movement') || (e.message || '').includes('result') || (e.message || '').includes('segment')) {
-        // Fallback if columns missing (should not happen if migration runs)
+      if ((e.message || '').includes('shot_type') || (e.message || '').includes('angle') || (e.message || '').includes('movement') || (e.message || '').includes('result') || (e.message || '').includes('segment') || (e.message || '').includes('narration')) {
         db.prepare(
           `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, duration, dialogue, action, atmosphere, image_prompt, video_prompt, characters, status, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`
         ).run(
-          episodeIdNum, sceneId, shotNumber, title || null, description,
+          episodeIdNum, d.sceneId, shotNumber, d.title || null, d.description,
           sb.location ?? null, sb.time ?? null, sb.duration ?? 5,
-          dialogue || null, action || null, sb.atmosphere ?? null,
-          imagePrompt, videoPrompt, charactersJson, now, now
+          d.dialogue || null, d.action || null, sb.atmosphere ?? null,
+          d.imagePrompt, d.videoPrompt, d.charactersJson, now, now
         );
       } else {
         throw e;
       }
     }
     const id = db.prepare('SELECT last_insert_rowid() as id').get().id;
-    // 保存道具关联（AI 输出的 props 字段为道具 ID 数组）
-    const propIds = Array.isArray(sb.props) ? sb.props.map(Number).filter(Number.isFinite) : [];
-    if (propIds.length > 0) {
+    if (d.propIds.length > 0) {
       try {
         const insProp = db.prepare('INSERT OR IGNORE INTO storyboard_props (storyboard_id, prop_id) VALUES (?, ?)');
-        for (const pid of propIds) insProp.run(id, pid);
+        for (const pid of d.propIds) insProp.run(id, pid);
       } catch (_) {}
     }
     saved.push({
       id,
       episode_id: episodeIdNum,
-      scene_id: sceneId,
+      scene_id: d.sceneId,
       storyboard_number: shotNumber,
-      title: title || null,
-      description,
+      title: d.title || null,
+      description: d.description,
       location: sb.location ?? null,
       time: sb.time ?? null,
       duration: sb.duration ?? 5,
-      dialogue: dialogue || null,
-      action: action || null,
-      result: result || null,
+      dialogue: d.dialogue || null,
+      narration: d.narration || null,
+      action: d.action || null,
+      result: d.result || null,
       atmosphere: sb.atmosphere ?? null,
-      image_prompt: imagePrompt,
-      video_prompt: videoPrompt,
-      shot_type: shotType || null,
-      angle: angle,
-      movement: movement || null,
-      segment_index: segmentIndex,
-      segment_title: segmentTitle,
+      image_prompt: d.imagePrompt,
+      video_prompt: d.videoPrompt,
+      shot_type: d.shotType || null,
+      angle: d.angle,
+      movement: d.movement || null,
+      segment_index: d.segmentIndex,
+      segment_title: d.segmentTitle,
       characters: Array.isArray(sb.characters) ? sb.characters : [],
-      prop_ids: propIds,
+      prop_ids: d.propIds,
       status: 'pending',
       created_at: now,
       updated_at: now,
@@ -524,7 +587,10 @@ function saveStoryboards(db, log, episodeId, storyboards, cfg, styleOverride, sk
  * 关键：必须把所有已生成分镜的 shot_number + segment_title + title 全部列出，
  * 防止 AI 因不知道哪些情节已覆盖而重复生成相同内容。
  */
-function buildContinuationPrompt(originalUserPrompt, alreadySaved, lastShotNum, attempt) {
+function buildContinuationPrompt(originalUserPrompt, alreadySaved, lastShotNum, attempt, includeNarration) {
+  const narrLine = includeNarration
+    ? '\n- 每条新增分镜必须含非空字符串 narration（至少一句解说，与首次任务一致；禁止留空）'
+    : '';
   // 全量已生成分镜摘要（每行一个，仅 shot_number + segment + title）
   const allSummary = alreadySaved.map((sb) => {
     const num = sb.shot_number ?? sb.storyboard_number ?? 0;
@@ -557,7 +623,7 @@ ${lastCtx}
 请从 shot_number ${lastShotNum + 1} 继续生成剩余分镜，直至剧本全部场景覆盖完毕。
 要求：
 - 仅返回新增分镜（JSON数组），shot_number 从 ${lastShotNum + 1} 开始递增
-- 格式与之前完全相同，字段保持一致
+- 格式与之前完全相同，字段保持一致${narrLine}
 - 严禁重复已生成列表中的任何情节或场景
 - 不要输出任何解释文字，直接输出 JSON
 
@@ -565,7 +631,7 @@ ${lastCtx}
 ${originalUserPrompt}`;
 }
 
-async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, model, style, userPrompt, systemPrompt) {
+async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, model, style, userPrompt, systemPrompt, includeNarration) {
   // 增量保存状态放在 try 外，catch 里可用于部分恢复
   const episodeIdNum = Number(episodeId);
   const streamSavedNums = new Set();
@@ -693,7 +759,7 @@ async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, mode
       taskService.updateTaskStatus(db, taskId, 'processing', 50 + contAttempt * 5,
         `已生成 ${storyboards.length} 个分镜，正在续写剩余部分（第${contAttempt}次）...`);
 
-      const contPrompt = buildContinuationPrompt(userPrompt, storyboards, lastShot, contAttempt);
+      const contPrompt = buildContinuationPrompt(userPrompt, storyboards, lastShot, contAttempt, !!includeNarration);
       streamThrottle = 0; // 重置节流，让续写段落也能增量保存
 
       // 等待 3 秒后再发续写请求：避免流式请求刚结束服务端连接未释放导致 "socket hang up"
@@ -815,7 +881,7 @@ async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, mode
   }
 }
 
-function generateStoryboard(db, log, episodeId, model, style, storyboardCount, videoDuration, aspectRatio) {
+function generateStoryboard(db, log, episodeId, model, style, storyboardCount, videoDuration, aspectRatio, includeNarration) {
   const cfg = loadConfig();
   const episode = db.prepare(
     'SELECT id, script_content, description, drama_id FROM episodes WHERE id = ? AND deleted_at IS NULL'
@@ -931,8 +997,13 @@ function generateStoryboard(db, log, episodeId, model, style, storyboardCount, v
   const propConstraint = promptI18n.formatUserPrompt(cfg, 'prop_constraint');
   const suffix = promptI18n.getStoryboardUserPromptSuffix(cfg, effectiveShotDuration);
 
-  const userPrompt =
+  let userPrompt =
     `${scriptLabel}\n${scriptContent}\n\n${taskLabel}\n${taskInstruction}${extraConstraint}\n\n${charListLabel}\n${characterList}\n\n${charConstraint}\n\n${sceneListLabel}\n${sceneList}\n\n${sceneConstraint}\n\n${propListLabel}\n${propList}\n\n${propConstraint}\n\n${suffix}`;
+
+  const wantNarration = includeNarration === true || includeNarration === 1 || String(includeNarration).toLowerCase() === 'true';
+  if (wantNarration) {
+    userPrompt += promptI18n.getStoryboardNarrationExtraInstructions(cfg);
+  }
 
   let systemPrompt = promptI18n.getStoryboardSystemPrompt(cfg);
 
@@ -957,6 +1028,17 @@ Do NOT produce a shot count far from ${targetCount} under any circumstance.`;
     }
   }
 
+  if (wantNarration) {
+    const isEn = systemPrompt.includes('[Role]');
+    if (isEn) {
+      systemPrompt += `\n\n[HIGHEST PRIORITY — NARRATION / VO MODE]
+The user enabled narrator voice-over for the whole episode. Every shot object MUST include non-empty "narration" (≥1 sentence). Shot 1 MUST have an opening VO hook (time/place/mood). Shots 1 and 2 MUST NOT both have empty narration. Empty "narration" is NOT allowed in this mode.`;
+    } else {
+      systemPrompt += `\n\n【最高优先级——解说旁白已开启】
+用户已开启全片解说：每个分镜的 narration 必须为非空字符串（至少一句）。第 1 镜必须有开场解说。第 1、2 镜禁止同时留空 narration。本模式下不允许 narration 为空。`;
+    }
+  }
+
   const task = taskService.createTask(db, log, 'storyboard_generation', String(episodeId));
   log.info('Generating storyboard asynchronously', {
     task_id: task.id,
@@ -974,7 +1056,7 @@ Do NOT produce a shot count far from ${targetCount} under any circumstance.`;
     // 确保分镜图/视频提示词、场景提取提示词都使用项目设定的比例
     const runCfg = { ...cfg, style: { ...(cfg?.style || {}), default_video_ratio: imageRatio, default_image_ratio: imageRatio } };
     // 如果 model 为 null，则传 undefined，让 generateText 内部去兜底找默认配置
-    processStoryboardGeneration(db, log, runCfg, task.id, String(episodeId), model || undefined, finalStyle, userPrompt, systemPrompt);
+    processStoryboardGeneration(db, log, runCfg, task.id, String(episodeId), model || undefined, finalStyle, userPrompt, systemPrompt, wantNarration);
   });
 
   return { task_id: task.id, status: 'pending', message: '分镜生成任务已创建，正在后台处理...' };

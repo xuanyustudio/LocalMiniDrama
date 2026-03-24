@@ -237,11 +237,11 @@ function updateDrama(db, log, dramaId, req) {
 
 function generateStoryboard(db, log, episodeId, options) {
   const episodeStoryboardService = require('./episodeStoryboardService');
-  const { model, style, storyboard_count, video_duration, aspect_ratio } = options || {};
+  const { model, style, storyboard_count, video_duration, aspect_ratio, include_narration } = options || {};
   // 转换可能为字符串的数字
   const count = storyboard_count ? Number(storyboard_count) : undefined;
   const duration = video_duration ? Number(video_duration) : undefined;
-  return episodeStoryboardService.generateStoryboard(db, log, episodeId, model || undefined, style, count, duration, aspect_ratio);
+  return episodeStoryboardService.generateStoryboard(db, log, episodeId, model || undefined, style, count, duration, aspect_ratio, include_narration);
 }
 
 function deleteDrama(db, log, dramaId) {
@@ -328,6 +328,7 @@ function rowToStoryboard(r) {
     time: r.time,
     duration: r.duration ?? 0,
     dialogue: r.dialogue,
+    narration: r.narration ?? null,
     action: r.action,
     result: r.result ?? null,
     atmosphere: r.atmosphere,

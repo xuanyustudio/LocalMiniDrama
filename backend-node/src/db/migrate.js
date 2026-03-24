@@ -141,6 +141,7 @@ function ensureAllColumns(database) {
     { name: 'time',              type: 'TEXT' },
     { name: 'duration',          type: 'REAL' },
     { name: 'dialogue',          type: 'TEXT' },
+    { name: 'narration',         type: 'TEXT' },
     { name: 'action',            type: 'TEXT' },
     { name: 'atmosphere',        type: 'TEXT' },
     { name: 'image_prompt',      type: 'TEXT' },
