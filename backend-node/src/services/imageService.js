@@ -82,7 +82,9 @@ async function splitQuadGridToImages(db, log, originalRow, absLocalPath, storage
     return;
   }
   try {
-    const meta = await sharp(absLocalPath).metadata();
+    // Windows：避免 libvips 直接 open 含中文路径；读入 Buffer，写出用 fs.writeFileSync
+    const inputBuf = fs.readFileSync(absLocalPath);
+    const meta = await sharp(inputBuf).metadata();
     const w = meta.width;
     const h = meta.height;
     const hw = Math.floor(w / 2);
@@ -111,11 +113,12 @@ async function splitQuadGridToImages(db, log, originalRow, absLocalPath, storage
   <rect x="4" y="4" width="42" height="24" rx="4" fill="rgba(0,0,0,0.55)"/>
   <text x="25" y="21" font-size="14" fill="white" font-family="sans-serif" text-anchor="middle">${labels[q.idx]}</text>
 </svg>`;
-        await sharp(absLocalPath)
+        const panelBuf = await sharp(inputBuf)
           .extract({ left: q.left, top: q.top, width: q.width, height: q.height })
-          .composite([{ input: Buffer.from(labelSvg), top: 0, left: 0 }])
+          .composite([{ input: Buffer.from(labelSvg, 'utf8'), top: 0, left: 0 }])
           .jpeg({ quality: 92 })
-          .toFile(absPanelPath);
+          .toBuffer();
+        fs.writeFileSync(absPanelPath, panelBuf);
         // 推导远端 URL（与原图同目录，只替换文件名）
         const panelImageUrl = imageUrl_
           ? imageUrl_.replace(/[^/\\]+$/, panelFilename)
@@ -298,7 +301,8 @@ async function splitNineGridToImages(db, log, originalRow, absLocalPath, storage
   }
   const labels = ['左上', '中上', '右上', '左中', '中间', '右中', '左下', '中下', '右下'];
   try {
-    const meta = await sharp(absLocalPath).metadata();
+    const inputBuf = fs.readFileSync(absLocalPath);
+    const meta = await sharp(inputBuf).metadata();
     const w = meta.width;
     const h = meta.height;
     const cw = Math.floor(w / 3);
@@ -327,11 +331,12 @@ async function splitNineGridToImages(db, log, originalRow, absLocalPath, storage
   <rect x="4" y="4" width="42" height="24" rx="4" fill="rgba(0,0,0,0.55)"/>
   <text x="25" y="21" font-size="14" fill="white" font-family="sans-serif" text-anchor="middle">${labels[c.idx]}</text>
 </svg>`;
-        await sharp(absLocalPath)
+        const panelBuf = await sharp(inputBuf)
           .extract({ left: c.left, top: c.top, width: c.width, height: c.height })
-          .composite([{ input: Buffer.from(labelSvg), top: 0, left: 0 }])
+          .composite([{ input: Buffer.from(labelSvg, 'utf8'), top: 0, left: 0 }])
           .jpeg({ quality: 92 })
-          .toFile(absPanelPath);
+          .toBuffer();
+        fs.writeFileSync(absPanelPath, panelBuf);
         const panelImageUrl = imageUrl_ ? imageUrl_.replace(/[^/\\]+$/, panelFilename) : null;
         db.prepare(
           `INSERT INTO image_generations (storyboard_id, drama_id, scene_id, provider, prompt, model, frame_type, image_url, local_path, status, created_at, updated_at, completed_at)
@@ -375,6 +380,62 @@ function aspectRatioToSize(aspectRatio) {
     '21:9':  '2940x1260',
   };
   return map[aspectRatio] || null;
+}
+
+function parseTargetPixelsFromSizeString(sizeStr) {
+  const m = String(sizeStr || '').trim().toLowerCase().replace(/\s/g, '').match(/^(\d+)[x*](\d+)$/);
+  if (!m) return null;
+  const w = parseInt(m[1], 10);
+  const h = parseInt(m[2], 10);
+  if (!w || !h) return null;
+  return { w, h };
+}
+
+/**
+ * 将已落盘的生成图缩放到与 Step3 目标尺寸一致（contain + 黑底留边，不裁切主体），避免模型实际输出像素漂移导致分镜/视频参考不一致。
+ */
+async function normalizeLocalImageToTargetSize(absPath, sizeStr, log, meta) {
+  const dim = parseTargetPixelsFromSizeString(sizeStr);
+  if (!dim || !absPath || !fs.existsSync(absPath)) return;
+  let sharp;
+  try {
+    sharp = require('sharp');
+  } catch (_) {
+    log.warn('[图生] sharp 不可用，跳过尺寸对齐', meta || {});
+    return;
+  }
+  try {
+    // Windows：libvips 经路径打开含中文/非 ASCII 目录时常失败（UNKNOWN: unknown error, open '...'），改由 Node 读入 Buffer 再交给 sharp
+    const inputBuf = fs.readFileSync(absPath);
+    const metaIn = await sharp(inputBuf).metadata();
+    if (metaIn.width === dim.w && metaIn.height === dim.h) {
+      log.info('[图生] 输出尺寸已与目标一致', { ...meta, size: `${dim.w}x${dim.h}` });
+      return;
+    }
+    const ext = path.extname(absPath).toLowerCase();
+    const containBg = { r: 0, g: 0, b: 0, alpha: 1 };
+    const pipeline = sharp(inputBuf).resize(dim.w, dim.h, {
+      fit: 'contain',
+      position: 'centre',
+      background: containBg,
+    });
+    let buf;
+    if (ext === '.png') {
+      buf = await pipeline.png({ compressionLevel: 6 }).toBuffer();
+    } else if (ext === '.webp') {
+      buf = await pipeline.webp({ quality: 90 }).toBuffer();
+    } else {
+      buf = await pipeline.jpeg({ quality: 92 }).toBuffer();
+    }
+    fs.writeFileSync(absPath, buf);
+    log.info('[图生] 已对齐输出尺寸', {
+      ...meta,
+      target: `${dim.w}x${dim.h}`,
+      before: `${metaIn.width}x${metaIn.height}`,
+    });
+  } catch (e) {
+    log.warn('[图生] 尺寸对齐失败（保留原图）', { ...meta, error: e.message });
+  }
 }
 
 function mergePromptWithStyle(prompt, style) {
@@ -1192,17 +1253,31 @@ async function processImageGeneration(db, log, imageGenId) {
         'ig',
         projectSubdir
       );
+      if (localPath && imageSize) {
+        const absImg = path.join(storagePath, localPath);
+        await normalizeLocalImageToTargetSize(absImg, imageSize, log, { id: imageGenId });
+      }
       log.info('[图生] Step5 保存完成', { id: imageGenId, local_path: localPath, save_ms: Date.now() - tSave, elapsed: elapsed() });
     } catch (saveErr) {
       log.warn('[图生] Step5 保存失败（不影响结果）', { id: imageGenId, err: saveErr.message, elapsed: elapsed() });
     }
 
+    // 入库的 image_url：优先指向本地静态路径，避免前端仍用 Gemini 返回的 data URL（未经过尺寸对齐的 buffer）
+    let persistedImageUrl = result.image_url;
+    if (localPath) {
+      persistedImageUrl = '/static/' + String(localPath).replace(/^\//, '');
+    }
+
     // ── Step 6: 写库 & 任务完成 ──────────────────────────────────────
     db.prepare(
       'UPDATE image_generations SET status = ?, image_url = ?, local_path = ?, completed_at = ?, updated_at = ? WHERE id = ?'
-    ).run('completed', result.image_url, localPath, now2, now2, imageGenId);
+    ).run('completed', persistedImageUrl, localPath, now2, now2, imageGenId);
     if (row.task_id) {
-      taskService.updateTaskResult(db, row.task_id, { image_generation_id: imageGenId, image_url: result.image_url, status: 'completed' });
+      taskService.updateTaskResult(db, row.task_id, {
+        image_generation_id: imageGenId,
+        image_url: persistedImageUrl,
+        status: 'completed',
+      });
     }
     if (row.scene_id != null && row.storyboard_id == null) {
       // 旧图追加到 extra_images，与上传逻辑保持一致
@@ -1215,12 +1290,12 @@ async function processImageGeneration(db, log, imageGenId) {
       const sceneExtraJson = sceneExtras.length ? JSON.stringify(sceneExtras) : null;
       try {
         db.prepare("UPDATE scenes SET image_url = ?, local_path = ?, extra_images = ?, status = 'generated', updated_at = ? WHERE id = ?").run(
-          result.image_url, localPath, sceneExtraJson, now2, row.scene_id
+          persistedImageUrl, localPath, sceneExtraJson, now2, row.scene_id
         );
       } catch (e) {
         if ((e.message || '').includes('extra_images')) {
           db.prepare("UPDATE scenes SET image_url = ?, local_path = ?, status = 'generated', updated_at = ? WHERE id = ?").run(
-            result.image_url, localPath, now2, row.scene_id
+            persistedImageUrl, localPath, now2, row.scene_id
           );
         } else {
           throw e;
@@ -1235,7 +1310,7 @@ async function processImageGeneration(db, log, imageGenId) {
         ? cfg.storage.local_path
         : path.join(process.cwd(), cfg.storage?.local_path || './data/storage');
       const absLocalPath = path.join(storagePath2, localPath);
-      splitQuadGridToImages(db, log, row, absLocalPath, storagePath2, result.image_url).catch((e) => {
+      splitQuadGridToImages(db, log, row, absLocalPath, storagePath2, persistedImageUrl).catch((e) => {
         log.warn('[图生] Step7 四宫格拆分异常', { id: imageGenId, error: e.message });
       });
     }
@@ -1246,7 +1321,7 @@ async function processImageGeneration(db, log, imageGenId) {
         ? cfg.storage.local_path
         : path.join(process.cwd(), cfg.storage?.local_path || './data/storage');
       const absLocalPath = path.join(storagePath2, localPath);
-      splitNineGridToImages(db, log, row, absLocalPath, storagePath2, result.image_url).catch((e) => {
+      splitNineGridToImages(db, log, row, absLocalPath, storagePath2, persistedImageUrl).catch((e) => {
         log.warn('[图生] Step7 九宫格拆分异常', { id: imageGenId, error: e.message });
       });
     }

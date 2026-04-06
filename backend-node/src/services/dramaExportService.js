@@ -226,6 +226,8 @@ function exportDrama(db, cfg, log, dramaId) {
             segment_index: sb.segment_index ?? 0,
             segment_title: sb.segment_title || null,
             continuity_snapshot: sb.continuity_snapshot || null,
+            creation_mode: sb.creation_mode === 'universal' ? 'universal' : 'classic',
+            universal_segment_text: sb.universal_segment_text || null,
             character_indices: characterIndices,
             scene_index: sceneIndex,
             prop_indices: propIndices,

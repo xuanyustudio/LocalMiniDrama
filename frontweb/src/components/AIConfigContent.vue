@@ -306,6 +306,7 @@
             <el-option label="Sora 中转站（multipart/form-data，seconds+size）" value="sora" />
             <el-option label="Veo3 兼容（JSON，images+enhance_prompt，自动翻译英文）" value="veo3" />
             <el-option label="Vidu 视频" value="vidu" />
+            <el-option label="可灵 Omni-Video（官方 api-beijing / ffir 中转，O1 全能）" value="kling_omni" />
             <el-option label="NanoBanana" value="nano_banana" />
           </el-select>
         </el-form-item>
@@ -486,6 +487,46 @@ input_reference = (图片文件，可选)</pre>
           </template>
           <el-input v-model="form.api_key" type="password" placeholder="API 密钥" show-password />
         </el-form-item>
+        <template v-if="form.service_type === 'video' && form.api_protocol === 'kling_omni'">
+          <el-form-item>
+            <template #label><span class="form-label-tip">AccessKey</span></template>
+            <el-input
+              v-model="form.kling_access_key"
+              type="password"
+              show-password
+              placeholder="可灵开放平台 AccessKey（与 SecretKey 成对，可不填上方 API Key）"
+              autocomplete="off"
+            />
+            <p class="field-tip">
+              官方 JWT 规则见
+              <a href="https://klingai.com/document-api/apiReference/commonInfo" target="_blank" rel="noopener noreferrer">commonInfo</a>
+              （<a href="https://app.klingai.com/cn/dev/document-api/apiReference/commonInfo" target="_blank" rel="noopener noreferrer">中文版</a>）。
+              后端使用与官方示例一致的 HS256（<code>iss</code>=AccessKey，<code>exp</code>、<code>nbf</code>）生成 Token。
+              若接口返回 <code>1000 Authorization signature is invalid</code>：请确认 AccessKey/SecretKey 未填反、无多余空格；并尝试勾选下方「SecretKey 为 Base64」；
+              Base URL 区域（<code>api-beijing.klingai.com</code> / <code>api-singapore.klingai.com</code>）须与密钥所属区域一致。
+            </p>
+          </el-form-item>
+          <el-form-item>
+            <template #label><span class="form-label-tip">SecretKey</span></template>
+            <el-input
+              v-model="form.kling_secret_key"
+              type="password"
+              show-password
+              placeholder="可灵开放平台 SecretKey"
+              autocomplete="off"
+            />
+            <el-checkbox v-model="form.kling_secret_key_base64" style="margin-top: 8px; display: block">
+              SecretKey 为 Base64 字符串（解码后的二进制再用于签名；若仍报签名无效可切换此项重试）
+            </el-checkbox>
+            <p class="field-tip">
+              官方域名：<code>POST {base}/v1/videos/omni-video</code>，轮询
+              <code>GET {base}/v1/videos/omni-video/{taskId}</code>；飞儿等中转仍为
+              <code>/kling/v1/videos/omni-video</code> 与
+              <code>/kling/v1/images/omni-image/{taskId}</code>。详见
+              <a href="https://klingai.com/document-api/apiReference/model/OmniVideo" target="_blank" rel="noopener noreferrer">OmniVideo</a>。
+            </p>
+          </el-form-item>
+        </template>
         <!-- TTS 专属字段：声音 ID 和 MiniMax Group ID -->
         <template v-if="form.service_type === 'tts'">
           <el-form-item>
@@ -923,6 +964,10 @@ const form = ref({
   default_model: '',
   priority: 0,
   is_default: false,
+  // 可灵 Omni 官方 AK/SK（存 settings，后端生成 JWT）
+  kling_access_key: '',
+  kling_secret_key: '',
+  kling_secret_key_base64: false,
   // TTS 专属字段
   voice_id: '',
   group_id: '',
@@ -968,13 +1013,26 @@ function onPresetModelSelect(value) {
   form.value.modelText = (form.value.modelText || '').trim() + append
   presetModelPick.value = ''
 }
-const rules = {
+const rules = computed(() => ({
   service_type: [{ required: true, message: '请选择服务类型', trigger: 'change' }],
   name: [{ required: true, message: '请输入名称', trigger: 'blur' }],
   provider: [{ required: true, message: '请选择或输入厂商', trigger: 'change' }],
   base_url: [{ required: true, message: '请输入 Base URL', trigger: 'blur' }],
-  api_key: [{ required: true, message: '请输入 API Key', trigger: 'blur' }]
-}
+  api_key: [
+    {
+      validator: (_rule, v, cb) => {
+        const st = form.value.service_type
+        const proto = form.value.api_protocol
+        const ak = (form.value.kling_access_key || '').trim()
+        const sk = (form.value.kling_secret_key || '').trim()
+        if (st === 'video' && proto === 'kling_omni' && ak && sk) return cb()
+        if (v != null && String(v).trim()) return cb()
+        cb(new Error('请输入 API Key，或使用官方 AccessKey + SecretKey（可不填 API Key）'))
+      },
+      trigger: 'blur',
+    },
+  ],
+}))
 const testVisible = ref(false)
 const testResult = ref(null)
 const testServiceType = ref('')
@@ -1016,6 +1074,8 @@ const providerConfigs = {
     { id: 'openai', name: 'OpenAI', models: ['dall-e-3', 'dall-e-2'] }
   ],
   video: [
+    { id: 'klingai', name: '可灵官方 Omni (api-beijing.klingai.com)', models: ['kling-video-o1', 'kling-v3-omni'] },
+    { id: 'ffir', name: '飞儿API / 可灵 Omni-Video (ffir.cn)', models: ['kling-video-o1', 'kling-v3-omni'] },
     { id: 'kling', name: '可灵 Kling', models: ['kling-omni-video', 'kling-video', 'kling-motion-control'] },
     { id: 'vidu', name: 'Vidu', models: ['viduq2', 'viduq2-pro', 'viduq2-turbo', 'viduq3-pro'] },
     { id: 'volces', name: '火山引擎', models: ['doubao-seedance-1-5-pro-251215', 'doubao-seedance-1-0-lite-i2v-250428', 'doubao-seedance-1-0-lite-t2v-250428', 'doubao-seedance-1-0-pro-250528', 'doubao-seedance-1-0-pro-fast-251015'] },
@@ -1042,7 +1102,8 @@ const providerProtocolMap = {
   gemini: 'gemini',
   google: 'gemini',
   kling: 'kling',
-  klingai: 'kling',
+  ffir: 'kling_omni',
+  klingai: 'kling_omni',
   // video
   vidu: 'vidu',
   minimax: 'openai',
@@ -1066,7 +1127,9 @@ function getBaseUrlForProvider(provider) {
   if (p === 'qwen') return 'https://dashscope.aliyuncs.com/compatible-mode/v1'
   if (p === 'nano_banana') return 'https://api.nanobananaapi.ai'
   if (p === 'vidu') return 'https://api.vidu.cn'
-  if (p === 'kling' || p === 'klingai') return 'https://api.klingai.com'
+  if (p === 'kling') return 'https://api.klingai.com'
+  if (p === 'klingai') return 'https://api-beijing.klingai.com'
+  if (p === 'ffir') return 'https://ffir.cn'
   return 'https://api.chatfire.site/v1'
 }
 
@@ -1151,6 +1214,10 @@ const endpointPreviewInfo = computed(() => {
       submitPath = '/v1/videos'
     } else if (proto === 'veo3') {
       submitPath = '/v1/video/create'
+    } else if (proto === 'kling_omni' || p === 'ffir' || p === 'klingai') {
+      const omniFfir = p === 'ffir' || /ffir\.cn/i.test(base)
+      const omniKlingOfficial = p === 'klingai' || /api(-beijing|-singapore)?\.klingai\.com/i.test(base)
+      submitPath = omniFfir ? '/kling/v1/videos/omni-video' : omniKlingOfficial ? '/v1/videos/omni-video' : '/kling/v1/videos/omni-video'
     } else if (proto === 'kling' || p === 'kling' || p === 'klingai') {
       submitPath = '/v1/videos/text2video (T2V) 或 /v1/videos/image2video (I2V)'
     } else if (p === 'minimax') {
@@ -1171,6 +1238,14 @@ const endpointPreviewInfo = computed(() => {
       queryPath = '/v1/videos/{taskId}'
     } else if (proto === 'veo3') {
       queryPath = '/v1/video/query?id={taskId}'
+    } else if (proto === 'kling_omni' || p === 'ffir' || p === 'klingai') {
+      const omniFfirQ = p === 'ffir' || /ffir\.cn/i.test(base)
+      const omniKlingOfficialQ = p === 'klingai' || /api(-beijing|-singapore)?\.klingai\.com/i.test(base)
+      queryPath = omniFfirQ
+        ? '/kling/v1/images/omni-image/{taskId}'
+        : omniKlingOfficialQ
+          ? '/v1/videos/omni-video/{taskId}'
+          : '/kling/v1/images/omni-image/{taskId}'
     } else if (proto === 'kling' || p === 'kling' || p === 'klingai') {
       queryPath = '/v1/videos/{videoType}/{taskId}（自动按任务类型选择）'
     } else if (p === 'minimax') {
@@ -1213,6 +1288,15 @@ function onProviderChange(providerId) {
   form.value.default_model = (p.models && p.models[0]) || ''
   // 自动填充接口规范
   form.value.api_protocol = providerProtocolMap[providerId] || (st === 'text' ? '' : 'openai')
+  if (st === 'video' && (providerId === 'ffir' || providerId === 'klingai')) {
+    if (providerId === 'ffir') {
+      form.value.endpoint = '/kling/v1/videos/omni-video'
+      form.value.query_endpoint = '/kling/v1/images/omni-image/{taskId}'
+    } else {
+      form.value.endpoint = '/v1/videos/omni-video'
+      form.value.query_endpoint = '/v1/videos/omni-video/{taskId}'
+    }
+  }
   if (!editingId.value) {
     form.value.name = (p.name || providerId) + ' ' + serviceTypeLabel(st)
   }
@@ -1277,6 +1361,9 @@ function resetForm() {
     is_default: true,  // 新增时默认勾选「设为默认」，便于理解当前会使用哪条配置
     voice_id: '',
     group_id: '',
+    kling_access_key: '',
+    kling_secret_key: '',
+    kling_secret_key_base64: false,
   }
   formRef.value?.resetFields?.()
 }
@@ -1291,14 +1378,24 @@ function openEdit(row) {
   const model = Array.isArray(row.model) ? row.model : (row.model ? [row.model] : [])
   const modelList = model.map((m) => String(m).trim()).filter(Boolean)
   const defaultInList = row.default_model && modelList.includes(row.default_model)
-  // TTS 专属字段从 settings 解析
+  // TTS / 可灵 Omni 等从 settings 解析
   let voice_id = row.voice_id || ''
   let group_id = row.group_id || ''
-  if (row.service_type === 'tts' && row.settings) {
+  let kling_access_key = ''
+  let kling_secret_key = ''
+  let kling_secret_key_base64 = false
+  if (row.settings) {
     try {
       const s = JSON.parse(row.settings)
-      voice_id = s.voice_id || voice_id
-      group_id = s.group_id || group_id
+      if (row.service_type === 'tts') {
+        voice_id = s.voice_id || voice_id
+        group_id = s.group_id || group_id
+      }
+      if (row.service_type === 'video' && row.api_protocol === 'kling_omni') {
+        kling_access_key = s.kling_access_key || ''
+        kling_secret_key = s.kling_secret_key || ''
+        kling_secret_key_base64 = !!s.kling_secret_key_base64
+      }
     } catch (_) {}
   }
   form.value = {
@@ -1316,6 +1413,9 @@ function openEdit(row) {
     is_default: !!row.is_default,
     voice_id,
     group_id,
+    kling_access_key,
+    kling_secret_key,
+    kling_secret_key_base64,
   }
   dialogVisible.value = true
 }
@@ -1328,13 +1428,30 @@ async function submit() {
     const defaultModel = form.value.default_model && modelList.includes(form.value.default_model)
       ? form.value.default_model
       : modelList[0] || null
-    // TTS 专属字段打包进 settings
+    // TTS / 可灵 Omni 官方 AKSK 打包进 settings
     let settings = undefined
     if (form.value.service_type === 'tts') {
       const s = {}
       if (form.value.voice_id) s.voice_id = form.value.voice_id
       if (form.value.group_id) s.group_id = form.value.group_id
       settings = Object.keys(s).length ? JSON.stringify(s) : null
+    } else if (form.value.service_type === 'video' && form.value.api_protocol === 'kling_omni') {
+      let baseS = {}
+      if (editingId.value) {
+        const prev = list.value.find((r) => r.id === editingId.value)
+        if (prev?.settings) {
+          try {
+            baseS = JSON.parse(prev.settings)
+          } catch (_) {}
+        }
+      }
+      if ((form.value.kling_access_key || '').trim()) baseS.kling_access_key = form.value.kling_access_key.trim()
+      else delete baseS.kling_access_key
+      if ((form.value.kling_secret_key || '').trim()) baseS.kling_secret_key = form.value.kling_secret_key.trim()
+      else delete baseS.kling_secret_key
+      if (form.value.kling_secret_key_base64) baseS.kling_secret_key_base64 = true
+      else delete baseS.kling_secret_key_base64
+      settings = Object.keys(baseS).length ? JSON.stringify(baseS) : null
     }
     const payload = {
       service_type: form.value.service_type,

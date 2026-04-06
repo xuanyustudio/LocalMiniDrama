@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS prompt_overrides (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT UNIQUE NOT NULL,
+  content TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

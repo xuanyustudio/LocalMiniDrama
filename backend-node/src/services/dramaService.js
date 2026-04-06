@@ -347,6 +347,8 @@ function rowToStoryboard(r) {
       depth_of_field: r.depth_of_field ?? null,
       segment_index: r.segment_index ?? 0,
       segment_title: r.segment_title ?? null,
+      creation_mode: r.creation_mode === 'universal' ? 'universal' : 'classic',
+      universal_segment_text: r.universal_segment_text ?? null,
       characters: parseStoryboardCharacters(r.characters),
       composed_image: r.composed_image,
       image_url: sanitizeImageUrl(r.image_url),

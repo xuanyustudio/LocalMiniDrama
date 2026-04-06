@@ -259,8 +259,8 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
         .filter(id => id != null);
 
       const sbInfo = db.prepare(
-        `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, dialogue, narration, action, atmosphere, result, shot_type, angle, angle_h, angle_v, angle_s, movement, lighting_style, depth_of_field, image_prompt, polished_prompt, video_prompt, duration, emotion, emotion_intensity, segment_index, segment_title, continuity_snapshot, characters, audio_local_path, narration_audio_local_path, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO storyboards (episode_id, scene_id, storyboard_number, title, description, location, time, dialogue, narration, action, atmosphere, result, shot_type, angle, angle_h, angle_v, angle_s, movement, lighting_style, depth_of_field, image_prompt, polished_prompt, video_prompt, duration, emotion, emotion_intensity, segment_index, segment_title, continuity_snapshot, creation_mode, universal_segment_text, characters, audio_local_path, narration_audio_local_path, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         episodeId,
         sbSceneId,
@@ -291,6 +291,8 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
         sb.segment_index ?? 0,
         sb.segment_title || null,
         sb.continuity_snapshot || null,
+        sb.creation_mode === 'universal' ? 'universal' : 'classic',
+        sb.universal_segment_text || null,
         charactersJson,
         sbAudioPath || null,
         sbNarrationAudioPath || null,

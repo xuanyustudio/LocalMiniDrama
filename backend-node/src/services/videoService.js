@@ -67,10 +67,12 @@ function getById(db, id) {
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const { randomUUID } = require('crypto');
 const videoClient = require('./videoClient');
 const taskService = require('./taskService');
 const storageLayout = require('./storageLayout');
+const { getFfmpegPath, hasLocalFfmpeg } = require('../utils/ffmpegPath');
 
 /** @returns {{ dir: string, relPrefix: string }} 与图片 uploads 一致的工程子目录规则 */
 function resolveVideosDir(storagePath, projectSubdir) {
@@ -108,6 +110,84 @@ async function downloadVideoToLocal(storagePath, videoUrl, videoGenId, log, proj
     log.warn('Download video error', { videoGenId, error: e.message });
     return null;
   }
+}
+
+/** 与图生 aspectRatioToSize 对齐的归一化分辨率（偶数像素，便于 H.264） */
+function targetVideoPixelsForAspect(aspectRatio) {
+  const r = String(aspectRatio || '16:9').trim();
+  const map = {
+    '16:9': { w: 2560, h: 1440 },
+    '9:16': { w: 1440, h: 2560 },
+    '1:1': { w: 1920, h: 1920 },
+    '4:3': { w: 1920, h: 1440 },
+    '3:4': { w: 1440, h: 1920 },
+    '21:9': { w: 2560, h: 1080 },
+  };
+  if (map[r]) return map[r];
+  const m = r.match(/^(\d+)\s*:\s*(\d+)$/);
+  if (m) {
+    const a = parseInt(m[1], 10);
+    const b = parseInt(m[2], 10);
+    if (a > 0 && b > 0 && a !== b) {
+      if (a > b) {
+        const w = 2560;
+        const h = Math.max(2, Math.round((w * b) / a / 2) * 2);
+        return { w, h };
+      }
+      const h = 2560;
+      const w = Math.max(2, Math.round((h * a) / b / 2) * 2);
+      return { w, h };
+    }
+  }
+  return { w: 1280, h: 720 };
+}
+
+/**
+ * 用 ffmpeg 将视频缩放并加黑边到固定分辨率，避免 Grok 等返回实际像素不一致导致连播时画面跳动。
+ */
+function normalizeVideoFileToTargetPixels(absPath, tw, th, log, videoGenId) {
+  if (!absPath || !tw || !th || !fs.existsSync(absPath)) return false;
+  if (!hasLocalFfmpeg()) {
+    log.info('[视频] 未找到 ffmpeg，跳过画幅归一化', { videoGenId });
+    return false;
+  }
+  const ffmpeg = getFfmpegPath();
+  const vf = `scale=${tw}:${th}:force_original_aspect_ratio=decrease,pad=${tw}:${th}:(ow-iw)/2:(oh-ih)/2:black`;
+  const tmpOut = absPath + '.norm-' + randomUUID().slice(0, 8) + (path.extname(absPath) || '.mp4');
+  const baseArgs = ['-y', '-i', absPath, '-vf', vf, '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-pix_fmt', 'yuv420p', '-movflags', '+faststart'];
+  let r = spawnSync(ffmpeg, [...baseArgs, '-c:a', 'copy', tmpOut], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  if (r.status !== 0) {
+    r = spawnSync(ffmpeg, [...baseArgs, '-an', tmpOut], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  }
+  if (r.status !== 0) {
+    log.warn('[视频] 画幅归一化失败（保留原文件）', {
+      videoGenId,
+      stderr: (r.stderr || '').slice(-500),
+    });
+    try {
+      fs.unlinkSync(tmpOut);
+    } catch (_) {}
+    return false;
+  }
+  try {
+    fs.unlinkSync(absPath);
+    fs.renameSync(tmpOut, absPath);
+    log.info('[视频] 已统一画幅尺寸', { videoGenId, w: tw, h: th });
+    return true;
+  } catch (e) {
+    log.warn('[视频] 替换归一化文件失败', { videoGenId, error: e.message });
+    try {
+      fs.unlinkSync(tmpOut);
+    } catch (_) {}
+    return false;
+  }
+}
+
+function maybeNormalizeVideoAfterDownload(storagePath, localPath, row, videoGenId, log) {
+  if (!localPath) return;
+  const abs = path.join(storagePath, localPath);
+  const dim = targetVideoPixelsForAspect(row.aspect_ratio);
+  normalizeVideoFileToTargetPixels(abs, dim.w, dim.h, log, videoGenId);
 }
 
 async function processVideoGeneration(db, log, videoGenId) {
@@ -148,11 +228,23 @@ async function processVideoGeneration(db, log, videoGenId) {
         log.info('使用分镜镜头时长', { storyboard_id: row.storyboard_id, duration: effectiveDuration, video_gen_id: videoGenId });
       }
     }
+    let aspectForVideo = row.aspect_ratio;
+    if (!aspectForVideo && row.drama_id) {
+      try {
+        const dramaRow = db.prepare('SELECT metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(row.drama_id);
+        if (dramaRow && dramaRow.metadata) {
+          const meta =
+            typeof dramaRow.metadata === 'string' ? JSON.parse(dramaRow.metadata) : dramaRow.metadata;
+          if (meta && meta.aspect_ratio) aspectForVideo = meta.aspect_ratio;
+        }
+      } catch (_) {}
+    }
+    const rowForAspect = { ...row, aspect_ratio: aspectForVideo || row.aspect_ratio };
     const result = await videoClient.callVideoApi(db, log, {
       prompt: row.prompt,
       model: row.model,
       duration: effectiveDuration,
-      aspect_ratio: row.aspect_ratio,
+      aspect_ratio: rowForAspect.aspect_ratio,
       resolution: row.resolution,
       seed: row.seed,
       camera_fixed: row.camera_fixed,
@@ -183,6 +275,7 @@ async function processVideoGeneration(db, log, videoGenId) {
           : path.join(process.cwd(), cfg.storage?.local_path || './data/storage');
         const projectSubdir = storageLayout.getProjectStorageSubdir(db, row.drama_id);
         localPath = await downloadVideoToLocal(storagePath, result.video_url, videoGenId, log, projectSubdir);
+        maybeNormalizeVideoAfterDownload(storagePath, localPath, rowForAspect, videoGenId, log);
       } catch (_) {}
       try {
         db.prepare(
@@ -226,6 +319,7 @@ async function processVideoGeneration(db, log, videoGenId) {
             : path.join(process.cwd(), cfg.storage?.local_path || './data/storage');
           const projectSubdir = storageLayout.getProjectStorageSubdir(db, row.drama_id);
           localPath = await downloadVideoToLocal(storagePath, pollResult.video_url, videoGenId, log, projectSubdir);
+          maybeNormalizeVideoAfterDownload(storagePath, localPath, rowForAspect, videoGenId, log);
         } catch (_) {}
         try {
           db.prepare(

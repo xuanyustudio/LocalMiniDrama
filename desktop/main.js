@@ -96,7 +96,11 @@ function ensureFfmpeg(backendCwd) {
   const srcDir = path.join(process.resourcesPath, 'ffmpeg');
   const srcFfmpeg = path.join(srcDir, ffmpegName);
   if (!fs.existsSync(srcFfmpeg)) {
-    console.log('[ffmpeg] Bundled ffmpeg not found, skipping auto-extract. Expected:', srcFfmpeg);
+    console.warn(
+      '[ffmpeg] Bundled ffmpeg not found, skipping auto-extract. Expected:',
+      srcFfmpeg,
+      '(打包前请将 ffmpeg.exe 放入 backend-node/tools/ffmpeg，并确保 package.json 的 extraResources 包含该目录)'
+    );
     return;
   }
 

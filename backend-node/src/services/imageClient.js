@@ -212,6 +212,36 @@ function parseDashScopeImageUrl(data) {
   return null;
 }
 
+// Gemini 支持的宽高比标签 → 数值 w/h（与 API 一致）
+const GEMINI_ASPECT_NUMERIC = [
+  ['21:9', 21 / 9],
+  ['16:9', 16 / 9],
+  ['3:2', 3 / 2],
+  ['4:3', 4 / 3],
+  ['5:4', 5 / 4],
+  ['1:1', 1],
+  ['4:5', 4 / 5],
+  ['3:4', 3 / 4],
+  ['2:3', 2 / 3],
+  ['9:16', 9 / 16],
+];
+
+/** 按像素尺寸选最接近的 Gemini aspectRatio（对数距离，避免 1440×2560 被误判为 4:5） */
+function closestGeminiAspectRatioFromPixels(w, h) {
+  if (!w || !h) return '1:1';
+  const r = w / h;
+  let best = '1:1';
+  let bestD = Infinity;
+  for (const [label, tr] of GEMINI_ASPECT_NUMERIC) {
+    const d = Math.abs(Math.log(r) - Math.log(tr));
+    if (d < bestD) {
+      bestD = d;
+      best = label;
+    }
+  }
+  return best;
+}
+
 // Gemini 图片生成支持的比例：1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3 / 5:4 / 4:5 / 21:9
 function geminiAspectRatio(size) {
   if (!size || typeof size !== 'string') return '16:9';
@@ -222,15 +252,36 @@ function geminiAspectRatio(size) {
   if (!match) return '1:1';
   const w = parseInt(match[1], 10);
   const h = parseInt(match[2], 10);
-  if (!w || !h) return '1:1';
-  const r = w / h;
-  if (r > 2) return '21:9';
-  if (r >= 1.6) return '16:9';
-  if (r >= 1.2) return '4:3';
-  if (r >= 0.9) return '1:1';
-  if (r >= 0.7) return '3:4';
-  if (r >= 0.55) return '4:5';
-  return '9:16';
+  return closestGeminiAspectRatioFromPixels(w, h);
+}
+
+function parseSizeWxHForGemini(size) {
+  const match = String(size || '').trim().toLowerCase().replace(/\s/g, '').match(/^(\d+)[x*](\d+)$/);
+  if (!match) return null;
+  const w = parseInt(match[1], 10);
+  const h = parseInt(match[2], 10);
+  if (!w || !h) return null;
+  return { w, h };
+}
+
+/**
+ * Google 官方 REST：宽高比在 generationConfig.imageConfig.aspectRatio（不是顶层 aspectRatio）。
+ * 顶层字段会被忽略 → 行为变为「匹配参考图尺寸」或近 1:1；参考图多为横屏四视图时成片易为横屏，
+ * 再在本地 contain 到 9:16 就会出现上下黑边。
+ * imageSize（1K/2K/4K）见官方文档，仅 gemini-3.x 图生模型支持；2.5 不传。
+ */
+function buildGeminiImageConfig(aspectRatio, modelName, size) {
+  const imageConfig = { aspectRatio };
+  const m = String(modelName || '').toLowerCase();
+  const supportsImageSize =
+    m.includes('gemini-3') || m.includes('3.1-flash-image') || m.includes('3-pro-image');
+  if (supportsImageSize) {
+    const px = parseSizeWxHForGemini(size);
+    const longEdge = px ? Math.max(px.w, px.h) : 0;
+    // 与项目里常见 1440/2560 档位对齐用 2K；仅小尺寸用 1K（避免默认 4K token 暴涨）
+    imageConfig.imageSize = longEdge >= 1200 ? '2K' : '1K';
+  }
+  return imageConfig;
 }
 
 // nano-banana size 转 aspectRatio（1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 3:2 / 2:3 / 5:4 / 4:5 / 21:9 / auto）
@@ -244,14 +295,7 @@ function nanoBananaAspectRatio(size) {
   const w = parseInt(match[1], 10);
   const h = parseInt(match[2], 10);
   if (!w || !h) return 'auto';
-  const r = w / h;
-  if (r > 2) return '21:9';
-  if (r >= 1.6) return '16:9';
-  if (r >= 1.2) return '4:3';
-  if (r >= 0.9) return '1:1';
-  if (r >= 0.7) return '3:4';
-  if (r >= 0.55) return '4:5';
-  return '9:16';
+  return closestGeminiAspectRatioFromPixels(w, h);
 }
 
 // 可灵 aspect_ratio：16:9 / 9:16 / 1:1 / 4:3 / 3:4 / 3:2 / 2:3
@@ -1007,11 +1051,14 @@ async function callGeminiImageApi(db, config, log, opts) {
   const base = (config.base_url || 'https://generativelanguage.googleapis.com').replace(/\/$/, '');
   const modelName = model || 'gemini-2.5-flash-image';
   const aspectRatio = geminiAspectRatio(size);
+  const geminiImageConfig = buildGeminiImageConfig(aspectRatio, modelName, size);
   const tStart = Date.now();
   const elapsed = () => `${Date.now() - tStart}ms`;
 
   log.info('[Gemini图生] ▶ 开始', {
-    image_gen_id, model: modelName, aspect_ratio: aspectRatio,
+    image_gen_id,
+    model: modelName,
+    imageConfig: geminiImageConfig,
     base_url: base.slice(0, 60),
     prompt_len: (prompt || '').length,
     raw_ref_count: Array.isArray(reference_image_urls) ? reference_image_urls.length : 0,
@@ -1162,15 +1209,14 @@ async function callGeminiImageApi(db, config, log, opts) {
     image_gen_id, parts_count: parts.length, ref_parts: refImageParts.length, elapsed: elapsed(),
   });
 
-  // 注意：aspectRatio / numberOfImages 必须直接放在 generationConfig 顶层，
-  // 不能嵌套为 imageGenerationConfig（那是 Imagen 专属字段），
-  // 嵌套会触发 MALFORMED_FUNCTION_CALL 导致模型内部 google:image_gen 工具调用失败。
+  // 宽高比必须在 imageConfig 内（与 Google 官方 REST 一致）；顶层 aspectRatio 会被忽略。
+  // 勿与 Imagen 的 imageGenerationConfig 混淆。
   const body = {
     contents: [{ role: 'user', parts }],
     generationConfig: {
       responseModalities: ['IMAGE', 'TEXT'],
       numberOfImages: 1,
-      aspectRatio,
+      imageConfig: geminiImageConfig,
     },
   };
 

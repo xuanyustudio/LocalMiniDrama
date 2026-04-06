@@ -125,6 +125,8 @@ function getStoryboardsForEpisode(db, episodeId) {
       movement: r.movement,
       segment_index: r.segment_index ?? 0,
       segment_title: r.segment_title ?? null,
+      creation_mode: r.creation_mode === 'universal' ? 'universal' : 'classic',
+      universal_segment_text: r.universal_segment_text ?? null,
       characters: (() => {
         if (!r.characters) return [];
         if (typeof r.characters !== 'string') return Array.isArray(r.characters) ? r.characters : [];

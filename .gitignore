@@ -9,3 +9,8 @@ data/drama_generator.db-shm
 data/drama_generator.db-wal
 .opencode
 .cursor
+desktop/dist/win-unpacked
+server
+desktop/backend-app-secure/configs/ai-configs-qudao.json
+desktop/backend-app-secure/configs/ai-configs-外发.json
+desktop/backend-app-secure/configs/config.yaml
