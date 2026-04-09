@@ -1,53 +1,37 @@
 app:
-  name: "LocalMiniDrama API"
-  version: "1.0.0"
+  name: LocalMiniDrama API
+  version: 1.0.0
   debug: true
-  language: "zh"
-
+  language: zh
 server:
   port: 5679
-  host: "0.0.0.0"
+  host: 0.0.0.0
   cors_origins:
-    - "http://localhost:3012"
+    - http://localhost:3012
   read_timeout: 600
   write_timeout: 600
-
 database:
-  type: "sqlite"
-  path: "./data/drama_generator.db"
+  type: sqlite
+  path: ./data/drama_generator.db
   max_idle: 10
   max_open: 100
-
 storage:
-  type: "local"
-  local_path: "./data/storage"
-  base_url: "http://localhost:5679/static"
-
+  type: local
+  local_path: ./data/storage
+  base_url: http://localhost:5679/static
 ai:
-  default_text_provider: "openai"
-  default_image_provider: "openai"
-  default_video_provider: "doubao"
-
+  default_text_provider: openai
+  default_image_provider: openai
+  default_video_provider: doubao
 style:
-  # default_style: 全局风格基底，会附加到所有图片提示词末尾。
-  # 建议使用多标签描述，例如武侠风格：
-  #   "wuxia martial arts epic, ancient China, flowing silk robes, misty mountain landscape, cinematic epic composition, ink wash painting influence"
-  # 此处为空时，前端选择的风格选项会覆盖此值。
-  default_style: ""
-  # default_role_style: 角色图（单图/四视图）专用质量补充，追加在 default_style 之后，不应包含具体画风词。
-  # 职责：约束角色图的构图质量，与 default_style 的画风无关。
-  default_role_style: "full body and face clearly visible, character centered, consistent facial features, high detail, masterpiece, best quality"
-  # default_scene_style: 场景四视图专用质量补充。
-  # 职责：约束场景图的构图与质量，与 default_style 的画风无关。
-  default_scene_style: "wide establishing shot, highly detailed environment, sharp focus, rich atmosphere, masterpiece, best quality"
-  # default_prop_style: 道具单图专用质量补充。
-  # 职责：约束道具图的构图与质量，与 default_style 的画风无关。
-  default_prop_style: "object centered, clean simple background, studio lighting, sharp focus, high detail, masterpiece, best quality"
-  default_image_ratio: "16:9"
-  default_video_ratio: "16:9"
-  default_prop_ratio: "1:1"
-  default_image_size: "1024x1024"
-
+  default_style: ''
+  default_role_style: full body and face clearly visible, character centered, consistent facial features, high detail, masterpiece, best quality
+  default_scene_style: wide establishing shot, highly detailed environment, sharp focus, rich atmosphere, masterpiece, best quality
+  default_prop_style: object centered, clean simple background, studio lighting, sharp focus, high detail, masterpiece, best quality
+  default_image_ratio: '16:9'
+  default_video_ratio: '16:9'
+  default_prop_ratio: '1:1'
+  default_image_size: 1024x1024
 vendor_lock:
   enabled: false
-  config_file: "ai-configs-qudao.json"
+  config_file: ai-configs-qudao.json

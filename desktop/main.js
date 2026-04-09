@@ -6,6 +6,25 @@ const fs = require('fs');
 const USERDATA_DIR = path.join(app.getPath('appData'), 'localminidrama-desktop');
 app.setPath('userData', USERDATA_DIR);
 
+const MAIN_STARTUP_LOG = path.join(USERDATA_DIR, 'main-startup.log');
+function writeMainLog(msg) {
+  const line = `${new Date().toISOString()} ${msg}\n`;
+  try {
+    if (!fs.existsSync(USERDATA_DIR)) fs.mkdirSync(USERDATA_DIR, { recursive: true });
+    fs.appendFileSync(MAIN_STARTUP_LOG, line);
+  } catch (_) {}
+}
+
+process.on('uncaughtException', (err) => {
+  writeMainLog(`uncaughtException: ${err && err.stack ? err.stack : err}`);
+});
+process.on('unhandledRejection', (reason) => {
+  const text = reason instanceof Error ? reason.stack : String(reason);
+  writeMainLog(`unhandledRejection: ${text}`);
+});
+
+writeMainLog(`main.js loaded packaged=${app.isPackaged} exec=${process.execPath}`);
+
 // 兼容迁移：若旧路径 LocalMiniDrama 有数据而新路径为空，自动迁移
 ;(function migrateOldUserData() {
   const oldPath = path.join(app.getPath('appData'), 'LocalMiniDrama');
@@ -27,6 +46,12 @@ let serverInstance = null;
 /** 开发模式用 backend-node（改代码即生效）；打包后用 backend-app */
 function getBackendModulePath() {
   if (app.isPackaged) return BACKEND_APP_PATH;
+  // Electron 开发模式必须用 backend-app：require 会向上解析到 desktop/node_modules，
+  // 其中 better-sqlite3 已由 postinstall 的 electron-rebuild 对准当前 Electron ABI。
+  // 若直接用 backend-node，则会加载 backend-node/node_modules（多为本机 Node 编的 ABI，必炸）。
+  if (process.versions.electron && fs.existsSync(path.join(BACKEND_APP_PATH, 'src', 'app.js'))) {
+    return BACKEND_APP_PATH;
+  }
   return fs.existsSync(BACKEND_NODE_PATH) ? BACKEND_NODE_PATH : BACKEND_APP_PATH;
 }
 
@@ -158,7 +183,21 @@ function createWindow(port) {
     webPreferences: { nodeIntegration: false, contextIsolation: true },
     show: false,
   });
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => {
+    win.show();
+    writeMainLog('window ready-to-show');
+  });
+  // 若页面长期不触发 ready-to-show，避免用户误以为“点了没反应”
+  setTimeout(() => {
+    if (!win.isDestroyed() && !win.isVisible()) {
+      win.show();
+      writeMainLog('window shown (fallback timeout, check page load)');
+    }
+  }, 8000);
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    writeMainLog(`did-fail-load code=${code} desc=${desc} url=${url}`);
+  });
+  writeMainLog(`createWindow loadURL http://127.0.0.1:${port}`);
   win.loadURL(`http://127.0.0.1:${port}`);
   win.on('closed', () => app.quit());
   if (process.env.LOCALMINIDRAMA_DEVTOOLS === '1') {
@@ -210,10 +249,14 @@ async function startBackend() {
 }
 
 app.whenReady().then(async () => {
+  writeMainLog('app.whenReady');
   let port;
   try {
     port = await startBackend();
+    writeMainLog(`startBackend ok port=${port}`);
   } catch (err) {
+    const stack = err && err.stack ? err.stack : String(err);
+    writeMainLog(`Failed to start backend\n${stack}`);
     console.error('Failed to start backend', err);
     app.quit();
     return;
