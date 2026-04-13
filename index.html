@@ -164,6 +164,7 @@
                 <div class="hidden md:flex items-center space-x-8">
                     <a href="#features" class="text-primary-700 hover:text-primary-500 transition-colors font-medium">功能特点</a>
                     <a href="#getting-started" class="text-primary-700 hover:text-primary-500 transition-colors font-medium">快速开始</a>
+                    <a href="#ai-relay" class="text-primary-700 hover:text-primary-500 transition-colors font-medium">AI 与中转</a>
                     <a href="#download" class="text-primary-700 hover:text-primary-500 transition-colors font-medium">下载</a>
                     <a href="https://github.com/xuanyustudio/LocalMiniDrama" target="_blank" class="text-primary-700 hover:text-primary-500 transition-colors font-medium flex items-center gap-2">
                         <i data-lucide="git-branch" class="w-5 h-5"></i>
@@ -183,6 +184,7 @@
             <div class="px-4 py-4 space-y-3">
                 <a href="#features" class="block text-primary-700 font-medium">功能特点</a>
                 <a href="#getting-started" class="block text-primary-700 font-medium">快速开始</a>
+                <a href="#ai-relay" class="block text-primary-700 font-medium">AI 与中转</a>
                 <a href="#download" class="block text-primary-700 font-medium">下载</a>
                 <a href="https://github.com/xuanyustudio/LocalMiniDrama" target="_blank" class="block text-primary-700 font-medium flex items-center gap-2">
                     <i data-lucide="git-branch" class="w-5 h-5"></i>
@@ -239,6 +241,8 @@
                 <!-- Version Info -->
                 <p class="text-primary-300 text-sm mt-6 animate-fade-in-up delay-400">
                     当前版本: v1.2.6 · 开源免费 · 持续更新
+                    <span class="mx-2 opacity-50">·</span>
+                    <a href="#ai-relay" class="text-primary-100 hover:text-white underline underline-offset-2">各大平台中转示例配置</a>
                 </p>
             </div>
             
@@ -386,7 +390,7 @@
                     </div>
                     <h3 class="text-xl font-bold text-primary-900 mb-3">灵活 AI 配置</h3>
                     <p class="text-primary-600">
-                        支持多种 AI 模型接入，灵活配置 API Key。实时预览生成效果，快速迭代优化。
+                        支持多种 AI 模型接入，灵活配置 API Key。仓库内提供「各大平台中转站配置」示例 JSON，可一键对照导入后再替换为自己的 Key。
                     </p>
                 </div>
                 
@@ -459,6 +463,71 @@
                     <p class="text-primary-600 text-sm">
                         一键生成视频，选择分辨率与格式后导出，分享你的作品
                     </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- AI relay / platform presets -->
+    <section id="ai-relay" class="py-24 bg-gradient-to-b from-primary-50 to-white border-t border-primary-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-14">
+                <h2 class="text-4xl font-bold text-primary-900 mb-4">AI 与各大平台中转站</h2>
+                <p class="text-xl text-primary-600 max-w-3xl mx-auto">
+                    在 GitHub 仓库的 <code class="text-sm bg-primary-100 px-2 py-0.5 rounded text-primary-800">各大平台中转站配置/</code> 目录中，整理了常见中转服务商的示例配置，便于快速找到对应站点并对照修改。
+                </p>
+            </div>
+
+            <div class="max-w-3xl mx-auto mb-12 bg-white rounded-2xl p-8 shadow-soft border border-primary-100">
+                <h3 class="text-lg font-bold text-primary-900 mb-3 flex items-center gap-2">
+                    <i data-lucide="book-open" class="w-5 h-5 text-primary-600"></i>
+                    怎么用
+                </h3>
+                <ol class="list-decimal list-inside space-y-2 text-primary-700 text-sm sm:text-base">
+                    <li>打开仓库目录：<a href="https://github.com/xuanyustudio/LocalMiniDrama/tree/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE" target="_blank" rel="noopener noreferrer" class="text-primary-600 font-medium underline hover:text-primary-500">各大平台中转站配置（GitHub）</a>，先阅读其中的 <code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">使用说明.txt</code>。</li>
+                    <li>选择与你购买服务一致的中转商 JSON（文件名即站点标识），在应用 AI 设置中导入或手动对照字段填写。</li>
+                    <li>将配置里<strong class="text-primary-900">每一条服务</strong>的 <code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">api_key</code> 全部替换为你自己的 Key；<code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">base_url</code> 若中转商提供了专属域名，请按对方文档修改。</li>
+                    <li>若某中转站模型列表与示例不一致，以服务商后台为准，在应用内选择或填写对方开放的模型 ID 即可。</li>
+                </ol>
+            </div>
+
+            <div class="mb-14">
+                <h3 class="text-lg font-bold text-primary-900 mb-4 text-center">示例配置文件（直链）</h3>
+                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+                    <a href="https://raw.githubusercontent.com/xuanyustudio/LocalMiniDrama/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE/302ai-302.json" target="_blank" rel="noopener noreferrer" class="github-card rounded-xl p-5 card-hover flex flex-col gap-2">
+                        <span class="font-semibold text-primary-900">302.AI（302ai-302.json）</span>
+                        <span class="text-sm text-primary-600">点击在浏览器中打开原始 JSON，另存后导入或复制字段。</span>
+                    </a>
+                    <a href="https://raw.githubusercontent.com/xuanyustudio/LocalMiniDrama/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE/%E4%BA%91%E9%9B%BEai.json" target="_blank" rel="noopener noreferrer" class="github-card rounded-xl p-5 card-hover flex flex-col gap-2">
+                        <span class="font-semibold text-primary-900">云雾 AI（云雾ai.json）</span>
+                        <span class="text-sm text-primary-600">同上，按需替换 Key 与地址。</span>
+                    </a>
+                    <a href="https://raw.githubusercontent.com/xuanyustudio/LocalMiniDrama/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE/%E5%90%91%E9%87%8F.json" target="_blank" rel="noopener noreferrer" class="github-card rounded-xl p-5 card-hover flex flex-col gap-2">
+                        <span class="font-semibold text-primary-900">向量（向量.json）</span>
+                        <span class="text-sm text-primary-600">同上。</span>
+                    </a>
+                    <a href="https://raw.githubusercontent.com/xuanyustudio/LocalMiniDrama/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE/%E9%A3%9E%E5%84%BFapi-ffir.cn.json" target="_blank" rel="noopener noreferrer" class="github-card rounded-xl p-5 card-hover flex flex-col gap-2 sm:col-span-2 lg:col-span-1">
+                        <span class="font-semibold text-primary-900">飞儿 API（飞儿api-ffir.cn.json）</span>
+                        <span class="text-sm text-primary-600">同上。</span>
+                    </a>
+                    <a href="https://raw.githubusercontent.com/xuanyustudio/LocalMiniDrama/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE/%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.txt" target="_blank" rel="noopener noreferrer" class="github-card rounded-xl p-5 card-hover flex flex-col gap-2 sm:col-span-2">
+                        <span class="font-semibold text-primary-900">使用说明.txt</span>
+                        <span class="text-sm text-primary-600">导入后务必将各条目的 Key 改为自己的；与示例不一致时以中转商文档为准。</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="max-w-3xl mx-auto bg-white rounded-2xl p-8 shadow-soft border border-accent-500/20">
+                <h3 class="text-lg font-bold text-primary-900 mb-3 flex items-center gap-2">
+                    <i data-lucide="image-plus" class="w-5 h-5 text-accent-600"></i>
+                    即梦 2.0 / Seedream（火山图生图 · 文生图）说明
+                </h3>
+                <div class="space-y-3 text-primary-700 text-sm sm:text-base leading-relaxed">
+                    <p>示例配置里，<strong class="text-primary-900">分镜图生图</strong>（<code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">storyboard_image</code>）与<strong class="text-primary-900">文生图</strong>（<code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">image</code>）中的「火山引擎」线路，使用的是字节 <strong class="text-primary-900">Seedream（即梦）系列</strong>模型 ID，例如 <code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">doubao-seedream-4-0-250828</code>、<code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">doubao-seedream-4-5-251128</code> 等。中转商控制台若仍标注为「即梦 2.0」等商品名，请以<strong class="text-primary-900">对方实际开放的模型 ID</strong>为准，在应用内与 JSON 中保持一致即可。</p>
+                    <p>使用这类线路时，请确认该条目的 <code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">api_protocol</code> 为 <code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">volcengine</code>，<code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">base_url</code>、<code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">endpoint</code> 与中转站文档一致；不要与 OpenAI 兼容协议的条目混用。</p>
+                    <p><strong class="text-primary-900">分辨率提示：</strong>Seedream 4.5 及以上对输出像素有下限要求（约 1920×1920 等效面积）。本应用在请求时会自动把小尺寸等比放大以满足接口要求；若你自行改模型或尺寸仍报错，请优先检查中转站返回说明或改用示例中的默认模型。</p>
+                    <p><strong class="text-primary-900">即梦 2.0 对照图：</strong>同目录下提供示意图，便于与中转商「即梦 2.0」商品名或控制台字段一一对应：<a href="https://github.com/xuanyustudio/LocalMiniDrama/blob/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE/%E5%AE%98%E6%96%B9%E5%8D%B3%E6%A2%A62.0%E9%85%8D%E7%BD%AE.png" target="_blank" rel="noopener noreferrer" class="text-primary-600 font-medium underline hover:text-primary-500">官方即梦 2.0 配置示意</a>、<a href="https://github.com/xuanyustudio/LocalMiniDrama/blob/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE/%E8%B0%83%E7%94%A8%E6%9C%AC%E5%9C%B0%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E5%8D%B3%E6%A2%A6freeapi%E7%9A%84%E9%85%8D%E7%BD%AE.png" target="_blank" rel="noopener noreferrer" class="text-primary-600 font-medium underline hover:text-primary-500">本地反向代理即梦 Free API 配置示意</a>（与 JSON 示例互补，按你的实际接入方式选看）。</p>
+                    <p class="text-sm text-primary-600">视频侧若使用自建「即梦」OpenAI 兼容服务，请参考仓库 <code class="text-xs bg-primary-50 px-1.5 py-0.5 rounded">backend-node/README.md</code> 中的 Jimeng AI API 章节。</p>
                 </div>
             </div>
         </div>
@@ -566,6 +635,7 @@
                     <h4 class="font-semibold text-white mb-4">相关链接</h4>
                     <ul class="space-y-2 text-sm">
                         <li><a href="https://github.com/xuanyustudio/LocalMiniDrama" class="hover:text-white transition-colors">GitHub 仓库</a></li>
+                        <li><a href="https://github.com/xuanyustudio/LocalMiniDrama/tree/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE" class="hover:text-white transition-colors">各大平台中转站配置</a></li>
                         <li><a href="https://github.com/xuanyustudio/LocalMiniDrama/releases" class="hover:text-white transition-colors">版本发布</a></li>
                         <li><a href="https://github.com/xuanyustudio/LocalMiniDrama/issues" class="hover:text-white transition-colors">问题反馈</a></li>
                         <li><a href="https://github.com/xuanyustudio/LocalMiniDrama/discussions" class="hover:text-white transition-colors">社区讨论</a></li>

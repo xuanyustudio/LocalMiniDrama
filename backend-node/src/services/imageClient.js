@@ -591,7 +591,13 @@ async function callNanoBananaImageApi(config, log, opts) {
 
   // 兼容同步代理响应：部分代理直接返回图片 URL，无需轮询
   // 也兼容提交即完成的响应（state=succeeded + data.data.images[0].url）
+  const sdTopImages = submitData?.images;
+  const sd0 = Array.isArray(sdTopImages) ? sdTopImages[0] : null;
+  const sdTopFirst = typeof sd0 === 'string' && sd0 && !/^https?:\/\//i.test(sd0) && !sdTopImages[0]?.url
+    ? (sd0.startsWith('data:') ? sd0 : `data:image/png;base64,${sd0.replace(/\s/g, '')}`)
+    : null;
   const directImageUrl = submitData?.images?.[0]?.url
+    || sdTopFirst
     || submitData?.image?.url
     || submitData?.image_url
     || submitData?.data?.url
@@ -674,9 +680,14 @@ async function callNanoBananaImageApi(config, log, opts) {
         code: queryData?.code, successFlag, state, status,
       });
       if (successFlag === 1 || state === 'succeeded' || status === '3') {
+        const respImgs = queryData?.data?.response?.images;
+        const fromSdWrapped = Array.isArray(respImgs) && typeof respImgs[0] === 'string' && respImgs[0].length > 0
+          ? (respImgs[0].startsWith('data:') ? respImgs[0] : `data:image/png;base64,${respImgs[0].replace(/\s/g, '')}`)
+          : null;
         const imageUrl = queryData?.data?.response?.resultImageUrl
           || queryData?.data?.response?.originImageUrl
-          || queryData?.data?.data?.images?.[0]?.url;
+          || queryData?.data?.data?.images?.[0]?.url
+          || fromSdWrapped;
         if (imageUrl) {
           log.info('NanoBanana image completed', { image_gen_id, task_id: taskId, image_url: imageUrl.slice(0, 120) });
           return { image_url: imageUrl };
@@ -1459,8 +1470,18 @@ async function callImageApi(db, log, opts) {
     return { error: '图片生成返回格式异常' };
   }
   // 兼容多种返回格式：OpenAI 风格 data[].url / b64_json，部分厂商 data[].image_url 或 data.output 等
+  // Stable Diffusion WebUI（/sdapi/v1/txt2img|img2img）：顶层 images 为 PNG base64 字符串数组，无 data 数组
   const item = data.data && data.data[0];
-  const imageUrl = item && (item.url || item.image_url || item.b64_json);
+  let imageUrl = item && (item.url || item.image_url);
+  if (!imageUrl && item?.b64_json) {
+    imageUrl = `data:image/png;base64,${String(item.b64_json).replace(/\s/g, '')}`;
+  }
+  if (!imageUrl && Array.isArray(data.images) && data.images.length > 0) {
+    const first = data.images[0];
+    if (typeof first === 'string' && first.length > 0) {
+      imageUrl = first.startsWith('data:') ? first : `data:image/png;base64,${first.replace(/\s/g, '')}`;
+    }
+  }
   if (!imageUrl) {
     log.warn('Image API no image URL in response', {
       image_gen_id,

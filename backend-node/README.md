@@ -22,6 +22,7 @@
 - [配置文件](#配置文件)
 - [API 接口总览](#api-接口总览)
 - [数据库说明](#数据库说明)
+- [各大平台中转站示例配置](#各大平台中转站示例配置)
 - [AI 服务集成](#ai-服务集成)
 - [开发说明](#开发说明)
 
@@ -151,6 +152,27 @@ style:
 ```
 
 > AI 服务配置（API Key、模型名、端点 URL）通过前端「AI 配置」页面管理，存储于数据库 `ai_service_configs` 表，无需手动编辑 YAML。
+
+---
+
+## 各大平台中转站示例配置
+
+仓库根目录（与 `backend-node` 同级）下的 [`各大平台中转站配置/`](https://github.com/xuanyustudio/LocalMiniDrama/tree/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE) 提供多家常见中转站的 **完整 JSON 示例**，可直接对照导入前端「AI 配置」，再改为自己的 Key 与地址。
+
+| 文件 | 说明 |
+|------|------|
+| `使用说明.txt` | 导入后需将 **每一条** 服务里的 `api_key` 换成自己的 |
+| `302ai-302.json` | 302.AI 示例 |
+| `云雾ai.json` | 云雾 AI 示例 |
+| `向量.json` | 向量平台示例 |
+| `飞儿api-ffir.cn.json` | 飞儿 API 示例 |
+
+**示意图（与 JSON 互补）：**
+
+- [官方即梦 2.0 配置](https://github.com/xuanyustudio/LocalMiniDrama/blob/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE/%E5%AE%98%E6%96%B9%E5%8D%B3%E6%A2%A62.0%E9%85%8D%E7%BD%AE.png)
+- [本地反向代理即梦 Free API 配置](https://github.com/xuanyustudio/LocalMiniDrama/blob/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE/%E8%B0%83%E7%94%A8%E6%9C%AC%E5%9C%B0%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E5%8D%B3%E6%A2%A6freeapi%E7%9A%84%E9%85%8D%E7%BD%AE.png)
+
+若中转商控制台中的商品名（如「即梦 2.0」）与示例里的 **模型 ID**（如 `doubao-seedream-4-0-250828`）表述不一致，以对方实际开放的模型 ID 为准，并在本系统中与 JSON 保持一致。更多面向最终用户的说明见仓库根目录 [项目主页 `index.html`](../index.html) 中的「AI 与各大平台中转站」区块（发布页展示用）。
 
 ---
 
@@ -310,6 +332,12 @@ style:
 - DashScope（通义万象）：`POST /api/v1/services/aigc/text2image/image-synthesis`
 - Volcengine（豆包）：`POST /api/v3/images/generations`（OpenAI 兼容格式）
 
+### 即梦（Seedream）Volcengine 图生图与文生图
+
+- 分镜 **图生图**（`storyboard_image`）与 **文生图**（`image`）中，凡使用 `doubao-seedream-*` 系列模型，均走 `imageClient.js` 的 **Volcengine 图片协议**分支；配置项 **`api_protocol`** 须为 `volcengine`，`base_url`、`endpoint` 需与所用中转站文档一致，勿与纯 OpenAI 兼容条目混用。
+- 中转商界面若标注为「即梦 2.0」等名称，请以对方返回的 **模型 ID** 为准（示例中常见 `doubao-seedream-4-0-250828`、`doubao-seedream-4-5-251128` 等），与 [各大平台中转站示例配置](#各大平台中转站示例配置) 中的 JSON 对照修改即可。
+- **Seedream 4.5+** 对输出像素有下限（约 1920×1920 等效面积）；`imageClient.js` 会在请求前对过小尺寸做等比放大（`fixSeedreamSize`）。若仍报错，请结合中转站错误信息检查模型与尺寸。
+
 **图片尺寸：** 系统根据项目 `metadata.aspect_ratio` 自动计算符合服务商最低要求的分辨率（最低 3,686,400 像素）。
 
 ### 视频生成流程
@@ -361,6 +389,8 @@ style:
 1. 自行克隆并启动第三方即梦逆向/兼容服务项目（如 `jimeng-free-api-all`），按对方 README 安装依赖与 Chromium，默认监听端口以对方文档为准（常见 `8000`）。
 2. 在本系统 AI 配置中填写 **Base URL**（如 `http://127.0.0.1:8000`）、**API Key** 填即梦 **Session**（多个用英文逗号分隔）。
 3. 后端会请求对方 `POST /v1/videos/generations`（可用配置项 **Endpoint** 覆盖路径），Seedance 多图场景需分镜带参考图；返回为同步 `data[0].url`，无需轮询。
+
+字段级对照可参考仓库 [`各大平台中转站配置/调用本地反向代理即梦freeapi的配置.png`](https://github.com/xuanyustudio/LocalMiniDrama/blob/main/%E5%90%84%E5%A4%A7%E5%B9%B3%E5%8F%B0%E4%B8%AD%E8%BD%AC%E7%AB%99%E9%85%8D%E7%BD%AE/%E8%B0%83%E7%94%A8%E6%9C%AC%E5%9C%B0%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E5%8D%B3%E6%A2%A6freeapi%E7%9A%84%E9%85%8D%E7%BD%AE.png)。该路径为 **OpenAI 兼容的本地即梦代理（视频为主）**，与上文「即梦（Seedream）Volcengine 图生图与文生图」所描述的 **`volcengine` 直连中转图 API** 不是同一套协议，请按实际接入分别配置、勿混用字段。
 
 ### 添加新的数据库字段
 

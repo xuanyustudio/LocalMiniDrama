@@ -1,0 +1,207 @@
+[
+  {
+       "service_type": "video",
+       "provider": "xy",
+       "api_protocol": "volcengine",
+       "name": "火山引擎 视频",
+       "base_url": "https://yunwu.ai",
+       "api_key": "sk-1234",
+       "model": [
+            "doubao-seedance-1-5-pro-251215",
+            "doubao-seedance-1-0-lite-i2v-250428",
+            "doubao-seedance-1-0-pro-250528",
+            "doubao-seedance-1-0-pro-fast-251015"
+       ],
+       "default_model": "doubao-seedance-1-0-pro-250528",
+       "endpoint": "/volc/v1/contents/generations/tasks",
+       "query_endpoint": "/volc/v1/contents/generations/tasks/{task_id}",
+       "priority": 0,
+       "is_default": false,
+       "is_active": true,
+       "settings": null
+  },
+  {
+       "service_type": "tts",
+       "provider": "xy",
+       "api_protocol": "openai",
+       "name": "xyOpenAI TTS 语音合成 TTS",
+       "base_url": "https://yunwu.ai/v1",
+       "api_key": "sk-1234",
+       "model": [
+            "tts-1",
+            "tts-1-hd",
+            "tts-1-1106",
+            "tts-1-hd-1106"
+       ],
+       "default_model": "tts-1",
+       "endpoint": "",
+       "query_endpoint": "",
+       "priority": 0,
+       "is_default": true,
+       "is_active": true,
+       "settings": null
+  },
+  {
+       "service_type": "text",
+       "provider": "xy",
+       "api_protocol": "",
+       "name": "deepseek",
+       "base_url": "https://yunwu.ai/v1/",
+       "api_key": "sk-1234",
+       "model": [
+            "doubao-seed-1-6-thinking-250615",
+            "doubao-seed-1-8-251228",
+            "deepseek-v3.2",
+            "deepseek-v3.1-fast",
+            "doubao-seed-1-6-250615"
+       ],
+       "default_model": "deepseek-v3.2",
+       "endpoint": "",
+       "query_endpoint": "",
+       "priority": 0,
+       "is_default": true,
+       "is_active": true,
+       "settings": null
+  },
+  {
+       "service_type": "image",
+       "provider": "xy",
+       "api_protocol": "gemini",
+       "name": "谷歌香蕉模型文生图",
+       "base_url": "https://yunwu.ai/",
+       "api_key": "sk-1234",
+       "model": [
+            "gemini-2.5-flash-image",
+            "gemini-2.5-flash-image-preview",
+            "gemini-3.1-flash-image-preview",
+            "gemini-3-pro-image-preview"
+       ],
+       "default_model": "gemini-2.5-flash-image",
+       "endpoint": "/v1beta/models/{model}:generateContent",
+       "query_endpoint": "",
+       "priority": 0,
+       "is_default": true,
+       "is_active": true,
+       "settings": null
+  },
+  {
+       "service_type": "storyboard_image",
+       "provider": "xy",
+       "api_protocol": "volcengine",
+       "name": "火山引擎 图生图",
+       "base_url": "https://yunwu.ai/v1/",
+       "api_key": "sk-1234",
+       "model": [
+            "doubao-seedream-4-0-250828",
+            "doubao-seedream-4-5-251128",
+            "doubao-seedream-5-0-260128"
+       ],
+       "default_model": "doubao-seedream-4-5-251128",
+       "endpoint": "",
+       "query_endpoint": "",
+       "priority": 0,
+       "is_default": true,
+       "is_active": true,
+       "settings": null
+  },
+  {
+       "service_type": "stt",
+       "provider": "xy",
+       "api_protocol": "openai",
+       "name": "Groq Whisper 语音识别",
+       "base_url": "https:/ffir.cn/v1",
+       "api_key": "sk-1234",
+       "model": [
+            "whisper-1"
+       ],
+       "default_model": "whisper-1",
+       "endpoint": "/audio/transcriptions",
+       "query_endpoint": "",
+       "priority": 0,
+       "is_default": true,
+       "is_active": true,
+       "settings": null
+  },
+  {
+       "service_type": "image",
+       "provider": "xy",
+       "api_protocol": "volcengine",
+       "name": "火山 文生图",
+       "base_url": "https://yunwu.ai/",
+       "api_key": "sk-1234",
+       "model": [
+            "doubao-seedream-4-0-250828",
+            "doubao-seedream-4-5-251128",
+            "doubao-seedream-5-0-260128"
+       ],
+       "default_model": "doubao-seedream-4-5-251128",
+       "endpoint": "/v1/images/generations",
+       "query_endpoint": "",
+       "priority": 0,
+       "is_default": false,
+       "is_active": true,
+       "settings": null
+  },
+  {
+       "service_type": "video",
+       "provider": "xy",
+       "api_protocol": "veo3",
+       "name": "veo grok",
+       "base_url": "https://yunwu.ai/",
+       "api_key": "sk-1234",
+       "model": [
+            "veo3.1",
+"grok-video-3"
+       ],
+       "default_model": "veo3.1",
+       "endpoint": "/v1/video/create",
+       "query_endpoint": "/v1/video/query?id={taskid}",
+       "priority": 0,
+       "is_default": false,
+       "is_active": true,
+       "settings": null
+  },
+  {
+       "service_type": "video",
+       "provider": "xy",
+       "api_protocol": "vidu",
+       "name": "vidu 视频",
+       "base_url": "https://yunwu.ai/",
+       "api_key": "sk-1234",
+       "model": [
+            "viduq2",
+            "viduq2-pro",
+            "viduq2-turbo",
+            "viduq3-turbo",
+            "viduq3-pro"
+       ],
+       "default_model": "viduq3-turbo",
+       "endpoint": "/ent/v2/img2video",
+       "query_endpoint": "/ent/v2/tasks/{task_id}/creations",
+       "priority": 0,
+       "is_default": true,
+       "is_active": true,
+       "settings": null
+  },
+  {
+       "service_type": "storyboard_image",
+       "provider": "xy",
+       "api_protocol": "gemini",
+       "name": "谷歌香蕉模型 图生图",
+       "base_url": "https://yunwu.ai/",
+       "api_key": "sk-1234",
+       "model": [
+            "gemini-2.5-flash-image",
+            "gemini-2.5-flash-image-preview",
+            "gemini-3.1-flash-image-preview",
+            "gemini-3-pro-image-preview"
+       ],
+       "default_model": "gemini-3.1-flash-image-preview",
+       "endpoint": "/v1beta/models/{model}:generateContent",
+       "query_endpoint": "",
+       "priority": 0,
+       "is_default": false,
+       "is_active": true,
+       "settings": null
+  }
+]
