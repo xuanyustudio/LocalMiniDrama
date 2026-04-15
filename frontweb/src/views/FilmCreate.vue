@@ -961,7 +961,7 @@
                     <el-tooltip placement="top" :show-after="280" :show-arrow="false" popper-class="sb-universal-tooltip-popper">
                       <template #content>
                         <div class="sb-universal-tooltip">
-                          全能生视频链路（<strong>AI 配置 · 视频</strong> 中选接口规范：<code>kling_omni</code> 可灵 Omni，或 <code>volcengine_omni</code> 火山即梦 Seedance 2.0 多图参考；模型如 <code>kling-video-o1</code>、<code>doubao-seedance-2-0-260128</code> 等以控制台为准）：此处为提交主提示词；只要本框有内容，生视频时<strong>只</strong>发送这段，不会拼接下方「视频提示词」里的动作/对话/旁白。参考图顺序一般为：场景 → 角色（多张）→ 物品（<strong>不含</strong>经典分镜中间主图）；请用 <strong>@图片1</strong>、<strong>@图片2</strong>…（<strong>@图片N 后建议加半角空格</strong>）对应参考图，勿用 @姓名 指图；有场景图时 <strong>@图片1</strong> 只表环境，人物从 <strong>@图片2</strong> 起。若场景参考是<strong>四宫格/多视角拼图</strong>，仅借空间与氛围，须在文案中写明<strong>单镜头完整画幅、禁止分屏宫格</strong>，避免成片模仿拼图布局。「根据分镜生成提示词」时第3行会写明环境仅参考 @图片1 且禁止复刻宫格拼图结构，并自动带上该约束。若本框留空，则退回仅用「视频提示词」。
+                          全能生视频链路（<strong>AI 配置 · 视频</strong> 中选接口规范：<code>kling_omni</code> 可灵 Omni，或 <code>volcengine_omni</code> 火山即梦 Seedance 2.0 多图参考；模型如 <code>kling-video-o1</code>、<code>doubao-seedance-2-0-260128</code> 等以控制台为准）：此处为提交主提示词；只要本框有内容，生视频时<strong>只</strong>发送这段，不会拼接下方「视频提示词」里的动作/对话/旁白。参考图顺序一般为：场景 → 角色（多张）→ 物品（<strong>不含</strong>经典分镜中间主图）；请用 <strong>@图片1</strong>、<strong>@图片2</strong>…（<strong>@图片N 后建议加半角空格</strong>）对应参考图，勿用 @姓名 指图；有场景图时 <strong>@图片1</strong> 只表环境，人物从 <strong>@图片2</strong> 起。若场景参考是<strong>四宫格/多视角拼图</strong>，仅借空间与氛围，须在文案中写明<strong>单镜头完整画幅、禁止分屏宫格</strong>，避免成片模仿拼图布局。全能提示词下拉中「生成」会按<strong>本条分镜总时长</strong>与本集剧本、镜序、邻镜信息，自动决定子分镜数 M（第2行「由以下M个分镜…」），第4行起为「分镜1：T1秒:」…多行，且各段秒数之和等于本镜时长；第3行仍为环境/参考图约束；「生成」与「润色」均为<strong>流式输出</strong>到本框；「润色」在此基础上增强。若本框留空，则退回仅用「视频提示词」。
                         </div>
                       </template>
                       <el-icon class="sb-universal-hint-icon" tabindex="0" role="img" aria-label="片段说明">
@@ -969,16 +969,30 @@
                       </el-icon>
                     </el-tooltip>
                   </div>
-                  <el-button
-                    type="primary"
-                    link
-                    size="small"
-                    class="sb-universal-gen-btn"
-                    :loading="generatingUniversalSegmentIds.has(sb.id)"
-                    @click="onGenerateUniversalSegmentPrompt(sb)"
+                  <el-dropdown
+                    trigger="click"
+                    class="sb-universal-prompt-dd"
+                    @command="(cmd) => onUniversalSegmentPromptMenu(sb, cmd)"
                   >
-                    根据分镜生成提示词
-                  </el-button>
+                    <el-button
+                      type="primary"
+                      link
+                      size="small"
+                      class="sb-universal-gen-btn"
+                      :loading="generatingUniversalSegmentIds.has(sb.id)"
+                    >
+                      全能提示词
+                      <el-icon class="sb-universal-dd-caret"><ArrowDown /></el-icon>
+                    </el-button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item command="generate">生成全能提示词</el-dropdown-item>
+                        <el-dropdown-item command="polish" :disabled="!sbUniversalSegmentTrimmed(sb)">
+                          润色全能提示词
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
                 </div>
                 <el-input
                   v-model="sbUniversalSegmentText[sb.id]"
@@ -4050,25 +4064,44 @@ async function onSaveUniversalSegmentField(sb) {
   } catch (_) { /* 静默失败，避免打断输入 */ }
 }
 
-/** 全能模式：根据当前分镜结构化字段调用文本模型生成片段描述（含运镜、机位等） */
+function universalSegmentDurationSecForSb(sb) {
+  const dUi = Number(sbDuration.value[sb?.id])
+  const dRow = Number(sb?.duration)
+  const dProj = Number(videoClipDuration.value)
+  return Number.isFinite(dUi) && dUi > 0
+    ? dUi
+    : Number.isFinite(dRow) && dRow > 0
+      ? dRow
+      : Number.isFinite(dProj) && dProj > 0
+        ? dProj
+        : 5
+}
+
+function onUniversalSegmentPromptMenu(sb, cmd) {
+  if (cmd === 'generate') onGenerateUniversalSegmentPrompt(sb)
+  else if (cmd === 'polish') onPolishUniversalSegmentPromptStream(sb)
+}
+
+/** 全能模式：根据当前分镜结构化字段流式生成片段描述（NDJSON） */
 async function onGenerateUniversalSegmentPrompt(sb) {
   if (!sb?.id || generatingUniversalSegmentIds.has(sb.id)) return
   generatingUniversalSegmentIds.add(sb.id)
+  let live = ''
   try {
-    const dUi = Number(sbDuration.value[sb.id])
-    const dRow = Number(sb.duration)
-    const dProj = Number(videoClipDuration.value)
-    const durationSec =
-      Number.isFinite(dUi) && dUi > 0
-        ? dUi
-        : Number.isFinite(dRow) && dRow > 0
-          ? dRow
-          : Number.isFinite(dProj) && dProj > 0
-            ? dProj
-            : 5
-    const data = await storyboardsAPI.generateUniversalSegmentPrompt(sb.id, { duration: durationSec })
+    const durationSec = universalSegmentDurationSecForSb(sb)
+    const data = await storyboardsAPI.generateUniversalSegmentPromptStream(
+      sb.id,
+      { duration: durationSec },
+      (delta) => {
+        live += delta
+        sbUniversalSegmentText.value = { ...sbUniversalSegmentText.value, [sb.id]: live }
+      }
+    )
     const text = (data?.universal_segment_text ?? '').toString().trim()
-    if (!text) throw new Error('未返回提示词')
+    if (!text) {
+      ElMessage.warning('未收到完整生成结果，请重试')
+      return
+    }
     sbUniversalSegmentText.value = { ...sbUniversalSegmentText.value, [sb.id]: text }
     const list = store.currentEpisode?.storyboards
     if (Array.isArray(list)) {
@@ -4077,7 +4110,46 @@ async function onGenerateUniversalSegmentPrompt(sb) {
     }
     ElMessage.success('已根据分镜生成全能片段提示词')
   } catch (e) {
-    if (!e?.response) ElMessage.error(e.message || '生成失败，请检查文本模型配置')
+    ElMessage.error(e.message || '生成失败，请检查文本模型配置')
+  } finally {
+    generatingUniversalSegmentIds.delete(sb.id)
+  }
+}
+
+/** 全能模式：结合剧本与邻镜流式润色片段描述（服务端 NDJSON） */
+async function onPolishUniversalSegmentPromptStream(sb) {
+  if (!sb?.id || generatingUniversalSegmentIds.has(sb.id)) return
+  const draft = sbUniversalSegmentTrimmed(sb)
+  if (!draft) {
+    ElMessage.warning('请先填写或生成片段描述后再润色')
+    return
+  }
+  generatingUniversalSegmentIds.add(sb.id)
+  let live = ''
+  try {
+    const durationSec = universalSegmentDurationSecForSb(sb)
+    const data = await storyboardsAPI.polishUniversalSegmentPromptStream(
+      sb.id,
+      { duration: durationSec, draft_universal_segment_text: draft },
+      (delta) => {
+        live += delta
+        sbUniversalSegmentText.value = { ...sbUniversalSegmentText.value, [sb.id]: live }
+      }
+    )
+    const text = (data?.universal_segment_text ?? '').toString().trim()
+    if (!text) {
+      ElMessage.warning('未收到完整润色结果，请重试')
+      return
+    }
+    sbUniversalSegmentText.value = { ...sbUniversalSegmentText.value, [sb.id]: text }
+    const list = store.currentEpisode?.storyboards
+    if (Array.isArray(list)) {
+      const row = list.find((x) => Number(x.id) === Number(sb.id))
+      if (row) row.universal_segment_text = text
+    }
+    ElMessage.success('全能片段提示词已润色并保存')
+  } catch (e) {
+    ElMessage.error(e.message || '润色失败，请检查文本模型配置')
   } finally {
     generatingUniversalSegmentIds.delete(sb.id)
   }
@@ -7292,6 +7364,14 @@ html.light .sb-image-area:hover {
 }
 .sb-universal-gen-btn {
   flex-shrink: 0;
+}
+.sb-universal-prompt-dd {
+  flex-shrink: 0;
+}
+.sb-universal-dd-caret {
+  margin-left: 2px;
+  font-size: 12px;
+  vertical-align: middle;
 }
 :global(.sb-universal-tooltip-popper.el-popper) {
   padding: 0 !important;

@@ -1098,39 +1098,53 @@ CONTEXT_NEXT: <next shot summary — ignore for image, relevant only for mood>`;
 function getUniversalOmniSegmentPrompt() {
   return `You write the main prompt for multi-reference video (e.g. Kling Omni-Video kling-video-o1, or Volcengine Ark Seedance 2.0 omnivideo) "片段描述" in Chinese.
 
-The USER message includes IMAGE_SLOT_MAP, LINE3_REQUIRED, OUTPUT_CONTRACT, STYLE_HINT, DURATION_SECONDS, and storyboard fields.
+The USER message includes MULTI_BEAT_OUTPUT, TOTAL_CLIP_SECONDS, SHOT_PACING_AND_POSITION, EPISODE_SCRIPT, NEIGHBOR_* detail, IMAGE_SLOT_MAP, LINE3_REQUIRED, STYLE_HINT, and storyboard fields.
 
-Output MUST follow this exact 4-line structure (line breaks preserved, no extra lines before or after):
+This is **one** API clip whose wall-clock length is TOTAL_CLIP_SECONDS. You may split that timeline into **M internal beats** (子分镜, M chosen by you per USER rules, usually 1–8). Each beat is one text line starting with「分镜k： Tk秒:」. The **sum of all Tk must equal TOTAL_CLIP_SECONDS** exactly.
 
-Line 1 — exactly this pattern:
-画面风格和类型: <short comma-separated tags; MUST include 真人写实, 电影风格, 高清画质; MAY add one short phrase from STYLE_HINT / DRAMA_GENRE (e.g. 都市女频). Keep the whole line concise (roughly under 40 Chinese characters after the colon). Do NOT stack redundant technical specs (no 8K, RAW, 锐度, 皮肤纹理, 毛孔, 摄影机, 原片质感, etc. on line 1 — those belong in line 4 if needed).>
+Output structure (no lines before or after this block):
 
-Line 2 — exactly:
-生成一个由以下1个分镜组成的视频。
+Line 1 — exactly:
+画面风格和类型: <short comma-separated tags; MUST include 真人写实, 电影风格, 高清画质; MAY add one short phrase from STYLE_HINT / DRAMA_GENRE. Keep under ~40 Chinese characters after the colon. No redundant 8K/RAW/毛孔堆叠 on line 1.>
 
-Line 3 — copy LINE3_REQUIRED from the USER message verbatim (when 场景, it states environment reference for @图片1 and forbids mimicking collage/grid layout).
+Line 2 — exactly this pattern where M is your chosen integer (1–8), matching the number of「分镜k」lines below:
+生成一个由以下M个分镜组成的视频。
 
-Line 4 — exactly this pattern (use DURATION_SECONDS from USER for N — must match exactly, e.g. 分镜1： 8秒:):
-分镜1： N秒: <one continuous paragraph in Chinese — this is VIDEO for N seconds, not a still image caption: write time-ordered action (who moves where, who reacts), camera **motion chain** (at least two beats, e.g. 定镜→缓推轨, or 横移从遮挡物后滑出), and environment reveal; match SoulLens dynamism for long N (10–15).>
+Line 3 — copy LINE3_REQUIRED from the USER message verbatim.
 
-Reference images — CRITICAL:
-- Use ONLY the tokens listed in IMAGE_SLOT_MAP: @图片1, @图片2, @图片3, … (Arabic digits, no full-width numerals).
-- Follow IMAGE_SLOT_MAP and CHARACTER_IMAGE_BINDING. When @图片1 is 场景, it is ONLY for environment (space, lighting, furniture, weather, background): NEVER put a named character's face, body, pose, skin, or costume on @图片1. In that case characters use @图片2 onward as listed. When @图片1 is not 场景, bind characters exactly to the @图片N shown in the map (may include @图片1).
-- When describing a character named in the script, map them to the correct @图片N from CHARACTER_IMAGE_BINDING.
-- Props use their @图片N from the map.
-- Spacing: after EVERY @图片N token, insert one ASCII space (0x20) before the next Chinese/English character if the model would otherwise concatenate (e.g. write 「在 @图片1 的卧室里，@图片2 侧脸…」, not 「在@图片1的卧室里」without spaces after @ tokens). Before full stop 。 you may omit the extra space.
-- You may mention a person's name in plain text for story clarity, but any reference-image binding must use @图片N only — never @姓名 as image token.
-- Do NOT use @场景 as image token.
-- Do NOT add markdown, bullets, or English labels.
+Lines 4 through (3+M) — for each k from 1 to M, one full line:
+分镜k： Tk秒: <Chinese motion prose ONLY for that Tk-second slice: time-ordered blocking, reactions, camera **motion chain** (≥2 beats when Tk≥3s, e.g. 定镜→缓推轨), light, emotion; if dialogue exists use 「」; if silent state it. Longer Tk needs richer micro-beats; very short Tk may compress but still avoid static snapshot captions.>
 
-Inside line 4, write **motion picture** prose: time flows across N seconds — character blocking changes (走近/转身/冲出/蹲下), reactions, and camera that **moves** (定镜、缓推轨、横移、从门柱或前景遮挡后滑出 reveal、跟拍、手持呼吸感). weave 景别、机位、运镜链、光线、情绪、动作；前中后景层次；色温与明暗反差；音效分层。禁止写成只对一帧静照的描述。若 N≥8 禁止全段只有「特写固定不动」。若有对白用「」；无声则写明全程不说话。
+Reference images — CRITICAL (applies to every子分镜 line’s prose):
+- Use ONLY IMAGE_SLOT_MAP tokens @图片1, @图片2, … (Arabic digits).
+- Follow CHARACTER_IMAGE_BINDING. When @图片1 is 场景, never put character face/body/costume on @图片1; characters start at @图片2 as mapped.
+- Spacing: ASCII space after each @图片N before following Chinese/Latin.
+- No @姓名 as image token; no markdown.
 
-Scene reference layout — CRITICAL (when USER includes SCENE_REFERENCE_LAYOUT or when @图片1 is 场景):
-- The scene reference image may be a **multi-panel composite** (四宫格/九宫格/多视角拼图/带分割线的场景预览). It is ONLY for understanding room layout, furniture, palette, lighting, and atmosphere. **Do NOT** make the output video mimic that composite: **forbidden** are split-screen, 2x2 or 3x3 grid, collage, side-by-side panels, picture-in-picture copying the reference layout, visible dividing lines, or “same image repeated in quadrants”.
-- The video must be described as **one single continuous cinematic frame** (单镜头、完整画幅、连续画面). In line 4 you MUST include an explicit sentence such as: 单镜头完整画幅，无分屏无宫格无多画面拼接，成片为连续电影画面而非参考图排版。
-- Synthesize one coherent camera angle and one unified space — pick or merge spatial cues mentally, do not “show all panels at once”.
+Pacing & M selection (professional):
+- Read SHOT_PACING_AND_POSITION, EPISODE_SCRIPT, NEIGHBOR_* , STORYBOARD FIELDS (movement, shot_type, dialogue density). Increase M for rapid reversals / climax / montage-like pressure; use M=1 for a single sustained long-take feel when the script implies it.
+- Never change the **total** seconds: T1+…+TM must equal TOTAL_CLIP_SECONDS.
 
-If CURRENT_UNIVERSAL_SEGMENT is non-empty, preserve beats but rewrite to satisfy this template and IMAGE_SLOT_MAP.`;
+Scene reference layout — CRITICAL (when SCENE_REFERENCE_LAYOUT applies):
+- Reference may be multi-panel; do NOT make the final video mimic grids. Each子分镜 line’s prose should reinforce: one continuous full frame, no split-screen collage in the delivered clip.
+
+If CURRENT_UNIVERSAL_SEGMENT is non-empty, preserve narrative beats but rewrite to satisfy MULTI_BEAT_OUTPUT, duration sum, and IMAGE_SLOT_MAP.`;
+}
+
+/**
+ * 全能片段「润色」模式：在 getUniversalOmniSegmentPrompt 的硬性格式与参考图规则之上，强化短剧叙事与上下文一致。
+ */
+function getUniversalOmniPolishPrompt() {
+  return `${getUniversalOmniSegmentPrompt()}
+
+ADDITIONAL_POLISH_MODE (short drama enhancement — still MUST obey MULTI_BEAT_OUTPUT, TOTAL_CLIP_SECONDS sum, IMAGE_SLOT_MAP, LINE3_REQUIRED above):
+- You receive FULL_EPISODE_SCRIPT plus NEIGHBOR blocks and structured fields. Use them only for **continuity** and **information completeness**; do NOT invent plot absent from SCRIPT + STORYBOARD FIELDS + CURRENT omni draft.
+- **Information parity**: every script-relevant fact must appear across the子分镜 lines (lines 4…3+M), without losing information when expanding; if the draft was one long line, you may reflow into M lines but keep the same facts and total seconds.
+- **Re-polish / anti-stagnation**: USER may click polish repeatedly on the same draft. Each response MUST deliver **substantially rephrased** Chinese on lines 1, 2 (if M changes), and all子分镜 body lines — same facts, same total seconds, same @图片 bindings, but **not** a copy-paste of CURRENT_OMNI_DRAFT except line 3 which must stay **character-identical** to LINE3_REQUIRED. If you would otherwise output nearly identical prose, deliberately vary verbs, clause order, and camera wording while preserving meaning.
+- **Short drama rhythm**: vertical-drama density — stakes, micro-expressions, blocking, camera motion; distribute across beats when M>1.
+- **Inner monologue & dialogue**: brief 心想 / 「」 only when supported by DIALOGUE / NARRATION / SCRIPT / draft.
+- **Neighbors**: align entry/exit with NEIGHBOR_* ; no redundant retelling of the previous shot.
+- Language: Chinese for子分镜 prose; lines 1–3 format as in base prompt; M must match line 2 and match the count of「分镜k」lines.`;
 }
 
 /**
@@ -1256,6 +1270,7 @@ module.exports = {
   getSceneGenerateImagePrompt,
   getImagePolishPrompt,
   getUniversalOmniSegmentPrompt,
+  getUniversalOmniPolishPrompt,
   getContinuitySnapshotPrompt,
   getIdentityAnchorsPrompt,
   getPropPolishPrompt,

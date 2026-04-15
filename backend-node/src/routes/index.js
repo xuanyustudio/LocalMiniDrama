@@ -266,6 +266,8 @@ function setupRouter(cfg, db, log) {
   r.post('/storyboards/:id/frame-prompt', storyboards.framePrompt);
   r.get('/storyboards/:id/frame-prompts', storyboards.framePromptsGet);
   r.post('/storyboards/:id/polish-prompt', storyboards.polishPrompt);
+  r.post('/storyboards/:id/universal-segment-polish-stream', storyboards.polishUniversalSegmentStream);
+  r.post('/storyboards/:id/universal-segment-prompt-stream', storyboards.generateUniversalSegmentStream);
   r.post('/storyboards/:id/universal-segment-prompt', storyboards.generateUniversalSegmentPrompt);
   r.post('/storyboards/batch-infer-params', storyboards.batchInferParams);
   r.post('/storyboards/:id/upscale', storyboards.upscale);

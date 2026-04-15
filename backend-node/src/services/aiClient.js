@@ -356,6 +356,112 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
 }
 
 /**
+ * 与 generateText 相同的路由与鉴权，但将模型增量以 delta 回调给调用方；返回完整拼接文本。
+ * @param {(delta: string) => void} onDelta 仅增量片段（UTF-8 字符串）
+ */
+async function streamGenerateText(db, log, serviceType, userPrompt, systemPrompt, options = {}, onDelta) {
+  const { model: preferredModel, temperature = 0.7, json_mode = false, min_max_tokens = null, scene_key = null } = options;
+  let config = null;
+  let routedModelOverride = null;
+  if (scene_key) {
+    const mapped = getConfigFromModelMap(db, scene_key);
+    if (mapped) {
+      config = mapped.config;
+      routedModelOverride = mapped.modelOverride;
+      log.info('AI streamGenerateText: scene_key routing', { scene_key, config_id: config.id, model_override: routedModelOverride });
+    }
+  }
+  if (!config) {
+    config = preferredModel
+      ? getConfigForModel(db, serviceType, preferredModel)
+      : getDefaultConfig(db, serviceType);
+  }
+  if (!config && preferredModel === undefined) {
+    config = getDefaultConfig(db, 'text');
+  }
+  if (!config) {
+    throw new Error(`未配置文本模型，请在「AI 配置」中添加 ${serviceType} 类型 且已启用的配置`);
+  }
+  const effectivePreferredModel = routedModelOverride || preferredModel;
+  const model = getModelFromConfig(config, effectivePreferredModel);
+  const url = buildChatUrl(config);
+
+  let settingsMaxTokens = null;
+  try {
+    if (config.settings) {
+      const s = typeof config.settings === 'string' ? JSON.parse(config.settings) : config.settings;
+      if (s && typeof s.max_tokens === 'number' && s.max_tokens > 0) settingsMaxTokens = s.max_tokens;
+    }
+  } catch (_) {}
+
+  let finalMaxTokens = null;
+  if (options.max_tokens != null) {
+    finalMaxTokens = Number(options.max_tokens);
+    if (settingsMaxTokens != null && finalMaxTokens > settingsMaxTokens) {
+      log.warn('AI streamGenerateText: max_tokens 超过配置上限，已截断', {
+        requested: finalMaxTokens,
+        capped_to: settingsMaxTokens,
+        model,
+      });
+      finalMaxTokens = settingsMaxTokens;
+    }
+  } else if (settingsMaxTokens != null) {
+    finalMaxTokens = settingsMaxTokens;
+  }
+  if (min_max_tokens != null) {
+    const minVal = Number(min_max_tokens);
+    if (finalMaxTokens == null || finalMaxTokens < minVal) {
+      if (finalMaxTokens != null) {
+        log.warn('AI streamGenerateText: max_tokens 低于任务最低需求，已提升', { was: finalMaxTokens, raised_to: minVal });
+      }
+      finalMaxTokens = minVal;
+    }
+  }
+
+  const body = {
+    model,
+    messages: [
+      ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: Number(temperature),
+    ...(finalMaxTokens != null ? { max_tokens: finalMaxTokens } : {}),
+    ...(json_mode ? { response_format: { type: 'json_object' } } : {}),
+  };
+  const silenceMs = options.silence_timeout_ms != null ? Number(options.silence_timeout_ms) : 120000;
+  const startMs = Date.now();
+  log.info('AI streamGenerateText request', {
+    url: url.slice(0, 60),
+    model,
+    max_tokens: finalMaxTokens ?? '(model default)',
+    json_mode,
+    stream: true,
+  });
+  let lastLen = 0;
+  const res = await postJSONStream(
+    url,
+    { Authorization: 'Bearer ' + (config.api_key || '') },
+    body,
+    silenceMs,
+    (receivedLen, event, accumulated) => {
+      if (event === 'first_token') {
+        log.info('AI stream first token', { model, ttft_ms: Date.now() - startMs });
+      }
+      if (!accumulated || accumulated.length <= lastLen) return;
+      const delta = accumulated.slice(lastLen);
+      lastLen = accumulated.length;
+      if (onDelta && delta) onDelta(delta);
+    }
+  );
+  const content = res.body;
+  if (!content) {
+    throw new Error('AI 返回内容为空');
+  }
+  log.info('AI streamGenerateText done', { model, text_length: content.length, elapsed_ms: Date.now() - startMs });
+  return content;
+}
+
+/**
  * 从 entity（角色/场景/道具）记录中找到一张可用图片，返回 { imageUrl, isLocal, localAbsPath }。
  * 优先顺序：ref_image → local_path → image_url → extra_images[0]
  */
@@ -592,6 +698,7 @@ module.exports = {
   getConfigForModel,
   getConfigFromModelMap,
   generateText,
+  streamGenerateText,
   generateTextWithVision,
   resolveEntityImageSource,
   extractDescriptionFromImage,
