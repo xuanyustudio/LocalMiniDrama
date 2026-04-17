@@ -24,6 +24,7 @@ async function generateStory(db, log, body) {
   // 注意：不使用 json_mode=true，因为 response_format:json_object 要求返回 JSON 对象而非数组，
   // 会导致模型将数组包成 {"episodes":[...]} 对象，破坏解析逻辑。依靠 prompt 本身约束格式即可。
   const rawText = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+    scene_key: 'story_generation',
     model: body.model || undefined,
     temperature: 0.8,
     min_max_tokens: minTokensNeeded,

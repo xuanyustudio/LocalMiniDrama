@@ -37,6 +37,7 @@ async function generateTextForStoryboard(db, log, userPrompt, systemPrompt, opti
   log.info('Storyboard generateText attempt 1', { model: model || '(default)', max_tokens: DEFAULT_STORYBOARD_MAX_TOKENS });
   try {
     const text = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+      scene_key: 'storyboard_extraction',
       model: model || undefined,
       temperature,
       max_tokens: DEFAULT_STORYBOARD_MAX_TOKENS,
@@ -52,6 +53,7 @@ async function generateTextForStoryboard(db, log, userPrompt, systemPrompt, opti
       // 第二次尝试：不传 max_tokens，让模型用自己默认值
       log.info('Storyboard generateText attempt 2 (no max_tokens)', { model: model || '(default)' });
       const text = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+        scene_key: 'storyboard_extraction',
         model: model || undefined,
         temperature,
         streamCallback,

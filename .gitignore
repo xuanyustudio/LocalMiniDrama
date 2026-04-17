@@ -14,3 +14,4 @@ server
 desktop/backend-app-secure/configs/ai-configs-qudao.json
 desktop/backend-app-secure/configs/ai-configs-外发.json
 desktop/backend-app-secure/configs/config.yaml
+.DS_Store

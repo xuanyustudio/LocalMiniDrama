@@ -151,6 +151,7 @@ async function generatePropPromptOnly(db, log, cfg, propId, modelName, style) {
   let generatedPrompt;
   try {
     generatedPrompt = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+      scene_key: 'prop_image_polish',
       model: modelName || undefined,
       max_tokens: 800,
     });

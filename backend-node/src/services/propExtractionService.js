@@ -48,6 +48,7 @@ async function processPropExtraction(db, log, taskId, episodeId) {
   let response;
   try {
     response = await aiClient.generateText(db, log, 'text', prompt, systemPrompt, {
+      scene_key: 'prop_extraction',
       max_tokens: 2000,
       temperature: 0.3,
     });

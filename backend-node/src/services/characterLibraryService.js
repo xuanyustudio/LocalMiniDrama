@@ -431,6 +431,7 @@ async function generateCharacterPromptOnly(db, log, cfg, characterId, modelName,
   let fourViewDescription;
   try {
     fourViewDescription = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+      scene_key: 'role_image_polish',
       model: modelName || undefined,
       max_tokens: 4000,
     });
@@ -487,6 +488,7 @@ async function generateCharacterFourViewImage(db, log, cfg, characterId, modelNa
     let fourViewDescription;
     try {
       fourViewDescription = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+        scene_key: 'role_image_polish',
         model: modelName || undefined,
         max_tokens: 4000,
       });

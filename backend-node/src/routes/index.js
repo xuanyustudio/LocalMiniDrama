@@ -19,6 +19,7 @@ const videoMergeRoutes = require('./videoMerges');
 const assetRoutes = require('./assets');
 const audioRoutes = require('./audio');
 const promptOverridesRoutes = require('./promptOverrides');
+const sceneModelMapRoutes = require('./sceneModelMap');
 
 function setupRouter(cfg, db, log) {
   const r = express.Router();
@@ -28,7 +29,8 @@ function setupRouter(cfg, db, log) {
   const aiConfig = aiConfigRoutes(db, log, cfg);
   const prop = propRoutes(db, log, cfg);
   const stub = stubRoutes(db, cfg, log);
-
+  const sceneModelMap = sceneModelMapRoutes(db, log);
+  
   const uploadService = require('../services/uploadService');
   const charLibrary = characterLibraryRoutes(db, cfg, log);
   const sceneLibrary = sceneLibraryRoutes(db, cfg, log);
@@ -286,6 +288,13 @@ function setupRouter(cfg, db, log) {
   r.get('/settings/prompts', promptOverrides.list);
   r.put('/settings/prompts/:key', promptOverrides.update);
   r.delete('/settings/prompts/:key', promptOverrides.reset);
+
+  // ---------- scene model map ----------
+  r.get('/scene-model-map', sceneModelMap.list);
+  r.post('/scene-model-map', sceneModelMap.create);
+  r.get('/scene-model-map/:key', sceneModelMap.get);
+  r.put('/scene-model-map/:key', sceneModelMap.update);
+  r.delete('/scene-model-map/:key', sceneModelMap.delete);
 
   // 启动时将已有的覆盖加载到 promptI18n 内存缓存
   try {

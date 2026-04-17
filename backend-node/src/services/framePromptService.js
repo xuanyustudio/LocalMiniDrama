@@ -238,7 +238,7 @@ async function generateSingleFrame(db, log, cfg, sb, scene, characterNames, mode
 
   let aiResponse;
   try {
-    aiResponse = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, { model: model || undefined, max_tokens: 800 });
+    aiResponse = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, { scene_key: 'frame_prompt', model: model || undefined, max_tokens: 800 });
   } catch (err) {
     log.warn('Frame prompt AI failed, using fallback', { error: err.message });
     const suffix = frameKind === 'first' ? 'first frame, static shot' : frameKind === 'key' ? 'key frame, dynamic action' : 'last frame, final state';

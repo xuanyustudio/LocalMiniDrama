@@ -110,6 +110,11 @@
           <PromptEditor />
         </div>
       </el-tab-pane>
+      <el-tab-pane label="高级设置（业务场景）" name="sceneModelMap">
+        <div class="tab-content">
+          <SceneModelMap />
+        </div>
+      </el-tab-pane>
       <el-tab-pane label="生成设置" name="generation">
         <div class="tab-content generation-settings">
           <div class="gs-section-title">⚡ 一键生成并发设置</div>
@@ -925,6 +930,7 @@ import { Plus, MagicStick, QuestionFilled, Download, Upload, Delete, ChatDotRoun
 import { aiAPI } from '@/api/ai'
 import { generationSettingsAPI } from '@/api/prompts'
 import PromptEditor from '@/components/PromptEditor.vue'
+import SceneModelMap from '@/components/SceneModelMap.vue'
 
 const activeTab = ref('configs')
 const importFileRef = ref(null)
@@ -1802,6 +1808,8 @@ onMounted(() => {
 }
 .tab-content {
   padding-top: 16px;
+  max-height: calc(100vh - 320px);
+  overflow-y: auto;
 }
 .content-actions {
   display: flex;

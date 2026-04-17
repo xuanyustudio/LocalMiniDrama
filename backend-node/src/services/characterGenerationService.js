@@ -16,6 +16,7 @@ async function enrichIdentityAnchors(db, log, characterId, appearance) {
     const systemPrompt = promptI18n.getIdentityAnchorsPrompt();
     const userPrompt = `Character appearance description:\n${appearance}`;
     const raw = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+      scene_key: 'identity_anchors',
       max_tokens: 800,
       temperature: 0.1,
     });
@@ -73,6 +74,7 @@ async function processCharacterGeneration(db, cfg, log, taskID, req) {
   let text;
   try {
     text = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+      scene_key: 'role_extraction',
       model: req.model || undefined,
       temperature,
       max_tokens: maxTokensForChars,

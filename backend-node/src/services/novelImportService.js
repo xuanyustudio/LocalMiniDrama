@@ -63,6 +63,7 @@ ${truncated}
 
   try {
     const result = await aiClient.generateText(db, log, 'text', userPrompt, null, {
+      scene_key: 'novel_import',
       max_tokens: 800,
       temperature: 0.7,
     });

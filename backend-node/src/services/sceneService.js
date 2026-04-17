@@ -180,6 +180,7 @@ async function generateScenePromptOnly(db, log, cfg, sceneId, modelName, style) 
   let fourViewDescription;
   try {
     fourViewDescription = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+      scene_key: 'scene_image_polish',
       model: modelName || undefined,
       max_tokens: 4000,
     });
@@ -243,6 +244,7 @@ async function generateSceneFourViewImage(db, log, cfg, sceneId, modelName, styl
     let fourViewDescription;
     try {
       fourViewDescription = await aiClient.generateText(db, log, 'text', userMsg, systemPrompt, {
+        scene_key: 'scene_image_polish',
         model: modelName || undefined,
         max_tokens: 4000,
       });
