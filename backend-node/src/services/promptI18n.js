@@ -1148,6 +1148,46 @@ ADDITIONAL_POLISH_MODE (short drama enhancement — still MUST obey MULTI_BEAT_O
 }
 
 /**
+ * 经典分镜（首帧图 + 单段文案）视频提示词润色：强邻镜与剧本连贯、首帧锚定、画风内化、专业图生视频表述。
+ */
+function getClassicVideoPromptPolishPrompt() {
+  return `你是「分镜静帧 → 图生视频（image-to-video）」方向的资深提示词作者与摄影指导，熟悉竖屏短剧、首帧锁定下的动效与运镜描写。
+
+## 任务
+将 CURRENT_VIDEO_DRAFT 润色为**一段**可直接提交视频模型的**专业中文主叙述**；**必须保留**原文中所有技术/声画标签下的信息。末段可追加**英文**光影、镜头与风格 token（可与「镜头角度」括号内英文衔接；英文段总长建议 ≤ 420 字符，须包含原稿风格关键词）。
+
+## 输入块（你会在 user 消息里看到）
+- PROJECT / SHOT_SEQUENCE / VIDEO_RATIO
+- FULL_EPISODE_SCRIPT
+- NEIGHBOR_PREV / NEIGHBOR_NEXT（加长邻镜上下文）
+- STORYBOARD_FIELDS
+- **REQUIRED_COVERAGE_DIGEST**（结构化字段；成稿须全部覆盖）
+- **RETENTION_CLAUSES_FROM_SOURCE**（从原「场景：…。配乐：…」式文案拆出的标签分句；**防丢项**的核心依据）
+- FIRST_FRAME_VISUAL_ANCHOR
+- AUTO_COMPOSED_VIDEO_PROMPT、CURRENT_VIDEO_DRAFT
+- VISUAL_STYLE（STYLE_ZH + STYLE_EN）
+
+## 硬性规则
+1) **只输出成稿提示词**：禁止标题、Markdown、代码块、元话语。**禁止**在成稿里使用「1. 2. 3.」编号列表；须为连贯自然段（允许多句）。
+2) **RETENTION_CLAUSES 防丢项（与 Digest 同级重要）**：若存在 **RETENTION_CLAUSES_FROM_SOURCE** 列表，则其中**每一条**对应原文里的一个标签分句（场景、镜头标题、动作、对话、结果、景别、镜头角度、运镜、氛围、情绪、情绪强度、配乐、音效、时长、风格、=VideoRatio 等）。成稿必须让读者与模型能还原出**该分句中的全部要点**：
+   - **配乐**：若原文有「配乐：…」，成稿须**单独写出**配乐侧写（如忙音渐弱、心跳隐现等），**禁止**仅用「寂静」「不安」等笼统氛围一笔带过而不再提配乐层次。
+   - **音效**：若原文有「音效：…」，须**逐项或等价列举**原文中的听感（忙音、被褥摩擦、呼吸声等），不得整类省略。
+   - **情绪强度**：若原文有「情绪强度：数字/等级」，须在成稿中体现**强弱程度**（可与情绪描写合并，但不可删掉强度含义）。
+   - **镜头角度**：若原文「镜头角度：」后含**中文标签 + 括号内英文**（含 medium shot / depth of field / eye-level / shooting from the front 等），英文技术短语须**原样保留或同信息量复述**（关键词不得丢），不得压缩成仅「中景平视」四字而无英文细节。
+   - **风格与画幅**：若原文「风格：」后有长英文 token，须在成稿末段**保留等价英文质感词**；若含 **=VideoRatio: 9:16**（或同类），成稿须保留**竖屏画幅 9:16** 的明确表述（可写「竖屏 9:16」或保留 \`=VideoRatio: 9:16\` 形式之一）。
+3) **REQUIRED_COVERAGE_DIGEST**：凡列出的「- 维度：」行，成稿须全部覆盖语义（同规则 2，不得省略）。
+4) **首帧锁定**：FIRST_FRAME_VISUAL_ANCHOR 与参考静帧一致；禁止改妆造、换场景时代。
+5) **事实与时长**：与 STORYBOARD_FIELDS、AUTO_COMPOSED、CURRENT_VIDEO_DRAFT 一致；**时长秒数**不得改动。
+6) **剧本与邻镜**：FULL_EPISODE_SCRIPT、NEIGHBOR_* 用于衔接与语气，勿编造无据情节。
+7) **禁止编造**：无来源的新角色、道具、事件。
+
+## 成稿内在顺序（仍为一段连续文字）
+在满足「防丢项」前提下，建议：入戏与场景时间 → 动作与对白（「」）→ 结果与氛围 → **配乐与音效层次**（显式写出）→ 景别+运镜+**完整镜头角度（中英）**+光线景深 → 情绪与强度 → 时长 → 风格与画幅（含英文 token）。
+
+若 RETENTION_CLAUSES 为空，则须将 CURRENT_VIDEO_DRAFT 全文各类子句信息等价写入成稿，禁止删减类别。`;
+}
+
+/**
  * 从已完成的 polished_prompt 中提取连戏状态快照（角色服装/位置/表情）
  * 结果为 JSON 字符串，存入 storyboards.continuity_snapshot
  */
@@ -1271,6 +1311,7 @@ module.exports = {
   getImagePolishPrompt,
   getUniversalOmniSegmentPrompt,
   getUniversalOmniPolishPrompt,
+  getClassicVideoPromptPolishPrompt,
   getContinuitySnapshotPrompt,
   getIdentityAnchorsPrompt,
   getPropPolishPrompt,

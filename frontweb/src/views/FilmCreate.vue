@@ -359,6 +359,53 @@
                       <el-button size="small" :loading="addingCharToMaterialId === char.id" :disabled="!hasAssetImage(char)" @click="onAddCharacterToMaterialLibrary(char)">
                         加入素材库
                       </el-button>
+                      <span v-if="char.seedance2_asset?.status !== 'active'" class="sd2-cert-btn-wrap">
+                        <el-button
+                          size="small"
+                          type="warning"
+                          plain
+                          :loading="sd2CertifyingId === char.id"
+                          :disabled="!hasAssetImage(char)"
+                          title="将角色主图注册到即梦素材库（与官方接口一致），供 Seedance 2.0 / 即梦 2.0 等引用 asset://"
+                          @click="onSd2CertifyCharacter(char)"
+                        >
+                          SD2认证
+                        </el-button>
+                        <el-tooltip placement="top" :show-after="280" popper-class="sd2-cert-tooltip">
+                          <template #content>
+                            <div class="sd2-tooltip-inner">
+                              <div class="sd2-tooltip-status">{{ charSd2TagText(char) }}</div>
+                              <p class="sd2-tooltip-p">
+                                即梦 2.0 等模型需先在即梦素材库完成认证后方可引用本角色图（接口形态参见
+                                <a href="https://83zi.com/sd2realperson.html" target="_blank" rel="noopener noreferrer">官方素材管理 API 说明</a>，base_url 可换用自建或其它兼容网关）。
+                              </p>
+                            </div>
+                          </template>
+                          <span class="sd2-help-trigger" role="button" tabindex="0" aria-label="SD2 认证说明">
+                            <el-icon><QuestionFilled /></el-icon>
+                          </span>
+                        </el-tooltip>
+                      </span>
+                      <el-button
+                        v-if="char.seedance2_asset?.hub_asset_id && char.seedance2_asset?.status !== 'active'"
+                        size="small"
+                        link
+                        type="primary"
+                        :loading="sd2CertifyingId === char.id"
+                        @click="onSd2CertifyRefresh(char)"
+                      >
+                        刷新认证状态
+                      </el-button>
+                      <el-button
+                        v-if="char.seedance2_asset?.status === 'active'"
+                        size="small"
+                        type="success"
+                        plain
+                        title="查看即梦素材库中的 SD2 登记信息"
+                        @click="openCharSd2CertDialog(char)"
+                      >
+                        查看sd2认证
+                      </el-button>
                     </div>
                     <div v-if="getCharAffectedStoryboards(char.id).length" class="asset-storyboard-link">
                       <span class="asl-label">影响的分镜：</span>
@@ -962,7 +1009,7 @@
                 <div class="sb-prompt-label sb-universal-label-row">
                   <div class="sb-universal-label-left">
                     <span class="sb-dot"></span>
-                    <span>片段描述</span>
+                    <span>全能模式片段描述</span>
                     <el-tooltip placement="top" :show-after="280" :show-arrow="false" popper-class="sb-universal-tooltip-popper">
                       <template #content>
                         <div class="sb-universal-tooltip">
@@ -998,6 +1045,13 @@
                         </el-dropdown-item>
                         <el-dropdown-item command="polish-force" :disabled="!sbUniversalSegmentTrimmed(sb)">
                           不查图片强制润色
+                        </el-dropdown-item>
+                        <el-dropdown-item
+                          command="to-grok-video-tags"
+                          divided
+                          :disabled="!sbUniversalSegmentTrimmed(sb)"
+                        >
+                          改为 grok视频格式
                         </el-dropdown-item>
                       </el-dropdown-menu>
                     </template>
@@ -1087,6 +1141,15 @@
               </div>
               <div v-if="hasSbImage(sb)" class="sb-image-actions">
                 <el-button size="small" :loading="generatingSbImageIds.has(sb.id)" @click="onGenerateSbImage(sb)">重新生成</el-button>
+                <el-button
+                  v-if="!isSbUniversalMode(sb.id)"
+                  size="small"
+                  type="success"
+                  plain
+                  :loading="classicVideoPolishIds.has(sb.id)"
+                  :disabled="generatingSbVideoIds.has(sb.id)"
+                  @click="onPolishClassicVideoPromptStream(sb)"
+                >润色分镜视频提示词</el-button>
                 <el-button size="small" :loading="uploadingSbImageId === sb.id" @click="onUploadSbImageClick(sb)">上传</el-button>
                 <el-tooltip content="高清放大（2x超分辨率）" placement="top">
                   <el-button
@@ -1169,7 +1232,7 @@
               </div>
               <div class="sb-video-prompt-label">
                 <span class="sb-dot"></span>
-                <span>视频提示词</span>
+                <span>经典视频提示词</span>
               </div>
               <div class="sb-video-params-bar">
                 <span class="sb-video-prompt-text sb-video-prompt-text--preview">{{ sb.video_prompt || '暂无视频提示词' }}</span>
@@ -1440,6 +1503,34 @@
       <template #footer>
         <el-button @click="showEditCharacter = false">取消</el-button>
         <el-button type="primary" :loading="editCharacterSaving" :disabled="!editCharacterForm?.name?.trim()" @click="submitEditCharacter">{{ editCharacterForm?.id ? '保存' : '添加' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Seedance 2.0 / 即梦素材库 角色认证信息 -->
+    <el-dialog v-model="showCharSd2Cert" title="SD2 素材认证信息（即梦素材库）" width="520px" destroy-on-close>
+      <template v-if="charSd2CertPayload">
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item label="素材 ID">{{ charSd2CertPayload.hub_asset_id || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="asset_url（视频生成引用）">
+            <code class="sd2-mono">{{ charSd2CertPayload.asset_url || '—' }}</code>
+          </el-descriptions-item>
+          <el-descriptions-item label="状态">{{ charSd2CertPayload.status || '—' }}</el-descriptions-item>
+          <el-descriptions-item label="注册时图片 URL">
+            <span class="sd2-break">{{ charSd2CertPayload.source_image_url || '—' }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item v-if="charSd2CertPayload.character_display" label="备案角色信息">
+            <div class="sd2-break">名称：{{ charSd2CertPayload.character_display.name || '—' }}</div>
+            <div v-if="charSd2CertPayload.character_display.appearance" class="sd2-break muted">外貌摘要：{{ charSd2CertPayload.character_display.appearance }}</div>
+          </el-descriptions-item>
+        </el-descriptions>
+        <p class="sd2-doc-tip">
+          接口与字段说明见
+          <a href="https://83zi.com/sd2realperson.html" target="_blank" rel="noopener noreferrer">即梦/Seedance 素材管理 API（文档示例）</a>
+          ；请在「AI 配置」中新增「即梦2角色认证」，填写网关 URL 与 Token。生成视频时在内容中传入 <code>image_url.url = asset_url</code> 即可引用。
+        </p>
+      </template>
+      <template #footer>
+        <el-button @click="showCharSd2Cert = false">关闭</el-button>
       </template>
     </el-dialog>
 
@@ -1790,7 +1881,17 @@
           </div>
         </el-form-item>
         <!-- 视频区 -->
-        <div class="sb-prompt-section-title" style="margin-top:12px;">🎬 视频提示词</div>
+        <div class="sb-prompt-section-title sb-prompt-video-title-row" style="margin-top:12px;">
+          <span>🎬 经典视频提示词</span>
+          <el-button
+            v-if="!isSbUniversalMode(sbPromptTarget.id)"
+            size="small"
+            type="success"
+            plain
+            :loading="classicVideoPolishIds.has(sbPromptTarget.id)"
+            @click="onPolishClassicVideoPromptStream(sbPromptTarget, { fromDialog: true })"
+          >润色分镜视频提示词</el-button>
+        </div>
         <el-form-item label="">
           <el-input
             v-model="sbPromptVideoText"
@@ -2242,11 +2343,13 @@ const {
   showCharLibrary, charLibraryList, charLibraryLoading, charLibraryPage, charLibraryPageSize,
   charLibraryTotal, charLibraryKeyword, showEditCharLibrary, editCharLibraryForm,
   editCharLibrarySaving, addingCharToLibraryId, addingCharToMaterialId, addingCharFromLibraryId,
+  sd2CertifyingId, showCharSd2Cert, charSd2CertPayload, charSd2TagText,
   charRoleLabel, onGenerateCharacters, openAddCharacter, stopCharacterPromptPoll, editCharacter,
   saveCharRefImageIfAny, submitEditCharacter, doGenerateCharacterPrompt, doExtractCharFromImage,
   extractIdentityAnchors, clearCharRefImage, onCloseCharDialog, onDeleteCharacter, onGenerateCharacterImage,
   loadCharLibraryList, debouncedLoadCharLibrary, openEditCharLibrary, submitEditCharLibrary,
-  onDeleteCharLibrary, onAddCharacterToLibrary, onAddCharacterToMaterialLibrary, onAddCharFromLibrary,
+  onDeleteCharLibrary, onAddCharacterToLibrary, onAddCharacterToMaterialLibrary, onSd2CertifyCharacter,
+  onSd2CertifyRefresh, openCharSd2CertDialog, onAddCharFromLibrary,
 } = useCharacters({ store, dramaId, currentEpisodeId, getSelectedStyle, loadDrama, pollTask, pollUntilResourceHasImage, hasAssetImage })
 
 // ── Composable: Props ──────────────────────────────────
@@ -2436,6 +2539,8 @@ const sbVideoErrors = ref({})
 const generatingSbImageIds = reactive(new Set())
 const generatingSbVideoIds = reactive(new Set())
 const generatingUniversalSegmentIds = reactive(new Set())
+/** 经典分镜：流式润色 video_prompt 进行中 */
+const classicVideoPolishIds = reactive(new Set())
 // 重新生成角色/场景关联分镜图的 loading set，key: 'char-{id}' | 'scene-{id}'
 const regenSbImagesForAsset = reactive(new Set())
 const regenSbImagesProgress = ref({})
@@ -4121,11 +4226,34 @@ function universalSegmentDurationSecForSb(sb) {
         : 5
 }
 
+/** 全能片段：@图片N → Grok 视频占位 <IMAGE_N>（与 Omni 链路的 @图片 标识区分） */
+function universalSegmentAtImageToGrokTags(text) {
+  return (text || '').replace(/@图片(\d+)/g, '<IMAGE_$1>')
+}
+
+function onUniversalSegmentToGrokVideoTags(sb) {
+  if (!sb?.id) return
+  const raw = (sbUniversalSegmentText.value[sb.id] ?? '').toString()
+  if (!raw.trim()) {
+    ElMessage.warning('请先填写或生成片段描述')
+    return
+  }
+  const next = universalSegmentAtImageToGrokTags(raw)
+  if (next === raw) {
+    ElMessage.info('未找到 @图片N 标记，无需转换')
+    return
+  }
+  sbUniversalSegmentText.value = { ...sbUniversalSegmentText.value, [sb.id]: next }
+  void onSaveUniversalSegmentField(sb)
+  ElMessage.success('已改为 Grok 视频占位符格式（<IMAGE_N>）')
+}
+
 function onUniversalSegmentPromptMenu(sb, cmd) {
   if (cmd === 'generate') onGenerateUniversalSegmentPrompt(sb, {})
   else if (cmd === 'generate-force') onGenerateUniversalSegmentPrompt(sb, { forceWithoutReferenceImages: true })
   else if (cmd === 'polish') onPolishUniversalSegmentPromptStream(sb, {})
   else if (cmd === 'polish-force') onPolishUniversalSegmentPromptStream(sb, { forceWithoutReferenceImages: true })
+  else if (cmd === 'to-grok-video-tags') onUniversalSegmentToGrokVideoTags(sb)
 }
 
 /** 全能模式：根据当前分镜结构化字段流式生成片段描述（NDJSON） */
@@ -4160,6 +4288,46 @@ async function onGenerateUniversalSegmentPrompt(sb, opts = {}) {
     ElMessage.error(e.message || '生成失败，请检查文本模型配置')
   } finally {
     generatingUniversalSegmentIds.delete(sb.id)
+  }
+}
+
+/** 经典分镜：结合剧本与邻镜流式润色 video_prompt（服务端 NDJSON，落库 storyboards.video_prompt） */
+async function onPolishClassicVideoPromptStream(sb, opts = {}) {
+  const fromDialog = !!opts.fromDialog
+  if (!sb?.id || classicVideoPolishIds.has(sb.id)) return
+  if (isSbUniversalMode(sb.id)) {
+    ElMessage.warning('当前为全能模式，请使用「润色全能提示词」')
+    return
+  }
+  classicVideoPolishIds.add(sb.id)
+  let live = ''
+  const draftPayload = fromDialog
+    ? (sbPromptVideoText.value || '').toString()
+    : (sb.video_prompt || '').toString()
+  try {
+    const data = await storyboardsAPI.polishClassicVideoPromptStream(
+      sb.id,
+      { draft_video_prompt: draftPayload },
+      (delta) => {
+        live += delta
+        if (fromDialog) sbPromptVideoText.value = live
+        const row = (storyboards.value || []).find((x) => Number(x.id) === Number(sb.id))
+        if (row) row.video_prompt = live
+      }
+    )
+    const text = (data?.video_prompt ?? '').toString().trim()
+    if (!text) {
+      ElMessage.warning('未收到完整润色结果，请重试')
+      return
+    }
+    if (fromDialog) sbPromptVideoText.value = text
+    const row = (storyboards.value || []).find((x) => Number(x.id) === Number(sb.id))
+    if (row) row.video_prompt = text
+    ElMessage.success('分镜视频提示词已润色并保存')
+  } catch (e) {
+    ElMessage.error(e.message || '润色失败，请检查文本模型配置')
+  } finally {
+    classicVideoPolishIds.delete(sb.id)
   }
 }
 
@@ -7061,7 +7229,40 @@ html.light .section-desc { color: #6b7280; }
   white-space: pre-wrap;
   word-break: break-word;
 }
-.asset-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; }
+.asset-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; align-items: center; }
+.sd2-cert-btn-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  vertical-align: middle;
+}
+.sd2-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-left: 1px;
+  color: #a78bfa;
+  cursor: help;
+  flex-shrink: 0;
+  border-radius: 50%;
+  outline: none;
+}
+.sd2-help-trigger:hover,
+.sd2-help-trigger:focus-visible {
+  color: #c4b5fd;
+  background: rgba(167, 139, 250, 0.12);
+}
+html.light .sd2-help-trigger { color: #7c3aed; }
+html.light .sd2-help-trigger:hover,
+html.light .sd2-help-trigger:focus-visible { color: #5b21b6; background: rgba(124, 58, 237, 0.1); }
+.sd2-mono { font-size: 12px; word-break: break-all; }
+.sd2-break { font-size: 12px; word-break: break-all; line-height: 1.4; }
+.sd2-break.muted { color: #a1a1aa; margin-top: 4px; }
+.sd2-doc-tip { font-size: 12px; color: #a1a1aa; margin-top: 12px; line-height: 1.5; }
+.sd2-doc-tip a { color: #c4b5fd; }
+html.light .sd2-doc-tip a { color: #5b21b6; }
 .asset-item-left-right .asset-name {
   display: flex;
   align-items: center;
@@ -7916,6 +8117,13 @@ html.light .sb-video-placeholder {
 .sb-video-fields-collapse { margin: 8px 0; }
 .sb-video-fields-collapse .el-collapse-item__header { font-size: 0.9rem; }
 .sb-prompt-section-title { font-size: 0.9rem; font-weight: 600; color: #e4e4e7; margin-bottom: 8px; }
+.sb-prompt-video-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .sb-prompt-dialog-form .el-form-item { margin-bottom: 10px; }
 .sb-collapse-title { color: #a1a1aa; }
 .sb-video-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; padding: 8px 0; }
@@ -8177,4 +8385,28 @@ html.light .sb-narration-input :deep(.el-textarea__inner::placeholder) {
   text-align: center;
   color: #71717a;
 }
+</style>
+
+<style>
+/* SD2 说明 tooltip（挂载在 body，需非 scoped） */
+.sd2-cert-tooltip {
+  max-width: min(360px, 92vw);
+  line-height: 1.55;
+  font-size: 13px;
+}
+.sd2-cert-tooltip .sd2-tooltip-inner { padding: 2px 0; }
+.sd2-cert-tooltip .sd2-tooltip-status {
+  font-weight: 600;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.sd2-cert-tooltip .sd2-tooltip-p { margin: 0 0 8px; }
+.sd2-cert-tooltip .sd2-tooltip-p:last-child { margin-bottom: 0; }
+.sd2-cert-tooltip .sd2-tooltip-p--muted { font-size: 12px; opacity: 0.92; }
+.sd2-cert-tooltip a { color: #93c5fd; text-decoration: underline; }
+html.light .sd2-cert-tooltip .sd2-tooltip-status {
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+html.light .sd2-cert-tooltip a { color: #2563eb; }
 </style>

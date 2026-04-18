@@ -35,6 +35,13 @@ export const characterAPI = {
   addToMaterialLibrary(characterId) {
     return request.post(`/characters/${characterId}/add-to-material-library`, {})
   },
+  /** 即梦素材库（Seedance 2.0）认证：角色图注册为 asset，供视频生成引用 asset:// */
+  sd2Certify(characterId) {
+    return request.post(`/characters/${characterId}/sd2-certify`, {})
+  },
+  sd2CertifyRefresh(characterId) {
+    return request.post(`/characters/${characterId}/sd2-certify/refresh`, {})
+  },
   extractFromImage(characterId) {
     return request.post(`/characters/${characterId}/extract-from-image`, {})
   },

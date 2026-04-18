@@ -7,6 +7,16 @@ import request from '@/utils/request'
  * @returns {Promise<{ universal_segment_text: string }>}
  */
 function postUniversalSegmentNdjsonStream(url, body, onDelta) {
+  return postStoryboardNdjsonStream(url, body, onDelta, (obj) => obj.universal_segment_text).then(({ finalText }) => ({
+    universal_segment_text: finalText,
+  }))
+}
+
+/**
+ * NDJSON 流式（通用）：解析 done 时从 pickDone(obj) 取最终字符串
+ * @param {(obj: object) => string} pickDone
+ */
+function postStoryboardNdjsonStream(url, body, onDelta, pickDone) {
   return fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
@@ -48,7 +58,8 @@ function postUniversalSegmentNdjsonStream(url, body, onDelta) {
         if (obj.type === 'delta' && obj.text && typeof onDelta === 'function') onDelta(String(obj.text))
         if (obj.type === 'error') throw new Error(obj.message || '请求失败')
         if (obj.type === 'done') {
-          finalText = (obj.universal_segment_text && String(obj.universal_segment_text).trim()) || ''
+          const picked = typeof pickDone === 'function' ? pickDone(obj) : ''
+          finalText = (picked && String(picked).trim()) || ''
         }
       }
     }
@@ -57,12 +68,15 @@ function postUniversalSegmentNdjsonStream(url, body, onDelta) {
       try {
         const obj = JSON.parse(tail)
         if (obj.type === 'error') throw new Error(obj.message || '请求失败')
-        if (obj.type === 'done') finalText = (obj.universal_segment_text && String(obj.universal_segment_text).trim()) || finalText
+        if (obj.type === 'done') {
+          const picked = typeof pickDone === 'function' ? pickDone(obj) : ''
+          finalText = (picked && String(picked).trim()) || finalText
+        }
       } catch (e) {
         if (e instanceof Error && e.message && !e.message.includes('JSON')) throw e
       }
     }
-    return { universal_segment_text: finalText }
+    return { finalText }
   })
 }
 
@@ -107,6 +121,17 @@ export const storyboardsAPI = {
       body,
       onDelta
     )
+  },
+  /**
+   * 经典分镜：流式润色 video_prompt；done 为 { video_prompt }
+   */
+  polishClassicVideoPromptStream(id, body, onDelta) {
+    return postStoryboardNdjsonStream(
+      `/api/v1/storyboards/${id}/classic-video-prompt-polish-stream`,
+      body,
+      onDelta,
+      (obj) => obj.video_prompt
+    ).then(({ finalText }) => ({ video_prompt: finalText }))
   },
   insertBefore(id) {
     return request.post(`/storyboards/${id}/insert-before`, {})

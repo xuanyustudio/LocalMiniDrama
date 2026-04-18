@@ -258,6 +258,7 @@ async function processVideoGeneration(db, log, videoGenId) {
       camera_fixed: row.camera_fixed,
       watermark: row.watermark,
       provider: row.provider,
+      drama_id: row.drama_id,
       image_url: row.image_url,
       first_frame_url: row.first_frame_url,
       last_frame_url: row.last_frame_url,

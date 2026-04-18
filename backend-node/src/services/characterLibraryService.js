@@ -1,9 +1,13 @@
 // 角色库：与 Go character_library_service 对齐
+const path = require('path');
+const crypto = require('crypto');
 const imageClient = require('./imageClient');
 const { aspectRatioToSize } = require('./imageService');
 const aiClient = require('./aiClient');
 const promptI18n = require('./promptI18n');
 const { mergeCfgStyleWithDrama } = require('../utils/dramaStyleMerge');
+const jimengMaterialHubService = require('./jimengMaterialHubService');
+const uploadService = require('./uploadService');
 
 function applyStyleOverrideToCfg(cfg, styleOverride) {
   const o = (styleOverride || '').toString().trim();
@@ -567,6 +571,264 @@ async function extractAppearanceFromImage(db, log, cfg, characterId) {
   return { ok: true, appearance };
 }
 
+/**
+ * 组成素材库可拉取的 http(s) 图片 URL：优先角色主图已为直链；否则用 storage.base_url + local_path 拼出（与图床/即梦回传直链二选一逻辑一致）
+ */
+function buildCharacterPublicImageUrlForHub(charRow, cfg) {
+  const img = (charRow.image_url || '').toString().trim();
+  const lp = (charRow.local_path || '').toString().trim();
+  const baseRaw = (cfg?.storage?.base_url || '').toString().trim();
+  const publicBase = baseRaw.replace(/\/$/, '');
+
+  if (/^https?:\/\//i.test(img)) {
+    return { ok: true, url: img };
+  }
+  if (!publicBase) {
+    return {
+      ok: false,
+      error:
+        '角色主图非 http(s) 直链且未配置 storage.base_url，无法组成素材库可拉取的图片 URL（请将主图设为图床/即梦返回地址，或配置本服务静态资源公网 base_url）',
+    };
+  }
+  if (lp) {
+    const pathPart = lp.replace(/^\/+/, '');
+    return { ok: true, url: `${publicBase}/${pathPart}` };
+  }
+  if (img.startsWith('/')) {
+    if (publicBase.endsWith('/static') && img.startsWith('/static/')) {
+      return { ok: true, url: publicBase + img.slice('/static'.length) };
+    }
+    const m = publicBase.match(/^(https?:\/\/[^/]+)/i);
+    if (m) return { ok: true, url: m[1] + img };
+  }
+  const fallback = resolveImageUrl(charRow.image_url, charRow.local_path);
+  if (/^https?:\/\//i.test(fallback)) return { ok: true, url: fallback };
+  return { ok: false, error: '角色缺少素材库可用的图片（需 http(s) 图链或 local_path + 公网 base_url）' };
+}
+
+function storageRootPath(cfg) {
+  const raw = (cfg?.storage?.local_path || './data/storage').toString();
+  return path.isAbsolute(raw) ? raw : path.join(process.cwd(), raw);
+}
+
+/** 云端素材库无法拉取：非 http(s)、data:、localhost、常见内网等 */
+function isNonPublicMaterialHubUrl(url) {
+  const s = String(url || '').trim();
+  if (!s) return true;
+  if (s.startsWith('data:')) return true;
+  if (!/^https?:\/\//i.test(s)) return true;
+  try {
+    const { hostname } = new URL(s);
+    const h = String(hostname || '').toLowerCase();
+    if (h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0' || h === '[::1]' || h === '::1') return true;
+    if (/^192\.168\./.test(h)) return true;
+    if (/^10\./.test(h)) return true;
+    const m = /^172\.(\d+)\./.exec(h);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= 16 && n <= 31) return true;
+    }
+  } catch (_) {
+    return true;
+  }
+  return false;
+}
+
+/** 与 image_proxy_cache 约定一致：有 local_path 用相对路径作 key；否则用 URL 哈希避免冲突 */
+function materialHubProxyCacheKey(charRow, imageUrl) {
+  const lp = (charRow.local_path || '').toString().trim().replace(/^\/+/, '');
+  if (lp) return lp;
+  return `sd2char:url:${crypto.createHash('sha256').update(String(imageUrl)).digest('hex').slice(0, 48)}`;
+}
+
+/**
+ * localhost / 内网 / 相对 URL 等：先查 image_proxy_cache，未命中则读本地文件上传图床，供即梦素材库拉取。
+ */
+async function ensurePublicRegisterImageUrlForMaterialHub(db, log, cfg, charRow, imageUrl) {
+  if (!isNonPublicMaterialHubUrl(imageUrl)) {
+    return { ok: true, url: imageUrl, via: 'direct' };
+  }
+  const cacheKey = materialHubProxyCacheKey(charRow, imageUrl);
+  const cached = imageClient.getProxyCache(db, cacheKey);
+  if (cached) {
+    log.info('[SD2认证] 使用图床缓存 URL', { character_id: charRow.id, cache_key: cacheKey });
+    return { ok: true, url: cached, via: 'cache' };
+  }
+  const storagePath = storageRootPath(cfg);
+  const localRef = (charRow.local_path || '').toString().trim() || imageUrl;
+  const proxyUrl = await uploadService.uploadLocalImageToProxy(storagePath, localRef, log, `sd2_char_${charRow.id}`);
+  if (!proxyUrl) {
+    return {
+      ok: false,
+      error:
+        '角色图为本机或内网地址，已尝试上传到中转图床失败（请确认 storage.local_path 下文件存在，且 image_proxy 配置可用）',
+    };
+  }
+  imageClient.setProxyCache(db, cacheKey, proxyUrl);
+  log.info('[SD2认证] 已上传图床供素材库拉取', { character_id: charRow.id, cache_key: cacheKey });
+  return { ok: true, url: proxyUrl, via: 'upload' };
+}
+
+function readSeedance2AssetJson(text) {
+  if (!text) return null;
+  try {
+    return typeof text === 'string' ? JSON.parse(text) : text;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * 调用即梦素材库（官方兼容 /api/business/v1/assets）注册角色主图，并轮询至 active / failed（或超时保留 processing）
+ */
+async function registerCharacterJimengMaterialAsset(db, log, cfg, characterId) {
+  const materialHub = jimengMaterialHubService;
+  const hubCtx = materialHub.buildHubContext(cfg, db);
+  if (!hubCtx.token) {
+    return {
+      ok: false,
+      error:
+        '未配置即梦2角色认证：请在「AI 配置」中新增一条「即梦2角色认证」，填写网关 URL 与 Token（或设置环境变量 JIMENG2_CHARACTER_AUTH_*；兼容旧 config）',
+    };
+  }
+  const charRow = db.prepare('SELECT * FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  if (!charRow.image_url && !charRow.local_path) {
+    return { ok: false, error: '角色还没有形象图片' };
+  }
+  const urlOut = buildCharacterPublicImageUrlForHub(charRow, cfg);
+  if (!urlOut.ok) return urlOut;
+  const imageUrl = urlOut.url;
+  if (String(imageUrl).startsWith('data:')) {
+    return { ok: false, error: '不支持 base64 图片注册，请先使用上传或外网图链' };
+  }
+
+  const pub = await ensurePublicRegisterImageUrlForMaterialHub(db, log, cfg, charRow, imageUrl);
+  if (!pub.ok) return pub;
+  const registerImageUrl = pub.url;
+
+  const assetName = String(charRow.name || 'role').replace(/\s+/g, '').slice(0, 12) || 'role';
+  const registerUrlLooksPrivate = isNonPublicMaterialHubUrl(imageUrl);
+  log.info('[SD2认证] 请求参数摘要', {
+    character_id: Number(characterId),
+    character_name: charRow.name,
+    drama_id: charRow.drama_id,
+    image_url_db: charRow.image_url ? String(charRow.image_url).slice(0, 240) : null,
+    local_path: charRow.local_path || null,
+    resolved_register_image_url: String(registerImageUrl).slice(0, 500),
+    pre_proxy_image_url: registerUrlLooksPrivate ? String(imageUrl).slice(0, 240) : null,
+    public_image_via: pub.via,
+    storage_base_url: (cfg?.storage?.base_url || '').toString().slice(0, 160),
+    hub_gateway: hubCtx.baseUrl,
+    asset_name: assetName,
+    register_url_looks_private_host: registerUrlLooksPrivate,
+    hint: registerUrlLooksPrivate && pub.via !== 'direct'
+      ? '本地/内网图片已自动经中转图床生成公网 URL 后提交素材库'
+      : registerUrlLooksPrivate
+        ? '素材库在云端拉取图片失败多为 URL 不可达：请换图床/公网 https 直链，或将 storage.base_url 改为公网可访问的静态资源地址'
+        : '若仍失败，请用浏览器或 curl 在无 VPN 的机器上访问 resolved_register_image_url 确认 200 且 Content-Type 为图片',
+  });
+
+  const createRes = await materialHub.createImageAsset(hubCtx, { url: registerImageUrl, name: assetName }, log);
+  if (!createRes.ok) {
+    log.warn('[SD2认证] create asset 失败', {
+      character_id: Number(characterId),
+      http_status: createRes.status,
+      error: createRes.error,
+      resolved_register_image_url: registerImageUrl,
+    });
+    let errMsg = createRes.error || '素材库创建素材失败';
+    if (/DownloadFailed|download media|accessible|拉取|下载/i.test(String(errMsg))) {
+      errMsg +=
+        ' 【说明】素材库会从云端访问你提交的「图片 URL」。若原图为 localhost/内网，本服务会先上传中转图床；若仍失败请检查图床是否公网可达，或换公网 https 直链。';
+    }
+    return { ok: false, error: errMsg };
+  }
+  const created = createRes.data;
+  const assetId = created.id;
+  if (!assetId) {
+    return { ok: false, error: '素材库返回缺少素材 id' };
+  }
+
+  const now = new Date().toISOString();
+  const basePayload = {
+    hub_asset_id: assetId,
+    asset_url: created.asset_url || null,
+    status: created.status || 'processing',
+    source_image_url: registerImageUrl,
+    character_display: {
+      name: charRow.name || '',
+      appearance: (charRow.appearance || '').slice(0, 500) || null,
+      description: (charRow.description || '').slice(0, 500) || null,
+    },
+    updated_at: now,
+  };
+  db.prepare('UPDATE characters SET seedance2_asset = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(basePayload),
+    now,
+    Number(characterId)
+  );
+
+  const poll = await materialHub.pollAssetUntilSettled(hubCtx, assetId, {
+    maxMs: hubCtx.poll_max_ms != null ? Number(hubCtx.poll_max_ms) : 120000,
+    intervalMs: hubCtx.poll_interval_ms != null ? Number(hubCtx.poll_interval_ms) : 2000,
+    log,
+  });
+  if (!poll.ok) {
+    log.warn('即梦素材库 poll asset 失败', { characterId, assetId, error: poll.error });
+    return { ok: false, error: poll.error };
+  }
+  const settled = poll.asset || created;
+  const nextPayload = {
+    ...basePayload,
+    asset_url: settled.asset_url ?? basePayload.asset_url,
+    status: settled.status || basePayload.status,
+    hub_url: settled.url || created.url || null,
+    poll_timed_out: !!poll.timedOut,
+    updated_at: new Date().toISOString(),
+  };
+  db.prepare('UPDATE characters SET seedance2_asset = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(nextPayload),
+    nextPayload.updated_at,
+    Number(characterId)
+  );
+  log.info('即梦素材库 seedance2 素材已登记', { characterId, hub_asset_id: assetId, status: nextPayload.status });
+  return { ok: true, seedance2_asset: nextPayload };
+}
+
+async function refreshCharacterJimengMaterialAsset(db, log, cfg, characterId) {
+  const materialHub = jimengMaterialHubService;
+  const hubCtx = materialHub.buildHubContext(cfg, db);
+  if (!hubCtx.token) {
+    return { ok: false, error: '未配置即梦2角色认证：请在「AI 配置」中填写 Token' };
+  }
+  const charRow = db.prepare('SELECT id, seedance2_asset FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  const prev = readSeedance2AssetJson(charRow.seedance2_asset);
+  const assetId = prev?.hub_asset_id;
+  if (!assetId) {
+    return { ok: false, error: '暂未取得素材 id，请先完成 SD2 认证' };
+  }
+  const r = await materialHub.getAsset(hubCtx, assetId, log);
+  if (!r.ok) return { ok: false, error: r.error };
+  const settled = r.data;
+  const now = new Date().toISOString();
+  const nextPayload = {
+    ...(prev && typeof prev === 'object' ? prev : {}),
+    hub_asset_id: assetId,
+    asset_url: settled.asset_url ?? prev?.asset_url ?? null,
+    status: settled.status || prev?.status || 'processing',
+    hub_url: settled.url ?? prev?.hub_url ?? null,
+    updated_at: now,
+  };
+  db.prepare('UPDATE characters SET seedance2_asset = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(nextPayload),
+    now,
+    Number(characterId)
+  );
+  return { ok: true, seedance2_asset: nextPayload };
+}
+
 module.exports = {
   listLibraryItems,
   createLibraryItem,
@@ -584,4 +846,6 @@ module.exports = {
   generateCharacterFourViewImage,
   generateCharacterPromptOnly,
   extractAppearanceFromImage,
+  registerCharacterJimengMaterialAsset,
+  refreshCharacterJimengMaterialAsset,
 };

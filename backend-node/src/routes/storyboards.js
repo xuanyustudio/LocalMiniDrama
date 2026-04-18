@@ -30,6 +30,180 @@ function formatNeighborShotPolishContext(row) {
   return bits.length ? bits.join('\n') : '(empty)';
 }
 
+function clipClassicCtx(s, maxLen) {
+  if (s == null) return '';
+  const t = String(s).trim();
+  if (!t) return '';
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, maxLen)}…`;
+}
+
+/**
+ * 从「场景：…。配乐：…」式拼装文案中拆出带标签的分句，供润色时强制保留信息点（配乐/音效/情绪强度/画幅/完整镜头英文等）。
+ */
+function extractRetentionClausesFromVideoPrompts(draft, composed) {
+  const seen = new Set();
+  const out = [];
+  const sources = [draft, composed].map((x) => (x != null ? String(x).trim() : '')).filter(Boolean);
+  for (const full of sources) {
+    const pieces = full
+      .replace(/\r\n/g, '\n')
+      .trim()
+      .split(/。+/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+    for (let piece of pieces) {
+      piece = piece.replace(/\s*=\s*VideoRatio\s*:/gi, '=VideoRatio:').trim();
+      if (!piece) continue;
+      const labeled = /^(场景|镜头标题|动作|对话|对白|结果|景别|镜头角度|运镜|氛围|情绪|情绪强度|配乐|音效|时长|风格|解说旁白)[：:]/.test(
+        piece
+      );
+      const hasRatio = /=VideoRatio\s*:/i.test(piece);
+      if (!labeled && !hasRatio) continue;
+      const dedupKey = piece.slice(0, 140);
+      if (seen.has(dedupKey)) continue;
+      seen.add(dedupKey);
+      let c = piece;
+      if (/^镜头角度/.test(c) && c.length > 920) c = `${c.slice(0, 920)}…`;
+      else if (c.length > 560) c = `${c.slice(0, 560)}…`;
+      if (!/[。．…]$/.test(c)) c += '。';
+      out.push(c);
+    }
+  }
+  return out;
+}
+
+/** 经典视频润色：邻镜长上下文（衔接剧情与已有视频文案） */
+const MOVEMENT_LABEL_ZH = {
+  static: '固定镜头',
+  push: '推镜',
+  pull: '拉镜',
+  pan: '横摇',
+  tilt: '纵摇',
+  tracking: '跟镜',
+  crane_up: '升镜',
+  crane_dn: '降镜',
+  orbit: '环绕',
+  handheld: '手持',
+};
+
+const LIGHTING_LABEL_ZH = {
+  natural: '自然光',
+  front: '顺光',
+  side: '侧光',
+  backlit: '逆光',
+  top: '顶光',
+  under: '底光',
+  soft: '柔光',
+  dramatic: '戏剧光',
+  golden_hour: '黄金时段',
+  blue_hour: '蓝调时刻',
+  night: '夜景',
+  neon: '霓虹',
+};
+
+const DEPTH_LABEL_ZH = {
+  extreme_shallow: '极浅景深',
+  shallow: '浅景深',
+  medium: '中景深',
+  deep: '深景深（全焦）',
+};
+
+function movementDisplay(sbRow) {
+  const raw = sbRow.movement != null ? String(sbRow.movement).trim() : '';
+  if (!raw) return '';
+  const zh = MOVEMENT_LABEL_ZH[raw];
+  return zh ? `${zh}（${raw}）` : raw;
+}
+
+function lightingDisplay(sbRow) {
+  const raw = sbRow.lighting_style != null ? String(sbRow.lighting_style).trim() : '';
+  if (!raw) return '';
+  const zh = LIGHTING_LABEL_ZH[raw];
+  return zh ? `${zh}（${raw}）` : raw;
+}
+
+function depthDisplay(sbRow) {
+  const raw = sbRow.depth_of_field != null ? String(sbRow.depth_of_field).trim() : '';
+  if (!raw) return '';
+  const zh = DEPTH_LABEL_ZH[raw];
+  return zh ? `${zh}（${raw}）` : raw;
+}
+
+/** 结构化视角：中文标签 + 英文片语，供润色必覆盖清单 */
+function angleCoverageLine(sbRow) {
+  if (sbRow.angle_h && sbRow.angle_v && sbRow.angle_s) {
+    try {
+      const zh = angleService.toChineseLabel(sbRow.angle_h, sbRow.angle_v, sbRow.angle_s);
+      const en = angleService.toPromptFragment(sbRow.angle_h, sbRow.angle_v, sbRow.angle_s);
+      return `镜头角度（机位/景别）：${zh}；${en}`;
+    } catch (_) {
+      return sbRow.angle ? String(sbRow.angle).trim() : '';
+    }
+  }
+  return sbRow.angle ? String(sbRow.angle).trim() : '';
+}
+
+/**
+ * 凡非空字段逐条列出；模型须在同一段成稿中全部体现其语义（可改写，不可丢信息）。
+ */
+function buildClassicRequiredCoverageDigest(sbRow, linkedSceneText) {
+  const lines = [];
+  const add = (label, text) => {
+    const s = text != null ? String(text).trim() : '';
+    if (s) lines.push(`- ${label}：${s}`);
+  };
+  const sceneLocTime = [sbRow.location, sbRow.time].filter((x) => x != null && String(x).trim()).join('，');
+  add('场景（地点与时间）', sceneLocTime);
+  if (linkedSceneText) add('关联场景库（地点/时间/摘要）', linkedSceneText);
+  add('镜头标题', sbRow.title);
+  add('分镜描述', sbRow.description);
+  add('人物动作', sbRow.action);
+  add('人物对白', sbRow.dialogue);
+  add('解说旁白', sbRow.narration);
+  add('画面结果/落幅', sbRow.result);
+  add('氛围', sbRow.atmosphere);
+  add('情绪', sbRow.emotion);
+  if (sbRow.emotion_intensity != null && sbRow.emotion_intensity !== '') {
+    const ei = Number(sbRow.emotion_intensity);
+    if (Number.isFinite(ei)) add('情绪强度', String(ei));
+    else add('情绪强度', String(sbRow.emotion_intensity).trim());
+  }
+  add('景别', sbRow.shot_type);
+  const ang = angleCoverageLine(sbRow);
+  if (ang) add('镜头方式（视角/机位）', ang);
+  add('光线/灯光风格', lightingDisplay(sbRow) || sbRow.lighting_style);
+  add('景深', depthDisplay(sbRow) || sbRow.depth_of_field);
+  add('运镜', movementDisplay(sbRow) || sbRow.movement);
+  const dur = Number(sbRow.duration);
+  const sec = Number.isFinite(dur) && dur > 0 ? Math.round(dur) : 5;
+  add('时长（秒）', `${sec}`);
+  if (sbRow.segment_title != null && String(sbRow.segment_title).trim()) {
+    add('剧情段落', `「${String(sbRow.segment_title).trim()}」` + (sbRow.segment_index != null ? `（段序号 ${sbRow.segment_index}）` : ''));
+  }
+  if (!lines.length) return '(当前无非空结构化字段；请依据剧本与 AUTO_COMPOSED 润色)';
+  return ['下列维度在库中均有值——成稿须**全部覆盖**其语义（允许电影化改写，禁止删事实、改秒数、改对白原意）：', ...lines].join('\n');
+}
+
+function formatClassicVideoNeighborBlock(label, row) {
+  if (!row) return `${label}:\n(none)`;
+  const lines = [
+    row.storyboard_number != null && row.storyboard_number !== ''
+      ? `SHOT_NUM: ${row.storyboard_number}`
+      : null,
+    row.title ? `TITLE: ${clipClassicCtx(row.title, 180)}` : null,
+    row.description ? `DESCRIPTION: ${clipClassicCtx(row.description, 420)}` : null,
+    row.action ? `ACTION: ${clipClassicCtx(row.action, 450)}` : null,
+    row.dialogue ? `DIALOGUE: ${clipClassicCtx(row.dialogue, 320)}` : null,
+    row.narration ? `NARRATION: ${clipClassicCtx(row.narration, 320)}` : null,
+    row.video_prompt ? `VIDEO_PROMPT: ${clipClassicCtx(row.video_prompt, 450)}` : null,
+    row.universal_segment_text
+      ? `UNIVERSAL_SEGMENT_TEXT: ${clipClassicCtx(row.universal_segment_text, 260)}`
+      : null,
+  ].filter(Boolean);
+  return `${label}:\n${lines.length ? lines.join('\n') : '(empty)'}`;
+}
+
 /**
  * 分镜主图路径：storyboards.local_path 常与图生记录不同步（图在 image_generations），按存在性解析。
  * @returns {string|null} storage 相对路径
@@ -528,6 +702,261 @@ function routes(db, log) {
       );
       log.info('[分镜] polishUniversalSegmentStream 完成', { id: sbId, len: text.length, duration_sec: durationSec });
       writeNd({ type: 'done', universal_segment_text: text });
+      res.end();
+    },
+
+    /**
+     * 经典分镜：结合剧本与邻镜流式润色 video_prompt（NDJSON delta + done）。
+     * body.draft_video_prompt 可选，为当前编辑区全文；缺省则用库内 video_prompt，再不行则用字段自动拼装。
+     */
+    polishClassicVideoPromptStream: async (req, res) => {
+      const sbId = Number(req.params.id);
+      const sbRow = db.prepare('SELECT * FROM storyboards WHERE id = ? AND deleted_at IS NULL').get(sbId);
+      if (!sbRow) return response.notFound(res, '分镜不存在');
+      const mode = sbRow.creation_mode === 'universal' ? 'universal' : 'classic';
+      if (mode === 'universal') {
+        return response.badRequest(res, '当前为全能模式，请使用「润色全能提示词」');
+      }
+
+      let dramaId = null;
+      try {
+        const ep0 = db.prepare('SELECT drama_id FROM episodes WHERE id = ? AND deleted_at IS NULL').get(sbRow.episode_id);
+        dramaId = ep0?.drama_id ?? null;
+      } catch (_) {}
+
+      let styleEn = '';
+      let styleZh = '';
+      let videoRatio = '9:16';
+      try {
+        const loadConfig = require('../config').loadConfig;
+        const { mergeCfgStyleWithDrama } = require('../utils/dramaStyleMerge');
+        let cfg = loadConfig();
+        const dr = dramaId
+          ? db.prepare('SELECT style, metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(dramaId)
+          : null;
+        cfg = mergeCfgStyleWithDrama(cfg, dr || {});
+        styleEn = (cfg?.style?.default_style_en || cfg?.style?.default_style || '').trim();
+        styleZh = (cfg?.style?.default_style_zh || '').trim();
+        try {
+          const meta = dr?.metadata ? JSON.parse(dr.metadata) : {};
+          if (meta?.aspect_ratio && String(meta.aspect_ratio).trim()) {
+            videoRatio = String(meta.aspect_ratio).trim().replace(/\uFF1A/g, ':');
+          }
+        } catch (_) {}
+      } catch (_) {}
+
+      const autoComposed = episodeStoryboardService.composeStoryboardVideoPrompt(sbRow, styleEn || styleZh, videoRatio);
+      const draftRaw =
+        req.body && req.body.draft_video_prompt != null ? String(req.body.draft_video_prompt) : '';
+      const draftTrim = draftRaw.trim();
+      const dbVp = sbRow.video_prompt != null ? String(sbRow.video_prompt).trim() : '';
+      const currentDraft = draftTrim || dbVp;
+      const anchor = currentDraft || String(autoComposed || '').trim();
+      if (!anchor || anchor.length < 4) {
+        return response.badRequest(res, '请先填写分镜的动作/对白/场景等字段，或手写视频提示词后再润色');
+      }
+
+      let scriptText = '';
+      try {
+        const ep = db
+          .prepare('SELECT script_content FROM episodes WHERE id = ? AND deleted_at IS NULL')
+          .get(sbRow.episode_id);
+        scriptText = (ep?.script_content && String(ep.script_content).trim()) || '';
+      } catch (_) {}
+
+      let prevRow = null;
+      let nextRow = null;
+      try {
+        const num = sbRow.storyboard_number;
+        const eid = sbRow.episode_id;
+        prevRow = db
+          .prepare(
+            `SELECT storyboard_number, title, description, action, dialogue, narration, video_prompt, universal_segment_text
+             FROM storyboards WHERE episode_id = ? AND storyboard_number < ? AND deleted_at IS NULL
+             ORDER BY storyboard_number DESC LIMIT 1`
+          )
+          .get(eid, num);
+        nextRow = db
+          .prepare(
+            `SELECT storyboard_number, title, description, action, dialogue, narration, video_prompt, universal_segment_text
+             FROM storyboards WHERE episode_id = ? AND storyboard_number > ? AND deleted_at IS NULL
+             ORDER BY storyboard_number ASC LIMIT 1`
+          )
+          .get(eid, num);
+      } catch (_) {}
+
+      let dramaTitle = '';
+      let episodeTitle = '';
+      let shotTotalInEpisode = 0;
+      try {
+        if (dramaId) {
+          const drT = db.prepare('SELECT title FROM dramas WHERE id = ? AND deleted_at IS NULL').get(dramaId);
+          dramaTitle = drT?.title != null ? String(drT.title).trim() : '';
+        }
+        const epT = db
+          .prepare('SELECT title FROM episodes WHERE id = ? AND deleted_at IS NULL')
+          .get(sbRow.episode_id);
+        episodeTitle = epT?.title != null ? String(epT.title).trim() : '';
+        const cnt = db
+          .prepare(
+            'SELECT COUNT(*) AS n FROM storyboards WHERE episode_id = ? AND deleted_at IS NULL'
+          )
+          .get(sbRow.episode_id);
+        shotTotalInEpisode = cnt?.n != null ? Number(cnt.n) : 0;
+      } catch (_) {}
+
+      const firstFrameAnchor = clipClassicCtx(
+        (sbRow.polished_prompt && String(sbRow.polished_prompt).trim()) ||
+          (sbRow.image_prompt && String(sbRow.image_prompt).trim()) ||
+          '',
+        980
+      );
+
+      let linkedSceneText = '';
+      try {
+        if (sbRow.scene_id) {
+          const sc = db
+            .prepare(
+              'SELECT location, time, prompt FROM scenes WHERE id = ? AND deleted_at IS NULL'
+            )
+            .get(sbRow.scene_id);
+          if (sc) {
+            const bits = [sc.location, sc.time].filter((x) => x != null && String(x).trim());
+            const head = bits.join('，');
+            const pr = sc.prompt != null ? String(sc.prompt).trim() : '';
+            linkedSceneText = [head, pr ? `场景库文案摘要：${clipClassicCtx(pr, 280)}` : '']
+              .filter(Boolean)
+              .join('；');
+          }
+        }
+      } catch (_) {}
+
+      const fieldLines = [
+        ['SHOT_NUM', sbRow.storyboard_number],
+        ['TITLE', sbRow.title],
+        ['DESCRIPTION', sbRow.description],
+        ['LOCATION', sbRow.location],
+        ['TIME', sbRow.time],
+        ['DURATION_SEC', sbRow.duration],
+        ['ACTION', sbRow.action],
+        ['DIALOGUE', sbRow.dialogue],
+        ['NARRATION', sbRow.narration],
+        ['RESULT', sbRow.result],
+        ['ATMOSPHERE', sbRow.atmosphere],
+        ['EMOTION', sbRow.emotion],
+        ['EMOTION_INTENSITY', sbRow.emotion_intensity],
+        ['SHOT_TYPE', sbRow.shot_type],
+        ['ANGLE_H', sbRow.angle_h],
+        ['ANGLE_V', sbRow.angle_v],
+        ['ANGLE_S', sbRow.angle_s],
+        ['ANGLE_LEGACY', sbRow.angle],
+        ['MOVEMENT', sbRow.movement],
+        ['LIGHTING_STYLE', sbRow.lighting_style],
+        ['DEPTH_OF_FIELD', sbRow.depth_of_field],
+        ['SEGMENT_INDEX', sbRow.segment_index],
+        ['SEGMENT_TITLE', sbRow.segment_title],
+        ['IMAGE_PROMPT', sbRow.image_prompt],
+        ['POLISHED_IMAGE_PROMPT', sbRow.polished_prompt],
+      ]
+        .map(([k, v]) => {
+          if (v == null || v === '') return null;
+          const s = String(v).trim();
+          return s ? `${k}: ${s}` : null;
+        })
+        .filter(Boolean)
+        .join('\n');
+
+      const retentionClauses = extractRetentionClausesFromVideoPrompts(
+        currentDraft || '',
+        String(autoComposed || '').trim()
+      );
+
+      const polishPassStamp = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      const polishUserPrompt = [
+        'TASK: POLISH_CLASSIC_STORYBOARD_STILL_TO_VIDEO_PROMPT',
+        `POLISH_PASS_STAMP: ${polishPassStamp}`,
+        'POLISH_REFRESH: 用户可多次润色；事实与时长不变，但须明显换表述；禁止与 CURRENT_VIDEO_DRAFT 仅标点或个别虚词差异。',
+        'OUTPUT_GOAL: 单段、可直接送图生视频模型的专业提示词；首帧画面已由参考图锁定，文案负责动效、节奏、运镜意图、声画暗示与画风气质。',
+        '',
+        `PROJECT:\nDRAMA_TITLE: ${dramaTitle || '(unknown)'}\nEPISODE_TITLE: ${episodeTitle || '(unknown)'}`,
+        `SHOT_SEQUENCE: 当前镜号 ${sbRow.storyboard_number ?? '?'} / 本集共 ${shotTotalInEpisode || '?'} 镜`,
+        `VIDEO_RATIO: ${videoRatio}`,
+        '',
+        `FULL_EPISODE_SCRIPT（用于人物关系、因果与语气；勿编造剧本未出现的情节）:\n${scriptText || '(本集剧本正文为空)'}`,
+        '',
+        'NEIGHBOR_PREV（上一镜：用于入戏衔接、情绪与空间连贯）:',
+        formatClassicVideoNeighborBlock('PREV', prevRow),
+        '',
+        'NEIGHBOR_NEXT（下一镜：用于本镜收束与出口暗示，勿剧透下一镜未发生的具体事件）:',
+        formatClassicVideoNeighborBlock('NEXT', nextRow),
+        '',
+        'STORYBOARD_FIELDS（当前镜结构化事实）:',
+        fieldLines || '(empty)',
+        '',
+        'REQUIRED_COVERAGE_DIGEST（下列凡出现「- 维度：」行的，润色成稿必须全部体现其语义；可与邻镜/剧本融合叙述，禁止省略事实、禁止改对白原意、禁止改时长秒数）:',
+        buildClassicRequiredCoverageDigest(sbRow, linkedSceneText),
+        '',
+        `FIRST_FRAME_VISUAL_ANCHOR（分镜参考静帧对应的英文/中文图提示摘要；动效须与此一致，禁止改换装、改人脸特征、改场景时代）:\n${
+          firstFrameAnchor || '(无图侧文本；仅依据 STORYBOARD_FIELDS 与剧本推断画面)'
+        }`,
+        '',
+        `AUTO_COMPOSED_VIDEO_PROMPT（与程序字段拼装一致，作事实底线）:\n${autoComposed}`,
+        '',
+        `CURRENT_VIDEO_DRAFT（用户当前 video_prompt，优先在其上润色）:\n${currentDraft || '(empty — use AUTO_COMPOSED + FIELDS)'}`,
+        '',
+        'RETENTION_CLAUSES_FROM_SOURCE（由 CURRENT_VIDEO_DRAFT / AUTO_COMPOSED 按句号拆出的「标签分句」；每一条中的**全部信息点**须在成稿中出现——含：配乐侧写、音效层次、情绪强度数值、括号内**完整**英文镜头/景深/透视描述、=VideoRatio 画幅；允许调整语序与衔接词，**禁止**把多条合并后只剩笼统氛围描写而导致某类信息消失）:',
+        retentionClauses.length
+          ? retentionClauses.map((c, i) => `${i + 1}. ${c}`).join('\n')
+          : '(未解析到「场景：/配乐：/镜头角度：/=VideoRatio:」等标签分句；此时须把 CURRENT_VIDEO_DRAFT 全文信息等价写入成稿，禁止删减子句类别。)',
+        '',
+        `VISUAL_STYLE（须内化进成稿；中文气质描写 + 英文质感词均可）:\nSTYLE_ZH: ${styleZh || '(none)'}\nSTYLE_EN: ${styleEn || '(none)'}`,
+      ].join('\n');
+
+      res.status(200);
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      if (typeof res.flushHeaders === 'function') res.flushHeaders();
+
+      const writeNd = (obj) => {
+        res.write(`${JSON.stringify(obj)}\n`);
+      };
+
+      let finalRaw = '';
+      try {
+        finalRaw = await aiClient.streamGenerateText(
+          db,
+          log,
+          'text',
+          polishUserPrompt,
+          promptI18n.getClassicVideoPromptPolishPrompt(),
+          {
+            scene_key: 'image_polish',
+            max_tokens: 3600,
+            temperature: 0.28,
+            silence_timeout_ms: 180000,
+          },
+          (delta) => writeNd({ type: 'delta', text: delta })
+        );
+      } catch (err) {
+        log.error('storyboards polishClassicVideoPromptStream', { error: err.message, id: sbId });
+        writeNd({ type: 'error', message: err.message || 'stream failed' });
+        return res.end();
+      }
+
+      if (!finalRaw || String(finalRaw).trim().length < 12) {
+        writeNd({ type: 'error', message: 'AI 返回内容过短，请检查文本模型配置' });
+        return res.end();
+      }
+      const text = String(finalRaw).trim();
+      const nowIso = new Date().toISOString();
+      db.prepare('UPDATE storyboards SET video_prompt = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL').run(
+        text,
+        nowIso,
+        sbId
+      );
+      log.info('[分镜] polishClassicVideoPromptStream 完成', { id: sbId, len: text.length });
+      writeNd({ type: 'done', video_prompt: text });
       res.end();
     },
 

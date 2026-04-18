@@ -126,6 +126,26 @@ function testConnection(log) {
   };
 }
 
+/** 即梦2角色认证：代理 GET 素材列表（表单未保存也可用当前填写的网关与 Token） */
+function listJimeng2MaterialAssets(log) {
+  return async (req, res) => {
+    const body = req.body || {};
+    const base_url = (body.base_url || '').toString().trim().replace(/\/$/, '');
+    let api_key = (body.api_key || '').toString().trim();
+    if (/^bearer\s+/i.test(api_key)) api_key = api_key.replace(/^bearer\s+/i, '').trim();
+    if (!base_url || !api_key) {
+      return response.badRequest(res, '请先填写网关 URL 与 Token');
+    }
+    const jimengMaterialHubService = require('../services/jimengMaterialHubService');
+    const ctx = { baseUrl: base_url, token: api_key };
+    const r = await jimengMaterialHubService.listAssets(ctx, { limit: body.limit, cursor: body.cursor }, log);
+    if (!r.ok) {
+      return response.badRequest(res, String(r.error || '列出素材失败').slice(0, 800));
+    }
+    response.success(res, r.data);
+  };
+}
+
 module.exports = function aiConfigRoutes(db, log, cfg) {
   return {
     list: list(db),
@@ -135,6 +155,7 @@ module.exports = function aiConfigRoutes(db, log, cfg) {
     update: update(db, log, cfg),
     delete: remove(db, log, cfg),
     testConnection: testConnection(log),
+    listJimeng2MaterialAssets: listJimeng2MaterialAssets(log),
     bulkUpdateKey: bulkUpdateKey(db, log, cfg),
   };
 };

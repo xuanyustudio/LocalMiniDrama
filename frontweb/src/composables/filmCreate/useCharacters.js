@@ -60,6 +60,9 @@ export function useCharacters(deps) {
   const addingCharToLibraryId = ref(null)
   const addingCharToMaterialId = ref(null)
   const addingCharFromLibraryId = ref(null)
+  const sd2CertifyingId = ref(null)
+  const showCharSd2Cert = ref(false)
+  const charSd2CertPayload = ref(null)
   let charLibraryKeywordTimer = null
 
   // ── 常量 ──────────────────────────────────────────────
@@ -426,6 +429,61 @@ export function useCharacters(deps) {
     }
   }
 
+  function charSd2TagType(char) {
+    const s = char?.seedance2_asset?.status
+    if (s === 'active') return 'success'
+    if (s === 'failed') return 'danger'
+    if (s === 'processing') return 'info'
+    return 'warning'
+  }
+
+  function charSd2TagText(char) {
+    const s = char?.seedance2_asset?.status
+    if (s === 'active') return '已 SD2 认证'
+    if (s === 'failed') return 'SD2 认证失败'
+    if (s === 'processing') return 'SD2 处理中'
+    return '未 SD2 认证'
+  }
+
+  async function onSd2CertifyCharacter(char) {
+    if (!hasAssetImage(char)) { ElMessage.warning('请先为该角色生成或上传图片'); return }
+    sd2CertifyingId.value = char.id
+    try {
+      const res = await characterAPI.sd2Certify(char.id)
+      const asset = res?.seedance2_asset
+      if (asset?.status === 'active') {
+        ElMessage.success('SD2 素材认证已完成')
+      } else if (asset?.poll_timed_out) {
+        ElMessage.success('已提交认证，即梦素材库仍在处理中，可稍后「刷新认证状态」')
+      } else {
+        ElMessage.success(res?.message || '认证状态已更新')
+      }
+      await loadDrama()
+    } catch (e) {
+      ElMessage.error(e.message || '认证失败')
+    } finally {
+      sd2CertifyingId.value = null
+    }
+  }
+
+  async function onSd2CertifyRefresh(char) {
+    sd2CertifyingId.value = char.id
+    try {
+      await characterAPI.sd2CertifyRefresh(char.id)
+      ElMessage.success('认证状态已刷新')
+      await loadDrama()
+    } catch (e) {
+      ElMessage.error(e.message || '刷新失败')
+    } finally {
+      sd2CertifyingId.value = null
+    }
+  }
+
+  function openCharSd2CertDialog(char) {
+    charSd2CertPayload.value = char.seedance2_asset ? { ...char.seedance2_asset } : null
+    showCharSd2Cert.value = true
+  }
+
   async function onAddCharFromLibrary(item) {
     if (!store.dramaId) return
     addingCharFromLibraryId.value = item.id
@@ -533,6 +591,11 @@ export function useCharacters(deps) {
     addingCharToLibraryId,
     addingCharToMaterialId,
     addingCharFromLibraryId,
+    sd2CertifyingId,
+    showCharSd2Cert,
+    charSd2CertPayload,
+    charSd2TagType,
+    charSd2TagText,
     // 函数
     charRoleLabel,
     onGenerateCharacters,
@@ -555,6 +618,9 @@ export function useCharacters(deps) {
     onDeleteCharLibrary,
     onAddCharacterToLibrary,
     onAddCharacterToMaterialLibrary,
+    onSd2CertifyCharacter,
+    onSd2CertifyRefresh,
+    openCharSd2CertDialog,
     onAddCharFromLibrary,
   }
 }

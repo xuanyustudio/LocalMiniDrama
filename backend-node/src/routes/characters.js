@@ -8,9 +8,18 @@ function routes(db, cfg, log, uploadService) {
     getOne: (req, res) => {
       try {
         const row = db.prepare(
-          'SELECT id, drama_id, name, role, appearance, description, personality, voice_style, image_url, local_path, polished_prompt, four_view_image_url, identity_anchors, updated_at FROM characters WHERE id = ? AND deleted_at IS NULL'
+          'SELECT id, drama_id, name, role, appearance, description, personality, voice_style, image_url, local_path, polished_prompt, four_view_image_url, identity_anchors, seedance2_asset, updated_at FROM characters WHERE id = ? AND deleted_at IS NULL'
         ).get(Number(req.params.id));
         if (!row) return response.notFound(res, '角色不存在');
+        if (row.seedance2_asset) {
+          try {
+            row.seedance2_asset = JSON.parse(row.seedance2_asset);
+          } catch (_) {
+            row.seedance2_asset = null;
+          }
+        } else {
+          row.seedance2_asset = null;
+        }
         response.success(res, { character: row });
       } catch (err) {
         log.error('characters getOne', { error: err.message });
@@ -263,6 +272,33 @@ function routes(db, cfg, log, uploadService) {
         response.success(res, { message: '外貌描述已提取', appearance: out.appearance });
       } catch (err) {
         log.error('characters extract-from-image', { error: err.message });
+        response.internalError(res, err.message);
+      }
+    },
+    /** 即梦素材库 asset 注册（Seedance 2.0 等视频引用 asset://） */
+    sd2Certify: async (req, res) => {
+      try {
+        const out = await characterLibraryService.registerCharacterJimengMaterialAsset(db, log, cfg, req.params.id);
+        if (!out.ok) {
+          if (out.error === 'character not found') return response.notFound(res, '角色不存在');
+          return response.badRequest(res, out.error);
+        }
+        response.success(res, { message: 'SD2 素材认证已更新', seedance2_asset: out.seedance2_asset });
+      } catch (err) {
+        log.error('characters sd2-certify', { error: err.message });
+        response.internalError(res, err.message);
+      }
+    },
+    sd2CertifyRefresh: async (req, res) => {
+      try {
+        const out = await characterLibraryService.refreshCharacterJimengMaterialAsset(db, log, cfg, req.params.id);
+        if (!out.ok) {
+          if (out.error === 'character not found') return response.notFound(res, '角色不存在');
+          return response.badRequest(res, out.error);
+        }
+        response.success(res, { message: '认证状态已刷新', seedance2_asset: out.seedance2_asset });
+      } catch (err) {
+        log.error('characters sd2-certify-refresh', { error: err.message });
         response.internalError(res, err.message);
       }
     },

@@ -1732,4 +1732,7 @@ module.exports = {
   getDefaultImageConfig,
   callImageApi,
   createAndGenerateImage,
+  /** 图床 URL 缓存（image_proxy_cache），供 SD2 认证等复用 */
+  getProxyCache,
+  setProxyCache,
 };

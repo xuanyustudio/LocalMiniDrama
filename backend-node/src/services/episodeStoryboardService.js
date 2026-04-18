@@ -1271,4 +1271,6 @@ The user enabled narrator voice-over for the whole episode. Every shot object MU
 module.exports = {
   getStoryboardsForEpisode,
   generateStoryboard,
+  /** 与分镜入库时一致的「视频提示词」拼装（供经典模式润色等复用） */
+  composeStoryboardVideoPrompt: generateVideoPrompt,
 };

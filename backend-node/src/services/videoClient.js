@@ -315,6 +315,7 @@ async function resolveImageInputForOmniAsync(rawUrl, files_base_url, storage_loc
   const raw = (rawUrl || '').trim();
   if (!raw) return null;
   if (raw.startsWith('data:')) return raw;
+  if (raw.startsWith('asset://')) return raw;
 
   const isPublicHttp = /^https?:\/\//i.test(raw) && !/localhost|127\.0\.0\.1/i.test(raw);
   if (isPublicHttp) return raw;
@@ -339,6 +340,7 @@ async function resolveVolcOmniImageAsync(rawUrl, files_base_url, storage_local_p
   const raw = (rawUrl || '').trim();
   if (!raw) return null;
   if (raw.startsWith('data:')) return raw;
+  if (raw.startsWith('asset://')) return raw;
 
   const isPublicHttp = /^https?:\/\//i.test(raw) && !/localhost|127\.0\.0\.1/i.test(raw);
   if (isPublicHttp) return raw;
@@ -423,6 +425,7 @@ async function callVolcengineOmniVideoApi(config, log, opts) {
   if (seed != null) body.seed = Number(seed);
   if (camera_fixed != null) body.camera_fixed = Boolean(camera_fixed);
 
+  let volcOmniAssetRefCount = 0;
   if (urls.length) {
     for (let i = 0; i < urls.length; i++) {
       let u = await resolveVolcOmniImageAsync(
@@ -434,6 +437,7 @@ async function callVolcengineOmniVideoApi(config, log, opts) {
         i
       );
       if (!u) continue;
+      if (String(u).startsWith('asset://')) volcOmniAssetRefCount += 1;
       if (/localhost|127\.0\.0\.1/i.test(u) && storage_local_path && (files_base_url || '').match(/localhost|127\.0\.0\.1/i)) {
         const baseUrl = (files_base_url || '').replace(/\/$/, '');
         const afterStatic = u.split('/static/')[1] || (baseUrl ? u.replace(baseUrl + '/', '').replace(baseUrl, '') : null);
@@ -459,6 +463,9 @@ async function callVolcengineOmniVideoApi(config, log, opts) {
         role: 'reference_image',
       };
       body.content.push(part);
+      if (String(u).startsWith('asset://') && log?.info) {
+        log.info('[VolcOmni][SD2] content 使用素材库 asset 引用', { video_gen_id, index: i, asset_head: String(u).slice(0, 80) });
+      }
     }
     if (body.content.length > 1) body.task_type = 'i2v';
   }
@@ -469,6 +476,7 @@ async function callVolcengineOmniVideoApi(config, log, opts) {
     ratio,
     duration: effectiveDuration,
     image_count: urls.length,
+    asset_ref_count: volcOmniAssetRefCount,
     video_gen_id,
     prompt_head: ((prompt || '').trim()).slice(0, 120),
   });
@@ -969,7 +977,9 @@ async function callKlingVideoApi(config, log, opts) {
   let imageInput = null;
   const rawImgUrl = (image_url || '').trim();
   if (rawImgUrl) {
-    if (rawImgUrl.startsWith('data:')) {
+    if (rawImgUrl.startsWith('asset://')) {
+      imageInput = rawImgUrl;
+    } else if (rawImgUrl.startsWith('data:')) {
       imageInput = rawImgUrl;
     } else if (/localhost|127\.0\.0\.1/i.test(rawImgUrl) && storage_local_path) {
       const baseUrl = (files_base_url || '').replace(/\/$/, '');
@@ -1137,6 +1147,7 @@ async function callDashScopeVideoApi(config, log, opts) {
   function toImageInput(value) {
     if (!value || !String(value).trim()) return null;
     const s = String(value).trim();
+    if (s.startsWith('asset://')) return s;
     let relPath = null;
     if (s.startsWith('http://') || s.startsWith('https://')) {
       if (!isLocalhost || !storage_local_path) return s;
@@ -1294,7 +1305,9 @@ async function callGeminiVideoApi(config, log, opts) {
     let imageB64 = null;
     let mimeType = 'image/jpeg';
     const imgUrl = image_url.trim();
-    if (imgUrl.startsWith('data:')) {
+    if (imgUrl.startsWith('asset://')) {
+      log.warn('[Gemini视频] Veo 不支持 asset:// 素材引用，跳过参考图', { video_gen_id });
+    } else if (imgUrl.startsWith('data:')) {
       const m = imgUrl.match(/^data:([\w/]+);base64,(.+)$/);
       if (m) { imageB64 = m[2]; mimeType = m[1]; }
     } else if ((files_base_url || '').match(/localhost|127\.0\.0\.1/i) && storage_local_path) {
@@ -1485,6 +1498,9 @@ async function callViduVideoApi(config, log, opts) {
 async function resolveVeo3ImageForApi(rawImgUrl, storage_local_path, log, video_gen_id) {
   const raw = (rawImgUrl || '').trim();
   if (!raw) return null;
+  if (raw.startsWith('asset://')) {
+    return { kind: 'url', value: raw };
+  }
   const tag = `videoref_${video_gen_id || '0'}`;
   try {
     const host = new URL(raw).hostname.toLowerCase();
@@ -2248,6 +2264,143 @@ async function callXaiVideoApi(config, log, opts) {
   return { error: 'xAI 未返回 request_id 或视频地址: ' + JSON.stringify(data).slice(0, 300) };
 }
 
+/** 支持将角色主图 URL 替换为 seedance2_asset.asset_url（asset://…）的视频协议 */
+const VIDEO_PROTOCOLS_SUPPORT_SD2_ASSET_SCHEME = new Set([
+  'volcengine_omni',
+  'volcengine',
+  'dashscope',
+  'kling_omni',
+  'kling',
+  'xai',
+  'veo3',
+  'vidu',
+  'openai',
+]);
+
+function parseJsonColumnForVideo(val) {
+  if (val == null || val === '') return null;
+  if (typeof val === 'object' && !Array.isArray(val)) return val;
+  if (typeof val !== 'string') return null;
+  try {
+    return JSON.parse(val);
+  } catch (_) {
+    return null;
+  }
+}
+
+/** 与 Seedance2 / 素材库约定一致：image_url.url = asset://asset-… */
+function normalizeMaterialHubAssetUrlForVideo(assetUrlOrId) {
+  const s = String(assetUrlOrId || '').trim();
+  if (!s) return null;
+  if (s.startsWith('asset://')) return s;
+  if (s.startsWith('http://') || s.startsWith('https://')) return s;
+  if (s.startsWith('asset-')) return `asset://${s}`;
+  return `asset://${s.replace(/^\/+/, '')}`;
+}
+
+function sd2CandidateUrlKeysForCharacter(row, filesBaseUrl) {
+  const keys = new Set();
+  const base = (filesBaseUrl || '').toString().trim().replace(/\/$/, '');
+  const pushKey = (u) => {
+    const s = String(u || '').trim();
+    if (!s || s.startsWith('data:')) return;
+    keys.add(s);
+    keys.add(s.split('?')[0]);
+    keys.add(s.replace(/\/+$/, ''));
+    keys.add(s.split('?')[0].replace(/\/+$/, ''));
+  };
+  const img = (row.image_url || '').trim();
+  const lp = (row.local_path || '').trim().replace(/^\/+/, '');
+  if (img) pushKey(img);
+  if (img && img.startsWith('/') && base) pushKey(`${base}${img}`);
+  if (lp && base) pushKey(`${base}/${lp}`);
+  return keys;
+}
+
+function buildSd2ActiveAssetUrlLookup(db, dramaId, filesBaseUrl) {
+  const urlToAsset = new Map();
+  if (!db || !dramaId) return urlToAsset;
+  let rows;
+  try {
+    rows = db
+      .prepare(
+        'SELECT image_url, local_path, seedance2_asset FROM characters WHERE drama_id = ? AND deleted_at IS NULL'
+      )
+      .all(Number(dramaId));
+  } catch (_) {
+    return urlToAsset;
+  }
+  for (const row of rows || []) {
+    const asset = parseJsonColumnForVideo(row.seedance2_asset);
+    if (!asset || String(asset.status || '').toLowerCase() !== 'active') continue;
+    const uri = normalizeMaterialHubAssetUrlForVideo(asset.asset_url || asset.hub_asset_id);
+    if (!uri) continue;
+    for (const k of sd2CandidateUrlKeysForCharacter(row, filesBaseUrl)) {
+      urlToAsset.set(k, uri);
+    }
+  }
+  return urlToAsset;
+}
+
+function rewriteOneImageUrlForSd2(original, lookup) {
+  const s = String(original || '').trim();
+  if (!s || s.startsWith('asset://') || s.startsWith('data:')) return { next: s, changed: false };
+  const tries = [s, s.split('?')[0], s.replace(/\/+$/, ''), s.split('?')[0].replace(/\/+$/, '')];
+  for (const t of tries) {
+    if (lookup.has(t)) return { next: lookup.get(t), changed: true };
+  }
+  return { next: s, changed: false };
+}
+
+function applySeedance2CertifiedAssetUrlsToVideoOpts(db, log, opts) {
+  const out = { ...opts };
+  const lookup = buildSd2ActiveAssetUrlLookup(db, opts.drama_id, opts.files_base_url);
+  if (!lookup.size) {
+    if (log?.info) {
+      log.info('[视频][SD2认证图] 本剧无 active 角色素材或未配置映射，跳过', {
+        video_gen_id: opts.video_gen_id,
+        drama_id: opts.drama_id,
+      });
+    }
+    return out;
+  }
+  const changes = [];
+  const patch = (field, val) => {
+    if (val == null || val === '') return val;
+    const { next, changed } = rewriteOneImageUrlForSd2(val, lookup);
+    if (changed) changes.push({ field, from: String(val).slice(0, 200), to: String(next).slice(0, 160) });
+    return next;
+  };
+  if (opts.image_url != null) out.image_url = patch('image_url', opts.image_url);
+  if (opts.first_frame_url != null) out.first_frame_url = patch('first_frame_url', opts.first_frame_url);
+  if (opts.last_frame_url != null) out.last_frame_url = patch('last_frame_url', opts.last_frame_url);
+  if (Array.isArray(opts.reference_urls)) {
+    out.reference_urls = opts.reference_urls.map((u, i) => {
+      const { next, changed } = rewriteOneImageUrlForSd2(u, lookup);
+      if (changed) changes.push({ field: `reference_urls[${i}]`, from: String(u).slice(0, 200), to: String(next).slice(0, 160) });
+      return next;
+    });
+  }
+  if (changes.length && log?.info) {
+    log.info('[视频][SD2认证图] 已替换为素材库 asset 引用', {
+      video_gen_id: opts.video_gen_id,
+      drama_id: opts.drama_id,
+      lookup_size: lookup.size,
+      repl_count: changes.length,
+      repl_detail: changes,
+    });
+  } else if (log?.info) {
+    log.info('[视频][SD2认证图] 有 active 素材但与请求中 URL 未命中', {
+      video_gen_id: opts.video_gen_id,
+      drama_id: opts.drama_id,
+      lookup_size: lookup.size,
+      ref_count: Array.isArray(opts.reference_urls) ? opts.reference_urls.length : 0,
+      has_image_url: !!(opts.image_url && String(opts.image_url).trim()),
+    });
+  }
+  return out;
+}
+
 /**
  * ?????? API?ChatFire/?? ? ?????
  * @returns {Promise<{ task_id?: string, video_url?: string, error?: string }>}
@@ -2261,6 +2414,16 @@ async function callVideoApi(db, log, opts) {
   const model = getModelFromConfig(config, preferredModel);
   const provider = (config.provider || '').toLowerCase();
   const protocol = resolveVideoProtocol(config, preferredModel);
+
+  if (db && opts.drama_id && VIDEO_PROTOCOLS_SUPPORT_SD2_ASSET_SCHEME.has(protocol)) {
+    opts = applySeedance2CertifiedAssetUrlsToVideoOpts(db, log, opts);
+  } else if (db && opts.drama_id && log?.info) {
+    log.info('[视频][SD2认证图] 当前协议不替换为 asset://（避免与 multipart 等不兼容）', {
+      video_gen_id: opts.video_gen_id,
+      protocol,
+    });
+  }
+
   log.info('[视频] 路由协议', {
     video_gen_id,
     provider,
@@ -2268,6 +2431,17 @@ async function callVideoApi(db, log, opts) {
     protocol_used: protocol,
     model,
     endpoint: config.endpoint || '(auto)',
+  });
+
+  log.info('[视频] 参考图 URL 摘要（脱敏/截断）', {
+    video_gen_id: opts.video_gen_id,
+    drama_id: opts.drama_id || null,
+    image_url_head: opts.image_url ? String(opts.image_url).slice(0, 120) : null,
+    first_frame_head: opts.first_frame_url ? String(opts.first_frame_url).slice(0, 120) : null,
+    last_frame_head: opts.last_frame_url ? String(opts.last_frame_url).slice(0, 120) : null,
+    reference_preview: Array.isArray(opts.reference_urls)
+      ? opts.reference_urls.map((u) => String(u || '').slice(0, 100))
+      : null,
   });
 
   if (protocol === 'jimeng_ai_api') {
@@ -2433,7 +2607,13 @@ async function callVideoApi(db, log, opts) {
 
   // ???? localhost URL????????????? base64?? DashScope ???
   let imageUrlForApi = image_url && image_url.trim();
-  if (hasImage && imageUrlForApi && (opts.files_base_url || '').match(/localhost|127\.0\.0\.1/i) && opts.storage_local_path) {
+  if (
+    hasImage &&
+    imageUrlForApi &&
+    !String(imageUrlForApi).startsWith('asset://') &&
+    (opts.files_base_url || '').match(/localhost|127\.0\.0\.1/i) &&
+    opts.storage_local_path
+  ) {
     const baseUrl = (opts.files_base_url || '').replace(/\/$/, '');
     const afterStatic = imageUrlForApi.split('/static/')[1] || (baseUrl ? imageUrlForApi.replace(baseUrl + '/', '').replace(baseUrl, '') : null);
     const relPath = afterStatic ? afterStatic.replace(/^\//, '') : null;

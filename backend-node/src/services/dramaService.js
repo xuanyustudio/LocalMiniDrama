@@ -13,6 +13,16 @@ function sanitizeImageUrl(url) {
   return url;
 }
 
+function parseJsonColumn(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (_) {
+    return null;
+  }
+}
+
 function createDrama(db, log, req) {
   const now = new Date().toISOString();
   let meta = {};
@@ -395,6 +405,7 @@ function rowToCharacter(r) {
     error_msg: r.error_msg,
     polished_prompt: r.polished_prompt || null,
     four_view_image_url: r.four_view_image_url || null,
+    seedance2_asset: parseJsonColumn(r.seedance2_asset),
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
