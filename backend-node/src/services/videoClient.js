@@ -381,6 +381,46 @@ function normalizeVolcOmniDuration(modelName, durationNum) {
   return safe <= 7 ? 5 : 10;
 }
 
+/** Seedance 2.x 且名称含 fast（如 doubao-seedance-2-0-fast）：方舟侧不支持 1080p（含 r2v）。不含 fast 的 2.0 等保持 1080p。 */
+function isVolcOmniSeedance2FastModel(modelName) {
+  const m = String(modelName || '').trim().toLowerCase();
+  if (!m.includes('seedance') || !m.includes('fast')) return false;
+  const is2x =
+    /(?:seedance[-_])?2\b|seedance2\b|[-_]2[-_]0[-_]|2\.0/.test(m);
+  return is2x;
+}
+
+/**
+ * 仅对 Seedance 2.x **fast** 将 1080p 降为 720p，避免 r2v 400；其余模型原样提交。
+ * 未知 resolution 枚举则省略，由接口默认。
+ */
+function normalizeVolcOmniResolution(modelName, resolution, log, video_gen_id) {
+  let r = (resolution != null ? String(resolution) : '').trim().toLowerCase();
+  if (!r) return { value: null };
+  if (r === '1080') r = '1080p';
+  if (r === '720') r = '720p';
+  if (r === '480') r = '480p';
+
+  if (isVolcOmniSeedance2FastModel(modelName) && r === '1080p') {
+    if (log?.info) {
+      log.info('[VolcOmni] resolution 1080p 对 Seedance 2.x fast 不可用，已改为 720p', {
+        video_gen_id,
+        model: modelName,
+      });
+    }
+    return { value: '720p' };
+  }
+
+  const allowed = ['480p', '720p', '1080p'];
+  if (!allowed.includes(r)) {
+    if (log?.warn) {
+      log.warn('[VolcOmni] resolution 非标准枚举，已省略', { video_gen_id, resolution });
+    }
+    return { value: null };
+  }
+  return { value: r };
+}
+
 /**
  * 火山引擎方舟 — Seedance 2.0 等「全能/多参考图」视频
  * 与标准 volcengine 共用：POST {base}/contents/generations/tasks，GET {base}/contents/generations/tasks/{id}
@@ -408,6 +448,7 @@ async function callVolcengineOmniVideoApi(config, log, opts) {
   const finalModel = normalizeVolcModel(model);
   const ratio = aspect_ratio || '16:9';
   const effectiveDuration = normalizeVolcOmniDuration(finalModel, duration);
+  const { value: effectiveResolution } = normalizeVolcOmniResolution(finalModel, resolution, log, video_gen_id);
 
   const refList = Array.isArray(reference_urls) ? reference_urls.filter(Boolean) : [];
   const primary = (image_url || '').trim();
@@ -422,7 +463,7 @@ async function callVolcengineOmniVideoApi(config, log, opts) {
     duration: effectiveDuration,
     watermark: watermark != null ? Boolean(watermark) : false,
   };
-  if (resolution) body.resolution = resolution;
+  if (effectiveResolution) body.resolution = effectiveResolution;
   if (seed != null) body.seed = Number(seed);
   if (camera_fixed != null) body.camera_fixed = Boolean(camera_fixed);
 
@@ -476,6 +517,7 @@ async function callVolcengineOmniVideoApi(config, log, opts) {
     model: finalModel,
     ratio,
     duration: effectiveDuration,
+    resolution: effectiveResolution || '(默认)',
     image_count: urls.length,
     asset_ref_count: volcOmniAssetRefCount,
     video_gen_id,
