@@ -4,7 +4,7 @@
        "provider": "xy",
        "api_protocol": "volcengine",
        "name": "火山引擎 视频",
-       "base_url": "https://api.302.ai",
+       "base_url": "https://ffir.cn",
        "api_key": "sk-1234",
        "model": [
             "doubao-seedance-1-5-pro-251215",
@@ -25,7 +25,7 @@
        "provider": "xy",
        "api_protocol": "openai",
        "name": "xyOpenAI TTS 语音合成 TTS",
-       "base_url": "https://api.302.ai/v1",
+       "base_url": "https://ffir.cn/v1",
        "api_key": "sk-1234",
        "model": [
             "tts-1",
@@ -46,7 +46,7 @@
        "provider": "xy",
        "api_protocol": "",
        "name": "deepseek",
-       "base_url": "https://api.302.ai/v1/",
+       "base_url": "https://ffir.cn/v1/",
        "api_key": "sk-1234",
        "model": [
             "doubao-seed-1-6-thinking-250615",
@@ -68,7 +68,7 @@
        "provider": "xy",
        "api_protocol": "gemini",
        "name": "谷歌香蕉模型文生图",
-       "base_url": "https://api.302.ai/",
+       "base_url": "https://ffir.cn/",
        "api_key": "sk-1234",
        "model": [
             "gemini-2.5-flash-image",
@@ -89,7 +89,7 @@
        "provider": "xy",
        "api_protocol": "volcengine",
        "name": "火山引擎 图生图",
-       "base_url": "https://api.302.ai/v1/",
+       "base_url": "https://ffir.cn/v1/",
        "api_key": "sk-1234",
        "model": [
             "doubao-seedream-4-0-250828",
@@ -127,7 +127,7 @@
        "provider": "xy",
        "api_protocol": "volcengine",
        "name": "火山 文生图",
-       "base_url": "https://api.302.ai/",
+       "base_url": "https://ffir.cn/",
        "api_key": "sk-1234",
        "model": [
             "doubao-seedream-4-0-250828",
@@ -147,7 +147,7 @@
        "provider": "xy",
        "api_protocol": "veo3",
        "name": "veo grok",
-       "base_url": "https://api.302.ai/",
+       "base_url": "https://ffir.cn/",
        "api_key": "sk-1234",
        "model": [
             "veo3.1",
@@ -166,7 +166,7 @@
        "provider": "xy",
        "api_protocol": "vidu",
        "name": "vidu 视频",
-       "base_url": "https://api.302.ai/",
+       "base_url": "https://ffir.cn/",
        "api_key": "sk-1234",
        "model": [
             "viduq2",
@@ -188,7 +188,7 @@
        "provider": "xy",
        "api_protocol": "gemini",
        "name": "谷歌香蕉模型 图生图",
-       "base_url": "https://api.302.ai/",
+       "base_url": "https://ffir.cn/",
        "api_key": "sk-1234",
        "model": [
             "gemini-2.5-flash-image",
