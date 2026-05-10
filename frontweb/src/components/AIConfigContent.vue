@@ -785,6 +785,36 @@ input_reference = (图片文件，可选)</pre>
           </el-select>
           <p class="field-tip">该配置被选为「默认」时，生成故事/图片/视频将使用此处指定的模型。</p>
         </el-form-item>
+        <el-form-item v-if="isDeepSeekOfficialForm">
+          <template #label>
+            <span class="form-label-tip">思考模式
+              <el-tooltip placement="top" popper-class="cfg-tip-popper">
+                <template #content>
+                  <div class="cfg-tip-content">
+                    DeepSeek V4 官方模型用 thinking 参数控制思考模式。<br>
+                    关闭思考对应旧 deepseek-chat；开启思考对应旧 deepseek-reasoner。
+                  </div>
+                </template>
+                <el-icon class="tip-icon"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
+          <div class="deepseek-settings">
+            <el-radio-group v-model="form.deepseek_thinking">
+              <el-radio-button label="disabled">关闭思考</el-radio-button>
+              <el-radio-button label="enabled">开启思考</el-radio-button>
+            </el-radio-group>
+            <el-select
+              v-if="form.deepseek_thinking === 'enabled'"
+              v-model="form.deepseek_reasoning_effort"
+              style="width: 140px"
+            >
+              <el-option label="high" value="high" />
+              <el-option label="max" value="max" />
+            </el-select>
+          </div>
+          <p class="field-tip">官方旧模型名将在 2026-07-24 废弃；新配置建议使用 deepseek-v4-flash 或 deepseek-v4-pro。</p>
+        </el-form-item>
         </template>
         <el-form-item>
           <template #label>
@@ -1098,6 +1128,8 @@ const form = ref({
   query_endpoint: '',
   modelText: '',
   default_model: '',
+  deepseek_thinking: 'disabled',
+  deepseek_reasoning_effort: 'high',
   priority: 0,
   is_default: false,
   // 可灵 Omni 官方 AK/SK（存 settings，后端生成 JWT）
@@ -1210,7 +1242,7 @@ const providerConfigs = {
     { id: 'volcengine', name: '火山引擎', models: ['deepseek-v3-2-251201', 'doubao-1-5-pro-32k-250115', 'kimi-k2-thinking-251104'] },
     // { id: 'chatfire', name: 'Chatfire', models: ['gemini-3-flash-preview', 'claude-sonnet-4-5-20250929', 'doubao-seed-1-8-251228'] },
     { id: 'gemini', name: 'Google Gemini', models: ['gemini-2.5-pro', 'gemini-3-flash-preview'] },
-    { id: 'deepseek', name: 'DeepSeek', models: ['deepseek-chat', 'deepseek-reasoner'] },
+    { id: 'deepseek', name: 'DeepSeek', models: ['deepseek-v4-flash', 'deepseek-v4-pro'] },
     { id: 'qwen', name: '通义千问', models: ['qwen3-max', 'qwen-plus', 'qwen-flash'] }
   ],
   image: [
@@ -1316,6 +1348,42 @@ function getBaseUrlForProvider(provider) {
 }
 
 const CUSTOM_PROVIDER_SENTINEL = '__custom__'
+
+function parseSettings(settings) {
+  if (!settings) return {}
+  if (typeof settings === 'object') return settings
+  try {
+    const parsed = JSON.parse(settings)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch (_) {
+    return {}
+  }
+}
+
+function isDeepSeekOfficial(provider, baseUrl) {
+  const p = String(provider || '').trim().toLowerCase()
+  const base = String(baseUrl || '').trim().toLowerCase()
+  return p === 'deepseek' || base.includes('api.deepseek.com')
+}
+
+function resolveDeepSeekFormSettings(row) {
+  const s = parseSettings(row?.settings)
+  const nested = s.deepseek && typeof s.deepseek === 'object' ? s.deepseek : {}
+  let thinking = s.deepseek_thinking || s.thinking || nested.thinking || nested.type || ''
+  const model = String(row?.default_model || '').toLowerCase()
+  if (!thinking && model === 'deepseek-chat') thinking = 'disabled'
+  if (!thinking && model === 'deepseek-reasoner') thinking = 'enabled'
+  if (thinking !== 'enabled' && thinking !== 'disabled') thinking = 'disabled'
+
+  let effort = s.deepseek_reasoning_effort || s.reasoning_effort || nested.reasoning_effort || nested.effort || 'high'
+  effort = String(effort).toLowerCase() === 'max' ? 'max' : 'high'
+  return { thinking, effort }
+}
+
+const isDeepSeekOfficialForm = computed(() => (
+  form.value.service_type === 'text'
+  && isDeepSeekOfficial(form.value.provider, form.value.base_url)
+))
 
 /** 当前服务类型下的预设厂商列表（编辑时若当前 provider 不在列表则补一项；末尾始终附一项自定义入口） */
 const availableProviderOptions = computed(() => {
@@ -1495,6 +1563,10 @@ function onProviderChange(providerId) {
   form.value.base_url = getBaseUrlForProvider(providerId)
   form.value.modelText = (p.models || []).join('\n')
   form.value.default_model = (p.models && p.models[0]) || ''
+  if (providerId === 'deepseek') {
+    form.value.deepseek_thinking = 'disabled'
+    form.value.deepseek_reasoning_effort = 'high'
+  }
   // 自动填充接口规范
   form.value.api_protocol = providerProtocolMap[providerId] || (st === 'text' ? '' : 'openai')
   if (st === 'video' && providerId === 'jimeng_ai_api') {
@@ -1577,6 +1649,8 @@ function resetForm() {
     query_endpoint: '',
     modelText: '',
     default_model: '',
+    deepseek_thinking: 'disabled',
+    deepseek_reasoning_effort: 'high',
     priority: 0,
     is_default: true,  // 新增时默认勾选「设为默认」，便于理解当前会使用哪条配置
     voice_id: '',
@@ -1604,6 +1678,7 @@ function openEdit(row) {
   let kling_access_key = ''
   let kling_secret_key = ''
   let kling_secret_key_base64 = false
+  const deepseekSettings = resolveDeepSeekFormSettings(row)
   if (row.settings) {
     try {
       const s = JSON.parse(row.settings)
@@ -1629,6 +1704,8 @@ function openEdit(row) {
     query_endpoint: row.query_endpoint || '',
     modelText: modelList.join('\n'),
     default_model: defaultInList ? row.default_model : (modelList[0] || ''),
+    deepseek_thinking: deepseekSettings.thinking,
+    deepseek_reasoning_effort: deepseekSettings.effort,
     priority: row.priority ?? 0,
     is_default: !!row.is_default,
     voice_id,
@@ -1651,7 +1728,7 @@ async function submit() {
     const defaultModel = form.value.default_model && modelList.includes(form.value.default_model)
       ? form.value.default_model
       : modelList[0] || null
-    // TTS / 可灵 Omni 官方 AKSK 打包进 settings
+    // TTS / 可灵 Omni 官方 AKSK / DeepSeek V4 参数打包进 settings
     let settings = undefined
     if (form.value.service_type === 'tts') {
       const s = {}
@@ -1674,6 +1751,16 @@ async function submit() {
       else delete baseS.kling_secret_key
       if (form.value.kling_secret_key_base64) baseS.kling_secret_key_base64 = true
       else delete baseS.kling_secret_key_base64
+      settings = Object.keys(baseS).length ? JSON.stringify(baseS) : null
+    } else if (isDeepSeekOfficialForm.value) {
+      const prev = editingId.value ? list.value.find((r) => r.id === editingId.value) : null
+      const baseS = parseSettings(prev?.settings)
+      baseS.deepseek_thinking = form.value.deepseek_thinking === 'enabled' ? 'enabled' : 'disabled'
+      if (baseS.deepseek_thinking === 'enabled') {
+        baseS.deepseek_reasoning_effort = form.value.deepseek_reasoning_effort === 'max' ? 'max' : 'high'
+      } else {
+        delete baseS.deepseek_reasoning_effort
+      }
       settings = Object.keys(baseS).length ? JSON.stringify(baseS) : null
     }
     const payload = {
@@ -1792,7 +1879,8 @@ async function openTest(row) {
       model: Array.isArray(row.model) ? row.model[0] : row.model,
       provider: row.provider,
       endpoint: row.endpoint,
-      service_type: row.service_type
+      service_type: row.service_type,
+      settings: row.settings
     })
     testResult.value = true
   } catch (e) {
@@ -1953,7 +2041,8 @@ async function importConfigs(event) {
           model: models,
           default_model: cfg.default_model || null,
           priority: cfg.priority ?? 0,
-          is_default: !!cfg.is_default
+          is_default: !!cfg.is_default,
+          settings: cfg.settings || null
         })
         success++
       } catch (_) {
@@ -2192,6 +2281,12 @@ code {
   margin-bottom: 16px;
 }
 .model-row { margin-bottom: 4px; }
+.deepseek-settings {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .field-tip {
   margin: 6px 0 0;
   font-size: 12px;

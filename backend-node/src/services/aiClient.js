@@ -1,5 +1,6 @@
 // 与 Go pkg/ai + application/services/ai_service 对齐：读取 ai_service_configs，调用 OpenAI 兼容的 chat completions
 const aiConfigService = require('./aiConfigService');
+const { applyDeepSeekChatOptions } = require('./deepseekConfig');
 const https = require('https');
 const http = require('http');
 
@@ -323,7 +324,7 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
     }
   }
 
-  const body = {
+  let body = {
     model,
     messages: [
       ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
@@ -333,6 +334,7 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
     ...(finalMaxTokens != null ? { max_tokens: finalMaxTokens } : {}),
     ...(json_mode ? { response_format: { type: 'json_object' } } : {}),
   };
+  body = applyDeepSeekChatOptions(config, body);
   const startMs = Date.now();
   log.info('AI generateText request', { url: url.slice(0, 60), model, max_tokens: finalMaxTokens ?? '(model default)', json_mode, stream: true });
   const res = await postJSONStream(url, { Authorization: 'Bearer ' + (config.api_key || '') }, body, 60000, (receivedLen, event, accumulated) => {
@@ -418,7 +420,7 @@ async function streamGenerateText(db, log, serviceType, userPrompt, systemPrompt
     }
   }
 
-  const body = {
+  let body = {
     model,
     messages: [
       ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
@@ -428,6 +430,7 @@ async function streamGenerateText(db, log, serviceType, userPrompt, systemPrompt
     ...(finalMaxTokens != null ? { max_tokens: finalMaxTokens } : {}),
     ...(json_mode ? { response_format: { type: 'json_object' } } : {}),
   };
+  body = applyDeepSeekChatOptions(config, body);
   const silenceMs = options.silence_timeout_ms != null ? Number(options.silence_timeout_ms) : 120000;
   const startMs = Date.now();
   log.info('AI streamGenerateText request', {

@@ -117,6 +117,7 @@ function testConnection(log) {
         provider: body.provider,
         endpoint: body.endpoint,
         service_type: body.service_type,
+        settings: body.settings,
       });
       response.success(res, { message: '连接测试成功' });
     } catch (err) {

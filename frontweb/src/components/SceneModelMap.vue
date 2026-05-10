@@ -161,6 +161,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { sceneModelMapAPI } from '@/api/sceneModelMap'
 import { aiAPI } from '@/api/ai'
+import { getSelectableModels } from '@/utils/modelSelection'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -224,16 +225,7 @@ const filteredConfigs = computed(() => {
 
 // 获取选中配置的可用模型列表
 const selectedConfigModels = computed(() => {
-  if (!form.value.config_id) return []
-  const config = configs.value.find(c => c.id === form.value.config_id)
-  if (!config) return []
-  // 模型可能是数组或逗号/换行分隔的字符串
-  const models = config.model
-  if (Array.isArray(models)) return models
-  if (typeof models === 'string') {
-    return models.split(/[\n,，]/).map(s => s.trim()).filter(Boolean)
-  }
-  return config.default_model ? [config.default_model] : []
+  return getSelectableModels(configs.value, form.value.service_type, form.value.config_id)
 })
 
 function serviceTypeLabel(type) {

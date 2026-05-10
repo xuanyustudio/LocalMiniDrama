@@ -1,6 +1,7 @@
 // AI 配置 CRUD，与 Go application/services/ai_service.go 对齐
 const fs = require('fs');
 const path = require('path');
+const { applyDeepSeekConnectivityOptions } = require('./deepseekConfig');
 function modelToDb(model) {
   if (model == null) return null;
   if (Array.isArray(model)) return JSON.stringify(model);
@@ -228,7 +229,7 @@ function rowToConfig(r) {
 
 /**
  * 测试连接：与 Go AIService.TestConnection 对齐，根据 provider 发最小请求验证 base_url + api_key
- * @param opts { base_url, api_key, model (string|string[]), provider?, endpoint? }
+ * @param opts { base_url, api_key, model (string|string[]), provider?, endpoint?, settings? }
  * @returns Promise<void> 成功 resolve，失败 reject(error)
  */
 async function testConnection(opts) {
@@ -413,11 +414,15 @@ async function testConnection(opts) {
   endpoint = endpoint || '/chat/completions';
   const path = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
   const url = base + path;
-  const body = {
+  let body = {
     model: model || 'gpt-3.5-turbo',
     messages: [{ role: 'user', content: 'Hello' }],
     max_tokens: 5,
   };
+  body = applyDeepSeekConnectivityOptions(
+    { provider, base_url: base, settings: opts.settings },
+    body
+  );
   console.log('[testConnection] 文本/chat 服务', { url, serviceType, model });
   const res = await fetch(url, {
     method: 'POST',
