@@ -17,7 +17,7 @@ start "Backend" cmd /k "cd /d %ROOT%backend-node && npm run dev"
 echo [2/2] Starting frontend (frontweb)...
 start "Frontend" cmd /k "cd /d %ROOT%frontweb && npm run dev"
 
-echo Done. Backend: http://localhost:3013  Frontend: http://localhost:5173
+echo Done. Backend: http://127.0.0.1:3013  Frontend: http://127.0.0.1:5173
 
 timeout /t 3 /nobreak >nul
-start http://localhost:3013
+start http://127.0.0.1:3013
