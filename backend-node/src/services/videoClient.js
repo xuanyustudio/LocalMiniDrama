@@ -2965,9 +2965,10 @@ async function callVideoApi(db, log, opts) {
 }
 
 /**
- * ??????????????????/ChatFire ? ???? DashScope?
+ * 轮询异步视频任务（即梦 / ChatFire / 方舟 / DashScope 等）。
+ * 默认约 30 分钟（每 10 秒一轮）；可由调用方传入 maxAttempts、intervalMs 覆盖。
  */
-async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 300, intervalMs = 10000) {
+async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 180, intervalMs = 10000) {
   const provider = (config.provider || '').toLowerCase();
   const protocol = resolveVideoProtocol(config);
   const isDashScope = protocol === 'dashscope';
@@ -3273,7 +3274,7 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
       log.warn('Video poll request failed', { attempt, error: e.message });
     }
   }
-  return { error: '??????' };
+  return { error: '视频生成轮询超时' };
 }
 
 module.exports = {

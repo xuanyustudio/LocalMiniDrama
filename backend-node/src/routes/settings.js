@@ -1,5 +1,7 @@
 const settingsService = require('../services/settingsService');
 const response = require('../response');
+const { loadConfig } = require('../config');
+const { resolveVideoGenerationTimeoutMinutes } = require('../config/videoGeneration');
 
 function getLanguage(cfg) {
   return (req, res) => {
@@ -26,7 +28,8 @@ function getGenerationSettings(db) {
   return (req, res) => {
     const concurrency = settingsService.getGlobalSetting(db, 'pipeline_concurrency', 3);
     const video_concurrency = settingsService.getGlobalSetting(db, 'pipeline_video_concurrency', 3);
-    response.success(res, { concurrency, video_concurrency });
+    const video_generation_timeout_minutes = resolveVideoGenerationTimeoutMinutes(loadConfig());
+    response.success(res, { concurrency, video_concurrency, video_generation_timeout_minutes });
   };
 }
 
@@ -50,7 +53,12 @@ function updateGenerationSettings(db) {
     }
     const saved = settingsService.getGlobalSetting(db, 'pipeline_concurrency', 3);
     const saved_video = settingsService.getGlobalSetting(db, 'pipeline_video_concurrency', 3);
-    response.success(res, { concurrency: saved, video_concurrency: saved_video });
+    const video_generation_timeout_minutes = resolveVideoGenerationTimeoutMinutes(loadConfig());
+    response.success(res, {
+      concurrency: saved,
+      video_concurrency: saved_video,
+      video_generation_timeout_minutes,
+    });
   };
 }
 

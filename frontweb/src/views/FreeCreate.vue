@@ -145,12 +145,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Picture, MagicStick, Loading, CircleClose } from '@element-plus/icons-vue'
 import { imagesAPI } from '@/api/images'
 import { videosAPI } from '@/api/videos'
 import { uploadAPI } from '@/api/upload'
+import { generationSettingsAPI } from '@/api/prompts'
 
 const mode = ref('image')
 const prompt = ref('')
@@ -163,8 +164,16 @@ const previewUrl = ref(null)
 const refImageDataUrl = ref(null)
 const refImageLocalPath = ref(null)
 const refImageInput = ref(null)
+/** 与后端视频异步超时一致（分钟 → 毫秒） */
+const videoPollMaxMs = ref(30 * 60 * 1000)
 
-function triggerRefImageUpload() {
+onMounted(async () => {
+  try {
+    const res = await generationSettingsAPI.get()
+    const m = Math.max(1, Number(res?.video_generation_timeout_minutes) || 30)
+    videoPollMaxMs.value = m * 60 * 1000
+  } catch (_) {}
+})
   refImageInput.value?.click()
 }
 
@@ -286,13 +295,14 @@ async function pollImageTask(taskId, item, maxMs = 180000) {
   item.error = '超时'
 }
 
-async function pollVideoTask(taskId, item, maxMs = 300000) {
+async function pollVideoTask(taskId, item) {
+  const maxMs = videoPollMaxMs.value
   const start = Date.now()
-      const { taskAPI } = await import('@/api/task')
-      while (Date.now() - start < maxMs) {
-        await new Promise((r) => setTimeout(r, 4000))
-        try {
-          const res = await taskAPI.get(taskId)
+  const { taskAPI } = await import('@/api/task')
+  while (Date.now() - start < maxMs) {
+    await new Promise((r) => setTimeout(r, 4000))
+    try {
+      const res = await taskAPI.get(taskId)
       if (res?.status === 'completed' && res?.result) {
         const r = res.result
         const vgId = r.video_generation_id

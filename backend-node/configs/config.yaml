@@ -20,6 +20,9 @@ storage:
   type: local
   local_path: ./data/storage
   base_url: http://localhost:5679/static
+# 异步视频任务轮询总超时（分钟）；省略或 ≤0 时默认 30
+video:
+  generation_timeout_minutes: 30
 ai:
   default_text_provider: openai
   default_image_provider: openai

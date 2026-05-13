@@ -317,7 +317,22 @@ async function processVideoGeneration(db, log, videoGenId) {
         now2,
         videoGenId
       );
-      const pollResult = await videoClient.pollVideoTask(db, log, videoGenId, result.task_id, config);
+      const POLL_INTERVAL_MS = 10000;
+      const { resolveVideoGenerationTimeoutMinutes } = require('../config/videoGeneration');
+      const generationTimeoutMinutes = resolveVideoGenerationTimeoutMinutes(cfg);
+      const pollMaxAttempts = Math.max(
+        1,
+        Math.ceil((generationTimeoutMinutes * 60 * 1000) / POLL_INTERVAL_MS)
+      );
+      const pollResult = await videoClient.pollVideoTask(
+        db,
+        log,
+        videoGenId,
+        result.task_id,
+        config,
+        pollMaxAttempts,
+        POLL_INTERVAL_MS
+      );
       const now3 = new Date().toISOString();
       if (pollResult.video_url) {
         let localPath = null;

@@ -2368,6 +2368,8 @@ const pipelineCountdown = ref(0)      // 剩余秒数，0 表示不在倒计时
 const pipelineCountdownMsg = ref('')  // 倒计时说明文字
 const pipelineConcurrency = ref(3)
 const pipelineVideoConcurrency = ref(3)
+/** 与后端 config video.generation_timeout_minutes 一致，用于视频类任务轮询 */
+const videoTaskPollTimeoutMinutes = ref(30)
 const pipelineActiveTasks = reactive(new Set())
 
 async function loadPipelineConcurrency() {
@@ -2375,6 +2377,7 @@ async function loadPipelineConcurrency() {
     const res = await generationSettingsAPI.get()
     pipelineConcurrency.value = Math.max(1, Number(res?.concurrency) || 3)
     pipelineVideoConcurrency.value = Math.max(1, Number(res?.video_concurrency) || 3)
+    videoTaskPollTimeoutMinutes.value = Math.max(1, Number(res?.video_generation_timeout_minutes) || 30)
   } catch (_) {}
 }
 
@@ -5029,7 +5032,9 @@ async function onGenerateSbVideo(sb) {
       duration: videoClipDuration.value || undefined,
     })
     if (res?.task_id) {
-      const pollRes = await pollTask(res.task_id, () => loadSingleStoryboardMedia(sb.id))
+      const pollRes = await pollTask(res.task_id, () => loadSingleStoryboardMedia(sb.id), {
+        timeoutMinutes: videoTaskPollTimeoutMinutes.value,
+      })
       if (pollRes?.status === 'failed') {
         sbVideoErrors.value[sb.id] = pollRes.error || '视频生成失败'
       } else if (pollRes?.status === 'completed') {
@@ -5316,7 +5321,9 @@ async function startBatchVideoGeneration() {
             duration: videoClipDuration.value || undefined,
           })
           if (res?.task_id) {
-            const pollRes = await pollTask(res.task_id, () => loadSingleStoryboardMedia(sb.id))
+            const pollRes = await pollTask(res.task_id, () => loadSingleStoryboardMedia(sb.id), {
+              timeoutMinutes: videoTaskPollTimeoutMinutes.value,
+            })
             if (pollRes?.status === 'failed') {
               batchVideoErrors.value.push(`#${sb.storyboard_number ?? sb.id}: ${pollRes.error || '生成失败'}`)
               batchVideoProgress.value = { ...batchVideoProgress.value, failed: batchVideoProgress.value.failed + 1 }
@@ -5372,7 +5379,9 @@ async function onGenerateVideo() {
     if (result?.task_id != null) {
       store.setVideoProgress(10)
       ElMessage.success(result?.message || '视频合成任务已提交，请稍后查看')
-      const pollResult = await pollTask(result.task_id, () => loadDrama())
+      const pollResult = await pollTask(result.task_id, () => loadDrama(), {
+        timeoutMinutes: videoTaskPollTimeoutMinutes.value,
+      })
       await loadDrama()
       if (pollResult?.status === 'completed') {
         store.setVideoProgress(100)
@@ -5413,9 +5422,16 @@ async function pollUntilResourceHasImage(checker, maxAttempts = 20, intervalMs =
   }
 }
 
-function pollTask(taskId, onDone) {
-  const maxAttempts = 450  // 450 × 2s = 15 分钟，足够复杂剧本生成
-  const interval = 2000
+/** 轮询异步任务。opts.timeoutMinutes：视频类任务传 videoTaskPollTimeoutMinutes，缺省 15 分钟（分镜/图片等） */
+const DEFAULT_TASK_POLL_MINUTES = 15
+
+function pollTask(taskId, onDone, opts = {}) {
+  const interval = opts.intervalMs ?? 2000
+  const timeoutMinutes =
+    opts.timeoutMinutes != null && Number.isFinite(opts.timeoutMinutes) && opts.timeoutMinutes > 0
+      ? opts.timeoutMinutes
+      : DEFAULT_TASK_POLL_MINUTES
+  const maxAttempts = Math.max(1, Math.ceil((timeoutMinutes * 60 * 1000) / interval))
   let attempts = 0
   return new Promise((resolve) => {
     const tick = async () => {
@@ -5437,7 +5453,7 @@ function pollTask(taskId, onDone) {
       }
       if (attempts < maxAttempts) setTimeout(tick, interval)
       else {
-        const timeoutMsg = '分镜生成任务已超时（超过15分钟），请刷新页面查看是否已完成'
+        const timeoutMsg = `任务已超时（超过 ${timeoutMinutes} 分钟），请刷新页面查看是否已完成`
         ElMessage.warning(timeoutMsg)
         resolve({ status: 'timeout', error: timeoutMsg })
       }
@@ -5447,9 +5463,13 @@ function pollTask(taskId, onDone) {
 }
 
 /** 一键生成视频：暂停时等待，返回 { paused: true } 表示被暂停中断 */
-function pollTaskWithPause(taskId, onDone) {
-  const maxAttempts = 450  // 450 × 2s = 15 分钟
-  const interval = 2000
+function pollTaskWithPause(taskId, onDone, opts = {}) {
+  const interval = opts.intervalMs ?? 2000
+  const timeoutMinutes =
+    opts.timeoutMinutes != null && Number.isFinite(opts.timeoutMinutes) && opts.timeoutMinutes > 0
+      ? opts.timeoutMinutes
+      : DEFAULT_TASK_POLL_MINUTES
+  const maxAttempts = Math.max(1, Math.ceil((timeoutMinutes * 60 * 1000) / interval))
   let attempts = 0
   return new Promise((resolve) => {
     const tick = async () => {
@@ -5474,7 +5494,7 @@ function pollTaskWithPause(taskId, onDone) {
       }
       if (attempts < maxAttempts) setTimeout(tick, interval)
       else {
-        resolve({ error: '任务查询超时（超过15分钟）' })
+        resolve({ error: `任务查询超时（超过 ${timeoutMinutes} 分钟）` })
       }
     }
     setTimeout(tick, interval)
@@ -5954,7 +5974,9 @@ async function runOneClickPipeline(textOnly = false) {
               duration: videoClipDuration.value || undefined,
             })
             if (res?.task_id) {
-              const result = await pollTaskWithPause(res.task_id, () => loadSingleStoryboardMedia(sb.id))
+              const result = await pollTaskWithPause(res.task_id, () => loadSingleStoryboardMedia(sb.id), {
+                timeoutMinutes: videoTaskPollTimeoutMinutes.value,
+              })
               if (result?.paused) return { paused: true }
               if (result?.error) throw new Error(result.error)
             } else await loadSingleStoryboardMedia(sb.id)
@@ -5973,7 +5995,9 @@ async function runOneClickPipeline(textOnly = false) {
     try {
       const result = await dramaAPI.finalizeEpisode(episodeId, getFinalizeMergeOptions())
       if (result?.task_id != null) {
-        const pollResult = await pollTaskWithPause(result.task_id, () => loadDrama())
+        const pollResult = await pollTaskWithPause(result.task_id, () => loadDrama(), {
+          timeoutMinutes: videoTaskPollTimeoutMinutes.value,
+        })
         if (pollResult?.paused) { await waitForResume(); return }
         if (pollResult?.error) addPipelineError('合成整集视频', pollResult.error)
         else await pipelineRest()
@@ -6270,7 +6294,9 @@ async function runRepairPipeline() {
             duration: videoClipDuration.value || undefined,
           })
           if (res?.task_id) {
-            const result = await pollTaskWithPause(res.task_id, () => loadSingleStoryboardMedia(sb.id))
+            const result = await pollTaskWithPause(res.task_id, () => loadSingleStoryboardMedia(sb.id), {
+              timeoutMinutes: videoTaskPollTimeoutMinutes.value,
+            })
             if (result?.paused) return { paused: true }
             if (result?.error) throw new Error(result.error)
           } else await loadSingleStoryboardMedia(sb.id)
@@ -6286,7 +6312,9 @@ async function runRepairPipeline() {
     try {
       const result = await dramaAPI.finalizeEpisode(episodeId, getFinalizeMergeOptions())
       if (result?.task_id != null) {
-        const pollResult = await pollTaskWithPause(result.task_id, () => loadDrama())
+        const pollResult = await pollTaskWithPause(result.task_id, () => loadDrama(), {
+          timeoutMinutes: videoTaskPollTimeoutMinutes.value,
+        })
         if (pollResult?.paused) { await waitForResume(); return }
         if (pollResult?.error) addPipelineError('生成整集视频', pollResult.error)
         else await pipelineRest()
