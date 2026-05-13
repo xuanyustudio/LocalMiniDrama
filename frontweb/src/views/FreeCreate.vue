@@ -174,6 +174,8 @@ onMounted(async () => {
     videoPollMaxMs.value = m * 60 * 1000
   } catch (_) {}
 })
+
+function triggerRefImageUpload() {
   refImageInput.value?.click()
 }
 

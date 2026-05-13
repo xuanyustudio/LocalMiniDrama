@@ -1,6 +1,18 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
+            <script>
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?8988d3d1107443988d053a62481e73cf";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>本地短剧助手 - AI 驱动的短剧创作工具</title>
@@ -243,6 +255,8 @@
                     当前版本: v1.2.6 · 开源免费 · 持续更新
                     <span class="mx-2 opacity-50">·</span>
                     <a href="#ai-relay" class="text-primary-100 hover:text-white underline underline-offset-2">各大平台中转示例配置</a>
+                    <span class="mx-2 opacity-50">·</span>
+                    <a href="https://ffir.cn" target="_blank" rel="noopener noreferrer" class="text-primary-50 hover:text-white underline underline-offset-2 text-base font-semibold">我一直在用的推荐中转站</a>
                 </p>
             </div>
             
@@ -261,7 +275,7 @@
                             </div>
                         </div>
                         <!-- Mockup Content -->
-                        <div class="bg-gradient-to-br from-primary-50 to-primary-100 p-8 min-h-[300px]">
+                        <div class="bg-gradient-to-br from-primary-50 to-primary-100 p-8">
                             <!-- 功能介绍 -->
                             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                                 <div class="text-center">
@@ -293,6 +307,23 @@
                                         <i data-lucide="video" class="w-6 h-6 text-white"></i>
                                     </div>
                                     <p class="text-sm font-medium text-primary-700">视频合成</p>
+                                </div>
+                            </div>
+                            <!-- 视频教程（B 站嵌入） -->
+                            <div class="mt-8 max-w-4xl mx-auto">
+                                <p class="text-center text-sm font-semibold text-primary-800 mb-3">视频教程</p>
+                                <div class="rounded-xl overflow-hidden shadow-md ring-1 ring-primary-200/60 bg-white">
+                                    <iframe
+                                        src="https://player.bilibili.com/player.html?bvid=BV1fsRXBEEHy&page=1"
+                                        class="w-full block border-0"
+                                        width="100%"
+                                        height="500"
+                                        scrolling="no"
+                                        frameborder="0"
+                                        allowfullscreen="true"
+                                        title="LocalMiniDrama 视频教程"
+                                        loading="lazy"
+                                        referrerpolicy="no-referrer-when-downgrade"></iframe>
                                 </div>
                             </div>
                         </div>
@@ -691,5 +722,7 @@
             });
         });
     </script>
+
+
 </body>
 </html>
