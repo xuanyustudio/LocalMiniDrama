@@ -406,6 +406,7 @@ function ensureAllColumns(database) {
     { name: 'appearance',        type: 'TEXT' },
     { name: 'tags',              type: 'TEXT' },
     { name: 'source_type',       type: 'TEXT' },
+    { name: 'source_id',         type: 'TEXT' },
     { name: 'identity_anchors',  type: 'TEXT' },   // JSON: 6层视觉锚点（骨相/五官/辨识标记/色值/皮肤/发型）
     { name: 'style_tokens',      type: 'TEXT' },   // 风格词 token 列表
     { name: 'color_palette',     type: 'TEXT' },   // JSON: Hex 色值数组
@@ -427,6 +428,7 @@ function ensureAllColumns(database) {
     { name: 'category',    type: 'TEXT' },
     { name: 'tags',        type: 'TEXT' },
     { name: 'source_type', type: 'TEXT' },
+    { name: 'source_id',   type: 'TEXT' },
     { name: 'created_at',  type: 'TEXT' },
     { name: 'updated_at',  type: 'TEXT' },
     { name: 'deleted_at',  type: 'TEXT' },
@@ -443,6 +445,7 @@ function ensureAllColumns(database) {
     { name: 'category',    type: 'TEXT' },
     { name: 'tags',        type: 'TEXT' },
     { name: 'source_type', type: 'TEXT' },
+    { name: 'source_id',   type: 'TEXT' },
     { name: 'created_at',  type: 'TEXT' },
     { name: 'updated_at',  type: 'TEXT' },
     { name: 'deleted_at',  type: 'TEXT' },

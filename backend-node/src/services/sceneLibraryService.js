@@ -1,5 +1,11 @@
-// 场景库：仿 characterLibraryService
 const sceneService = require('./sceneService');
+const {
+  appendSourceIdFilters,
+  findExistingLibraryItem,
+  insertLibraryItem,
+  normalizeSourceId,
+  updateLibraryItem: updateExistingLibraryItem,
+} = require('./libraryDedup');
 
 function rowToItem(r) {
   return {
@@ -14,6 +20,7 @@ function rowToItem(r) {
     category: r.category,
     tags: r.tags,
     source_type: r.source_type || 'generated',
+    source_id: r.source_id || null,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };
@@ -36,6 +43,7 @@ function listLibraryItems(db, query) {
     sql += ' AND source_type = ?';
     params.push(query.source_type);
   }
+  sql = appendSourceIdFilters(query, sql, params);
   if (query.keyword) {
     sql += ' AND (location LIKE ? OR description LIKE ? OR prompt LIKE ?)';
     const k = '%' + query.keyword + '%';
@@ -53,23 +61,21 @@ function listLibraryItems(db, query) {
 function createLibraryItem(db, log, req) {
   const now = new Date().toISOString();
   const sourceType = req.source_type || 'generated';
-  const info = db.prepare(
-    `INSERT INTO scene_libraries (drama_id, location, time, prompt, description, image_url, local_path, category, tags, source_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    req.drama_id ?? null,
-    req.location || '',
-    req.time ?? null,
-    req.prompt ?? null,
-    req.description ?? null,
-    req.image_url || '',
-    req.local_path ?? null,
-    req.category ?? null,
-    req.tags ?? null,
-    sourceType,
-    now,
-    now
-  );
+  const info = insertLibraryItem(db, 'scene_libraries', {
+    drama_id: req.drama_id ?? null,
+    location: req.location || '',
+    time: req.time ?? null,
+    prompt: req.prompt ?? null,
+    description: req.description ?? null,
+    image_url: req.image_url || '',
+    local_path: req.local_path ?? null,
+    category: req.category ?? null,
+    tags: req.tags ?? null,
+    source_type: sourceType,
+    source_id: normalizeSourceId(req.source_id) || null,
+    created_at: now,
+    updated_at: now,
+  });
   log.info('Scene library item created', { item_id: info.lastInsertRowid });
   return getLibraryItem(db, String(info.lastInsertRowid));
 }
@@ -93,6 +99,7 @@ function updateLibraryItem(db, log, id, req) {
   if (req.category != null) { updates.push('category = ?'); params.push(req.category); }
   if (req.tags != null) { updates.push('tags = ?'); params.push(req.tags); }
   if (req.source_type != null) { updates.push('source_type = ?'); params.push(req.source_type); }
+  if (req.source_id != null) { updates.push('source_id = ?'); params.push(normalizeSourceId(req.source_id)); }
   if (updates.length === 0) return getLibraryItem(db, id);
   params.push(new Date().toISOString(), Number(id));
   db.prepare('UPDATE scene_libraries SET ' + updates.join(', ') + ', updated_at = ? WHERE id = ?').run(...params);
@@ -114,7 +121,21 @@ function resolveImageUrl(image_url, local_path) {
   return image_url || null;
 }
 
-// 加入本剧资源库（带 drama_id）
+function sceneLibraryFields(scene, dramaId, imageUrl, now) {
+  return {
+    drama_id: dramaId,
+    location: scene.location || '',
+    time: scene.time || null,
+    prompt: scene.prompt || null,
+    description: scene.prompt || null,
+    image_url: imageUrl,
+    local_path: scene.local_path || null,
+    source_type: 'scene',
+    source_id: normalizeSourceId(scene.id),
+    updated_at: now,
+  };
+}
+
 function addSceneToLibrary(db, log, sceneId) {
   const scene = sceneService.getSceneById(db, Number(sceneId));
   if (!scene) return { ok: false, error: 'scene not found' };
@@ -123,27 +144,46 @@ function addSceneToLibrary(db, log, sceneId) {
   if (!scene.image_url && !scene.local_path) return { ok: false, error: '场景还没有形象图片' };
   const now = new Date().toISOString();
   const imageUrl = resolveImageUrl(scene.image_url, scene.local_path);
-  const info = db.prepare(
-    `INSERT INTO scene_libraries (drama_id, location, time, prompt, description, image_url, local_path, source_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'scene', ?, ?)`
-  ).run(scene.drama_id, scene.location || '', scene.time || null, scene.prompt || null, scene.prompt || null, imageUrl, scene.local_path || null, now, now);
+  const fields = sceneLibraryFields(scene, scene.drama_id, imageUrl, now);
+  const existing = findExistingLibraryItem(db, 'scene_libraries', {
+    dramaId: scene.drama_id,
+    sourceType: 'scene',
+    sourceId: scene.id,
+    imageUrl,
+    localPath: scene.local_path,
+  });
+  if (existing) {
+    updateExistingLibraryItem(db, 'scene_libraries', existing.id, fields);
+    log.info('Scene library item reused', { scene_id: sceneId, drama_id: scene.drama_id, library_item_id: existing.id });
+    return { ok: true, item: getLibraryItem(db, String(existing.id)), duplicated: true };
+  }
+  const info = insertLibraryItem(db, 'scene_libraries', { ...fields, created_at: now });
   log.info('Scene added to drama library', { scene_id: sceneId, drama_id: scene.drama_id, library_item_id: info.lastInsertRowid });
-  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)) };
+  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)), duplicated: false };
 }
 
-// 加入全局素材库（drama_id = NULL）
 function addSceneToMaterialLibrary(db, log, sceneId) {
   const scene = sceneService.getSceneById(db, Number(sceneId));
   if (!scene) return { ok: false, error: 'scene not found' };
   if (!scene.image_url && !scene.local_path) return { ok: false, error: '场景还没有形象图片' };
   const now = new Date().toISOString();
   const imageUrl = resolveImageUrl(scene.image_url, scene.local_path);
-  const info = db.prepare(
-    `INSERT INTO scene_libraries (drama_id, location, time, prompt, description, image_url, local_path, source_type, created_at, updated_at)
-     VALUES (NULL, ?, ?, ?, ?, ?, ?, 'scene', ?, ?)`
-  ).run(scene.location || '', scene.time || null, scene.prompt || null, scene.prompt || null, imageUrl, scene.local_path || null, now, now);
+  const fields = sceneLibraryFields(scene, null, imageUrl, now);
+  const existing = findExistingLibraryItem(db, 'scene_libraries', {
+    dramaId: null,
+    sourceType: 'scene',
+    sourceId: scene.id,
+    imageUrl,
+    localPath: scene.local_path,
+  });
+  if (existing) {
+    updateExistingLibraryItem(db, 'scene_libraries', existing.id, fields);
+    log.info('Scene material library item reused', { scene_id: sceneId, library_item_id: existing.id });
+    return { ok: true, item: getLibraryItem(db, String(existing.id)), duplicated: true };
+  }
+  const info = insertLibraryItem(db, 'scene_libraries', { ...fields, created_at: now });
   log.info('Scene added to material library (global)', { scene_id: sceneId, library_item_id: info.lastInsertRowid });
-  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)) };
+  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)), duplicated: false };
 }
 
 module.exports = {

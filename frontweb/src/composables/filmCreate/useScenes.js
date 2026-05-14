@@ -3,6 +3,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { sceneAPI } from '@/api/scenes'
 import { sceneLibraryAPI } from '@/api/sceneLibrary'
 import { uploadAPI } from '@/api/upload'
+import { createLibraryMembershipState, hasAssetInLibrary, loadLibraryMembership, markAssetInLibrary } from './libraryMembership'
 
 /**
  * 场景管理 Composable
@@ -60,6 +61,7 @@ export function useScenes(deps) {
   const addingSceneToLibraryId = ref(null)
   const addingSceneToMaterialId = ref(null)
   const addingSceneFromLibraryId = ref(null)
+  const sceneMembership = createLibraryMembershipState()
   let sceneLibraryKeywordTimer = null
 
   // ── 函数 ──────────────────────────────────────────────
@@ -382,6 +384,7 @@ export function useScenes(deps) {
     addingSceneToLibraryId.value = scene.id
     try {
       await sceneAPI.addToLibrary(scene.id, {})
+      markAssetInLibrary(sceneMembership.dramaSourceIds, scene)
       ElMessage.success('已加入本剧场景库')
       if (showSceneLibrary.value) loadSceneLibraryList()
     } catch (e) {
@@ -396,12 +399,32 @@ export function useScenes(deps) {
     addingSceneToMaterialId.value = scene.id
     try {
       await sceneAPI.addToMaterialLibrary(scene.id)
+      markAssetInLibrary(sceneMembership.materialSourceIds, scene)
       ElMessage.success('已加入全局素材库')
     } catch (e) {
       ElMessage.error(e.message || '加入失败')
     } finally {
       addingSceneToMaterialId.value = null
     }
+  }
+
+  async function loadSceneLibraryMembership() {
+    await loadLibraryMembership({
+      api: sceneLibraryAPI,
+      sourceType: 'scene',
+      assets: store.scenes || [],
+      dramaId: dramaId.value,
+      dramaSourceIds: sceneMembership.dramaSourceIds,
+      materialSourceIds: sceneMembership.materialSourceIds,
+    })
+  }
+
+  function isSceneInLibrary(scene) {
+    return hasAssetInLibrary(sceneMembership.dramaSourceIds, scene)
+  }
+
+  function isSceneInMaterialLibrary(scene) {
+    return hasAssetInLibrary(sceneMembership.materialSourceIds, scene)
   }
 
   async function onAddSceneFromLibrary(item) {
@@ -477,6 +500,9 @@ export function useScenes(deps) {
     onCloseSceneDialog,
     onDeleteScene,
     onGenerateSceneImage,
+    loadSceneLibraryMembership,
+    isSceneInLibrary,
+    isSceneInMaterialLibrary,
     loadSceneLibraryList,
     debouncedLoadSceneLibrary,
     openEditSceneLibrary,

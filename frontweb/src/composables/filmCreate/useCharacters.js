@@ -5,6 +5,7 @@ import { characterLibraryAPI } from '@/api/characterLibrary'
 import { dramaAPI } from '@/api/drama'
 import { generationAPI } from '@/api/generation'
 import { uploadAPI } from '@/api/upload'
+import { createLibraryMembershipState, hasAssetInLibrary, loadLibraryMembership, markAssetInLibrary } from './libraryMembership'
 
 /**
  * 角色管理 Composable
@@ -64,6 +65,7 @@ export function useCharacters(deps) {
   const sd2CertifyingId = ref(null)
   const showCharSd2Cert = ref(false)
   const charSd2CertPayload = ref(null)
+  const charMembership = createLibraryMembershipState()
   let charLibraryKeywordTimer = null
 
   // ── 常量 ──────────────────────────────────────────────
@@ -412,6 +414,7 @@ export function useCharacters(deps) {
     addingCharToLibraryId.value = char.id
     try {
       await characterAPI.addToLibrary(char.id, {})
+      markAssetInLibrary(charMembership.dramaSourceIds, char)
       ElMessage.success('已加入本剧角色库')
       if (showCharLibrary.value) loadCharLibraryList()
     } catch (e) {
@@ -426,6 +429,7 @@ export function useCharacters(deps) {
     addingCharToMaterialId.value = char.id
     try {
       await characterAPI.addToMaterialLibrary(char.id)
+      markAssetInLibrary(charMembership.materialSourceIds, char)
       ElMessage.success('已加入全局素材库')
     } catch (e) {
       ElMessage.error(e.message || '加入失败')
@@ -487,6 +491,25 @@ export function useCharacters(deps) {
   function openCharSd2CertDialog(char) {
     charSd2CertPayload.value = char.seedance2_asset ? { ...char.seedance2_asset } : null
     showCharSd2Cert.value = true
+  }
+
+  async function loadCharLibraryMembership() {
+    await loadLibraryMembership({
+      api: characterLibraryAPI,
+      sourceType: 'character',
+      assets: store.characters || [],
+      dramaId: dramaId.value,
+      dramaSourceIds: charMembership.dramaSourceIds,
+      materialSourceIds: charMembership.materialSourceIds,
+    })
+  }
+
+  function isCharInLibrary(char) {
+    return hasAssetInLibrary(charMembership.dramaSourceIds, char)
+  }
+
+  function isCharInMaterialLibrary(char) {
+    return hasAssetInLibrary(charMembership.materialSourceIds, char)
   }
 
   async function onAddCharFromLibrary(item) {
@@ -616,6 +639,9 @@ export function useCharacters(deps) {
     onCloseCharDialog,
     onDeleteCharacter,
     onGenerateCharacterImage,
+    loadCharLibraryMembership,
+    isCharInLibrary,
+    isCharInMaterialLibrary,
     loadCharLibraryList,
     debouncedLoadCharLibrary,
     openEditCharLibrary,
