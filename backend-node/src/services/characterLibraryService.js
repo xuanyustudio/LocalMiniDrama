@@ -9,6 +9,13 @@ const { mergeCfgStyleWithDrama } = require('../utils/dramaStyleMerge');
 const jimengMaterialHubService = require('./jimengMaterialHubService');
 const uploadService = require('./uploadService');
 const seedance2AssetGuards = require('../utils/seedance2AssetGuards');
+const {
+  appendSourceIdFilters,
+  findExistingLibraryItem,
+  insertLibraryItem,
+  normalizeSourceId,
+  updateLibraryItem: updateExistingLibraryItem,
+} = require('./libraryDedup');
 
 function applyStyleOverrideToCfg(cfg, styleOverride) {
   const o = (styleOverride || '').toString().trim();
@@ -110,6 +117,7 @@ function listLibraryItems(db, query) {
     sql += ' AND source_type = ?';
     params.push(query.source_type);
   }
+  sql = appendSourceIdFilters(query, sql, params);
   if (query.keyword) {
     sql += ' AND (name LIKE ? OR description LIKE ?)';
     const k = '%' + query.keyword + '%';
@@ -127,21 +135,19 @@ function listLibraryItems(db, query) {
 function createLibraryItem(db, log, req) {
   const now = new Date().toISOString();
   const sourceType = req.source_type || 'generated';
-  const info = db.prepare(
-    `INSERT INTO character_libraries (drama_id, name, category, image_url, local_path, description, tags, source_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    req.drama_id ?? null,
-    req.name || '',
-    req.category ?? null,
-    req.image_url || '',
-    req.local_path ?? null,
-    req.description ?? null,
-    req.tags ?? null,
-    sourceType,
-    now,
-    now
-  );
+  const info = insertLibraryItem(db, 'character_libraries', {
+    drama_id: req.drama_id ?? null,
+    name: req.name || '',
+    category: req.category ?? null,
+    image_url: req.image_url || '',
+    local_path: req.local_path ?? null,
+    description: req.description ?? null,
+    tags: req.tags ?? null,
+    source_type: sourceType,
+    source_id: normalizeSourceId(req.source_id) || null,
+    created_at: now,
+    updated_at: now,
+  });
   log.info('Library item created', { item_id: info.lastInsertRowid });
   return getLibraryItem(db, String(info.lastInsertRowid));
 }
@@ -163,6 +169,7 @@ function updateLibraryItem(db, log, id, req) {
   if (req.image_url != null) { updates.push('image_url = ?'); params.push(req.image_url); }
   if (req.local_path != null) { updates.push('local_path = ?'); params.push(req.local_path); }
   if (req.source_type != null) { updates.push('source_type = ?'); params.push(req.source_type); }
+  if (req.source_id != null) { updates.push('source_id = ?'); params.push(normalizeSourceId(req.source_id)); }
   if (updates.length === 0) return getLibraryItem(db, id);
   params.push(new Date().toISOString(), Number(id));
   db.prepare('UPDATE character_libraries SET ' + updates.join(', ') + ', updated_at = ? WHERE id = ?').run(...params);
@@ -234,12 +241,32 @@ function addCharacterToLibrary(db, log, characterId, category) {
   if (!charRow.image_url && !charRow.local_path) return { ok: false, error: '角色还没有形象图片' };
   const now = new Date().toISOString();
   const imageUrl = resolveImageUrl(charRow.image_url, charRow.local_path);
-  const info = db.prepare(
-    `INSERT INTO character_libraries (drama_id, name, image_url, local_path, description, source_type, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'character', ?, ?)`
-  ).run(charRow.drama_id, charRow.name, imageUrl, charRow.local_path || null, charRow.description || null, now, now);
+  const fields = {
+    drama_id: charRow.drama_id,
+    name: charRow.name,
+    category: category ?? null,
+    image_url: imageUrl,
+    local_path: charRow.local_path || null,
+    description: charRow.description || null,
+    source_type: 'character',
+    source_id: normalizeSourceId(charRow.id),
+    updated_at: now,
+  };
+  const existing = findExistingLibraryItem(db, 'character_libraries', {
+    dramaId: charRow.drama_id,
+    sourceType: 'character',
+    sourceId: charRow.id,
+    imageUrl,
+    localPath: charRow.local_path,
+  });
+  if (existing) {
+    updateExistingLibraryItem(db, 'character_libraries', existing.id, fields);
+    log.info('Character library item reused', { character_id: characterId, drama_id: charRow.drama_id, library_item_id: existing.id });
+    return { ok: true, item: getLibraryItem(db, String(existing.id)), duplicated: true };
+  }
+  const info = insertLibraryItem(db, 'character_libraries', { ...fields, created_at: now });
   log.info('Character added to drama library', { character_id: characterId, drama_id: charRow.drama_id, library_item_id: info.lastInsertRowid });
-  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)) };
+  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)), duplicated: false };
 }
 
 // 加入全局素材库（drama_id = NULL）
@@ -249,12 +276,31 @@ function addCharacterToMaterialLibrary(db, log, characterId) {
   if (!charRow.image_url && !charRow.local_path) return { ok: false, error: '角色还没有形象图片' };
   const now = new Date().toISOString();
   const imageUrl = resolveImageUrl(charRow.image_url, charRow.local_path);
-  const info = db.prepare(
-    `INSERT INTO character_libraries (drama_id, name, image_url, local_path, description, source_type, created_at, updated_at)
-     VALUES (NULL, ?, ?, ?, ?, 'character', ?, ?)`
-  ).run(charRow.name, imageUrl, charRow.local_path || null, charRow.description || null, now, now);
+  const fields = {
+    drama_id: null,
+    name: charRow.name,
+    image_url: imageUrl,
+    local_path: charRow.local_path || null,
+    description: charRow.description || null,
+    source_type: 'character',
+    source_id: normalizeSourceId(charRow.id),
+    updated_at: now,
+  };
+  const existing = findExistingLibraryItem(db, 'character_libraries', {
+    dramaId: null,
+    sourceType: 'character',
+    sourceId: charRow.id,
+    imageUrl,
+    localPath: charRow.local_path,
+  });
+  if (existing) {
+    updateExistingLibraryItem(db, 'character_libraries', existing.id, fields);
+    log.info('Character material library item reused', { character_id: characterId, library_item_id: existing.id });
+    return { ok: true, item: getLibraryItem(db, String(existing.id)), duplicated: true };
+  }
+  const info = insertLibraryItem(db, 'character_libraries', { ...fields, created_at: now });
   log.info('Character added to material library (global)', { character_id: characterId, library_item_id: info.lastInsertRowid });
-  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)) };
+  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)), duplicated: false };
 }
 
 function updateCharacter(db, log, characterId, req) {
@@ -331,6 +377,7 @@ function batchGenerateCharacterImages(db, log, cfg, characterIds, modelName, sty
 function rowToItem(r) {
   return {
     id: r.id,
+    drama_id: r.drama_id ?? null,
     name: r.name,
     category: r.category,
     image_url: r.image_url,
@@ -338,6 +385,7 @@ function rowToItem(r) {
     description: r.description,
     tags: r.tags,
     source_type: r.source_type || 'generated',
+    source_id: r.source_id || null,
     created_at: r.created_at,
     updated_at: r.updated_at,
   };

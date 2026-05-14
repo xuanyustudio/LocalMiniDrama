@@ -3,6 +3,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { propAPI } from '@/api/props'
 import { propLibraryAPI } from '@/api/propLibrary'
 import { uploadAPI } from '@/api/upload'
+import { createLibraryMembershipState, hasAssetInLibrary, loadLibraryMembership, markAssetInLibrary } from './libraryMembership'
 
 /**
  * 道具管理 Composable
@@ -67,6 +68,7 @@ export function useProps(deps) {
   const addingPropToLibraryId = ref(null)
   const addingPropToMaterialId = ref(null)
   const addingPropFromLibraryId = ref(null)
+  const propMembership = createLibraryMembershipState()
   let propLibraryKeywordTimer = null
 
   // ── 函数 ──────────────────────────────────────────────
@@ -379,6 +381,7 @@ export function useProps(deps) {
     addingPropToLibraryId.value = prop.id
     try {
       await propAPI.addToLibrary(prop.id, {})
+      markAssetInLibrary(propMembership.dramaSourceIds, prop)
       ElMessage.success('已加入本剧道具库')
       if (showPropLibrary.value) loadPropLibraryList()
     } catch (e) {
@@ -393,12 +396,32 @@ export function useProps(deps) {
     addingPropToMaterialId.value = prop.id
     try {
       await propAPI.addToMaterialLibrary(prop.id)
+      markAssetInLibrary(propMembership.materialSourceIds, prop)
       ElMessage.success('已加入全局素材库')
     } catch (e) {
       ElMessage.error(e.message || '加入失败')
     } finally {
       addingPropToMaterialId.value = null
     }
+  }
+
+  async function loadPropLibraryMembership() {
+    await loadLibraryMembership({
+      api: propLibraryAPI,
+      sourceType: 'prop',
+      assets: store.props || [],
+      dramaId: dramaId.value,
+      dramaSourceIds: propMembership.dramaSourceIds,
+      materialSourceIds: propMembership.materialSourceIds,
+    })
+  }
+
+  function isPropInLibrary(prop) {
+    return hasAssetInLibrary(propMembership.dramaSourceIds, prop)
+  }
+
+  function isPropInMaterialLibrary(prop) {
+    return hasAssetInLibrary(propMembership.materialSourceIds, prop)
   }
 
   async function onAddPropFromLibrary(item) {
@@ -502,6 +525,9 @@ export function useProps(deps) {
     onClosePropDialog,
     onDeleteProp,
     onGeneratePropImage,
+    loadPropLibraryMembership,
+    isPropInLibrary,
+    isPropInMaterialLibrary,
     loadPropLibraryList,
     debouncedLoadPropLibrary,
     openEditPropLibrary,

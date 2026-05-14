@@ -404,11 +404,11 @@
                     <div class="asset-desc-full">{{ char.appearance || char.description || '暂无描述' }}</div>
                     <div class="asset-btns">
                       <el-button size="small" @click="editCharacter(char)">编辑</el-button>
-                      <el-button size="small" :loading="addingCharToLibraryId === char.id" :disabled="!hasAssetImage(char)" @click="onAddCharacterToLibrary(char)">
-                        加入本剧库
+                      <el-button size="small" :type="isCharInLibrary(char) ? 'success' : ''" :loading="addingCharToLibraryId === char.id" :disabled="!hasAssetImage(char) || isCharInLibrary(char)" @click="onAddCharacterToLibrary(char)">
+                        {{ isCharInLibrary(char) ? '已加入本剧库' : '加入本剧库' }}
                       </el-button>
-                      <el-button size="small" :loading="addingCharToMaterialId === char.id" :disabled="!hasAssetImage(char)" @click="onAddCharacterToMaterialLibrary(char)">
-                        加入素材库
+                      <el-button size="small" :type="isCharInMaterialLibrary(char) ? 'success' : ''" :loading="addingCharToMaterialId === char.id" :disabled="!hasAssetImage(char) || isCharInMaterialLibrary(char)" @click="onAddCharacterToMaterialLibrary(char)">
+                        {{ isCharInMaterialLibrary(char) ? '已加入素材库' : '加入素材库' }}
                       </el-button>
                       <span v-if="char.seedance2_asset?.status !== 'active'" class="sd2-cert-btn-wrap">
                         <el-button
@@ -544,11 +544,11 @@
                     <div class="asset-desc-full">{{ prop.description || prop.prompt || '暂无描述' }}</div>
                     <div class="asset-btns">
                       <el-button size="small" @click="editProp(prop)">编辑</el-button>
-                      <el-button size="small" :loading="addingPropToLibraryId === prop.id" :disabled="!hasAssetImage(prop)" @click="onAddPropToLibrary(prop)">
-                        加入本剧库
+                      <el-button size="small" :type="isPropInLibrary(prop) ? 'success' : ''" :loading="addingPropToLibraryId === prop.id" :disabled="!hasAssetImage(prop) || isPropInLibrary(prop)" @click="onAddPropToLibrary(prop)">
+                        {{ isPropInLibrary(prop) ? '已加入本剧库' : '加入本剧库' }}
                       </el-button>
-                      <el-button size="small" :loading="addingPropToMaterialId === prop.id" :disabled="!hasAssetImage(prop)" @click="onAddPropToMaterialLibrary(prop)">
-                        加入素材库
+                      <el-button size="small" :type="isPropInMaterialLibrary(prop) ? 'success' : ''" :loading="addingPropToMaterialId === prop.id" :disabled="!hasAssetImage(prop) || isPropInMaterialLibrary(prop)" @click="onAddPropToMaterialLibrary(prop)">
+                        {{ isPropInMaterialLibrary(prop) ? '已加入素材库' : '加入素材库' }}
                       </el-button>
                     </div>
                   </div>
@@ -617,11 +617,11 @@
                     <div class="asset-desc-full">{{ scene.description || scene.prompt || scene.time || '暂无描述' }}</div>
                     <div class="asset-btns">
                       <el-button size="small" @click="editScene(scene)">编辑</el-button>
-                      <el-button size="small" :loading="addingSceneToLibraryId === scene.id" :disabled="!hasAssetImage(scene)" @click="onAddSceneToLibrary(scene)">
-                        加入本剧库
+                      <el-button size="small" :type="isSceneInLibrary(scene) ? 'success' : ''" :loading="addingSceneToLibraryId === scene.id" :disabled="!hasAssetImage(scene) || isSceneInLibrary(scene)" @click="onAddSceneToLibrary(scene)">
+                        {{ isSceneInLibrary(scene) ? '已加入本剧库' : '加入本剧库' }}
                       </el-button>
-                      <el-button size="small" :loading="addingSceneToMaterialId === scene.id" :disabled="!hasAssetImage(scene)" @click="onAddSceneToMaterialLibrary(scene)">
-                        加入素材库
+                      <el-button size="small" :type="isSceneInMaterialLibrary(scene) ? 'success' : ''" :loading="addingSceneToMaterialId === scene.id" :disabled="!hasAssetImage(scene) || isSceneInMaterialLibrary(scene)" @click="onAddSceneToMaterialLibrary(scene)">
+                        {{ isSceneInMaterialLibrary(scene) ? '已加入素材库' : '加入素材库' }}
                       </el-button>
                     </div>
                     <div v-if="getSceneAffectedStoryboards(scene.id).length" class="asset-storyboard-link">
@@ -2428,6 +2428,7 @@ const {
   charRoleLabel, onGenerateCharacters, openAddCharacter, stopCharacterPromptPoll, editCharacter,
   saveCharRefImageIfAny, submitEditCharacter, doGenerateCharacterPrompt, doExtractCharFromImage,
   extractIdentityAnchors, clearCharRefImage, onCloseCharDialog, onDeleteCharacter, onGenerateCharacterImage,
+  loadCharLibraryMembership, isCharInLibrary, isCharInMaterialLibrary,
   loadCharLibraryList, debouncedLoadCharLibrary, openEditCharLibrary, submitEditCharLibrary,
   onDeleteCharLibrary, onAddCharacterToLibrary, onAddCharacterToMaterialLibrary, onSd2CertifyCharacter,
   onSd2CertifyRefresh, openCharSd2CertDialog, onAddCharFromLibrary,
@@ -2446,6 +2447,7 @@ const {
   onExtractProps, stopPropPromptPoll, editProp, doGeneratePropPrompt, savePropRefImageIfAny,
   clearPropRefImage, doExtractPropFromImage, submitEditProp, submitAddProp,
   onClosePropDialog, onDeleteProp, onGeneratePropImage,
+  loadPropLibraryMembership, isPropInLibrary, isPropInMaterialLibrary,
   loadPropLibraryList, debouncedLoadPropLibrary, openEditPropLibrary, submitEditPropLibrary,
   onDeletePropLibrary, onAddPropToLibrary, onAddPropToMaterialLibrary, onAddPropFromLibrary,
   doExtractFromRef2,
@@ -2463,6 +2465,7 @@ const {
   onExtractScenes, openAddScene, stopScenePromptPoll, editScene, doGenerateScenePrompt,
   saveSceneRefImageIfAny, clearSceneRefImage, doExtractSceneFromImage, submitEditScene,
   onCloseSceneDialog, onDeleteScene, onGenerateSceneImage,
+  loadSceneLibraryMembership, isSceneInLibrary, isSceneInMaterialLibrary,
   loadSceneLibraryList, debouncedLoadSceneLibrary, openEditSceneLibrary, submitEditSceneLibrary,
   onDeleteSceneLibrary, onAddSceneToLibrary, onAddSceneToMaterialLibrary, onAddSceneFromLibrary,
 } = useScenes({ store, dramaId, currentEpisodeId, getSelectedStyle, getAssetImageModel, scriptLanguage, loadDrama, pollTask, pollUntilResourceHasImage, hasAssetImage, dramaAPI })
@@ -3408,6 +3411,14 @@ function onEpisodeSelect(epId) {
   loadStoryboardMedia()
 }
 
+async function refreshLibraryMembership() {
+  await Promise.allSettled([
+    loadCharLibraryMembership(),
+    loadPropLibraryMembership(),
+    loadSceneLibraryMembership(),
+  ])
+}
+
 async function loadDrama() {
   if (!store.dramaId) return
   try {
@@ -3442,6 +3453,7 @@ async function loadDrama() {
       scriptTitle.value = ''
       selectedEpisodeId.value = null
     }
+    await refreshLibraryMembership()
     syncStoryboardStateFromEpisode(ep)
     await loadStoryboardMedia()
   } catch (e) {
