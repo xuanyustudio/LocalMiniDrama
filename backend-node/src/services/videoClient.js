@@ -338,8 +338,18 @@ async function resolveImageInputForOmniAsync(rawUrl, files_base_url, storage_loc
   return resolveImageInputForOmniLocalBase64(raw, files_base_url, storage_local_path, log, video_gen_id);
 }
 
+/** config.yaml：image_proxy.use_for_video=true 时才对视频全能模式走中转图床（默认 false，避免私有网关拉不到图床） */
+function useImageProxyForVideo() {
+  try {
+    const { loadConfig } = require('../config');
+    return !!(loadConfig()?.image_proxy?.use_for_video);
+  } catch (_) {
+    return false;
+  }
+}
+
 /**
- * 火山方舟 Seedance 全能/多图参考：参考图解析（公网 URL / 图床 / 本地 base64），与可灵 Omni 逻辑一致
+ * 火山方舟 Seedance 全能/多图参考：公网 URL 直传；本地图默认 base64；可选图床（use_for_video）
  */
 async function resolveVolcOmniImageAsync(rawUrl, files_base_url, storage_local_path, log, video_gen_id, index) {
   const raw = (rawUrl || '').trim();
@@ -349,7 +359,15 @@ async function resolveVolcOmniImageAsync(rawUrl, files_base_url, storage_local_p
   const isPublicHttp = /^https?:\/\//i.test(raw) && !/localhost|127\.0\.0\.1/i.test(raw);
   if (isPublicHttp) return raw;
 
-  if (storage_local_path) {
+  if (storage_local_path && !useImageProxyForVideo()) {
+    const b64 = resolveVolcClassicImage(raw, files_base_url, storage_local_path, log, video_gen_id, `ref_${index}`);
+    if (b64 && String(b64).startsWith('data:')) {
+      log.info('[VolcOmni] 本地参考图 → base64（image_proxy.use_for_video 未启用）', { video_gen_id, index });
+      return b64;
+    }
+  }
+
+  if (storage_local_path && useImageProxyForVideo()) {
     const tag = `volc_omni_vg${video_gen_id}_${index}`;
     const proxyUrl = await uploadLocalImageToProxy(storage_local_path, raw, log, tag);
     if (proxyUrl) {
@@ -2951,7 +2969,6 @@ async function callVideoApi(db, log, opts) {
   if (!config) {
     throw new Error('???????????AI ?????? video ?????????');
   }
-  console.log('config key', config.api_key);
   const model = getModelFromConfig(config, preferredModel);
   const provider = (config.provider || '').toLowerCase();
   const protocol = resolveVideoProtocol(config, preferredModel);

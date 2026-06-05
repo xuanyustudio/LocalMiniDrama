@@ -39,3 +39,5 @@ style:
 vendor_lock:
   enabled: false
   config_file: ai-configs-qudao.json
+image_proxy:
+  use_for_video: true
