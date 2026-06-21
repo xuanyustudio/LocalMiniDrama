@@ -35,6 +35,8 @@ export async function runGenerateStoryFromPremise({
     return { ok: false }
   }
 
+  const preferredEpisodeNumber = store.currentEpisode?.episode_number ?? savedCurrentEpisodeNumber?.value ?? 1
+
   storyGenerating.value = true
   try {
     const res = await generationAPI.generateStory({
@@ -77,7 +79,7 @@ export async function runGenerateStoryFromPremise({
         title: ep.title || `第${ep.episode ?? i + 1}集`,
         script_content: ep.content || '',
       }))
-      savedCurrentEpisodeNumber.value = 1
+      savedCurrentEpisodeNumber.value = preferredEpisodeNumber
       await dramaAPI.saveEpisodes(dramaId, epPayload)
 
       await dramaAPI.saveOutline(dramaId, {
@@ -94,10 +96,12 @@ export async function runGenerateStoryFromPremise({
       if (!skipPostLoad) {
         await loadDrama()
 
-        const firstEp = (store.drama?.episodes || [])[0]
-        if (firstEp) {
-          selectedEpisodeId.value = firstEp.id
-          onEpisodeSelect(firstEp.id)
+        const episodesAfterSave = store.drama?.episodes || []
+        const preferredEp = episodesAfterSave.find((ep) => Number(ep.episode_number) === Number(preferredEpisodeNumber))
+          || episodesAfterSave[0]
+        if (preferredEp) {
+          selectedEpisodeId.value = preferredEp.id
+          onEpisodeSelect(preferredEp.id)
         }
       }
 
