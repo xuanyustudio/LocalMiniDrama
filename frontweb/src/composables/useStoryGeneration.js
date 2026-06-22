@@ -107,7 +107,7 @@ export async function runGenerateStoryFromPremise({
 
       const n = episodes.length
       if (!skipPostLoad) {
-        ElMessage.success(n > 1 ? `剧本已生成，共 ${n} 集，已默认选中第1集` : '剧本已生成并已保存')
+        ElMessage.success(n > 1 ? `剧本已生成，共 ${n} 集，已保留当前集选择` : '剧本已生成并已保存')
       } else {
         ElMessage.success(n > 1 ? `剧本已生成，共 ${n} 集` : '剧本已生成并已保存')
       }
