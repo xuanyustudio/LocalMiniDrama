@@ -5148,6 +5148,11 @@ async function onAddEpisode() {
     await dramaAPI.saveEpisodes(store.dramaId, updated)
     savedCurrentEpisodeNumber.value = nextNum
     await loadDrama()
+    const newEpisode = (store.drama?.episodes || []).find((e) => Number(e.episode_number) === Number(nextNum))
+    if (newEpisode) {
+      selectedEpisodeId.value = newEpisode.id
+      onEpisodeSelect(newEpisode.id)
+    }
     ElMessage.success('已添加第' + nextNum + '集')
   } catch (e) {
     ElMessage.error(e.message || '添加失败')
