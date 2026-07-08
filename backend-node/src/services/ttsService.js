@@ -116,7 +116,7 @@ async function synthesizeWithOpenai(text, voice, apiKey, baseUrl, model, speed) 
  * 合成 TTS 并保存到本地文件
  * @returns {{ local_path: string, audio_url: string }}
  */
-async function synthesize(db, log, { text, storyboard_id, config, storage_base, voice_id, speed }) {
+async function synthesize(db, log, { text, storyboard_id, config, storage_base, voice_id, speed, voice_library_id }) {
   if (!text || !text.trim()) throw new Error('text 不能为空');
   const aiConfigService = require('./aiConfigService');
   const ttsConfig = config || (() => {
@@ -144,6 +144,15 @@ async function synthesize(db, log, { text, storyboard_id, config, storage_base, 
       groupId,
       ttsModel || 'speech-02-hd'
     );
+  } else if (provider === 'omnivoice') {
+    const omnivoiceService = require('./omnivoiceService');
+    const voiceLibraryService = require('./voiceLibraryService');
+    const voice = voice_library_id ? voiceLibraryService.getVoice(db, voice_library_id) : null;
+    if (!voice) throw new Error('未指定 voice_library_id 或对应语音不存在，请先在配音管理中选择语音');
+    const path = require('path');
+    const absRefAudio = path.join(storage_base, voice.ref_audio_path);
+    const { baseUrl } = omnivoiceService.getOmnivoiceConfig(db);
+    audioBuffer = await omnivoiceService.synthesizeCloning(text, absRefAudio, voice.ref_text, baseUrl);
   } else if (provider === 'openai' || ttsConfig.base_url) {
     console.log('==c sxy synthesizeWithOpenai', text, voiceId, ttsConfig.api_key, ttsConfig.base_url, ttsModel, finalSpeed);
     audioBuffer = await synthesizeWithOpenai(
@@ -155,7 +164,7 @@ async function synthesize(db, log, { text, storyboard_id, config, storage_base, 
       finalSpeed
     );
   } else {
-    throw new Error(`不支持的 TTS provider: ${provider}，目前支持 openai、minimax`);
+    throw new Error(`不支持的 TTS provider: ${provider}，目前支持 openai、minimax、omnivoice`);
   }
 
   // 保存到本地
