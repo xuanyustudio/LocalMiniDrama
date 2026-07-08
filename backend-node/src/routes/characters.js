@@ -10,7 +10,7 @@ function routes(db, cfg, log, uploadService) {
     getOne: (req, res) => {
       try {
         const row = db.prepare(
-          'SELECT id, drama_id, name, role, appearance, description, personality, voice_style, image_url, local_path, polished_prompt, four_view_image_url, identity_anchors, seedance2_asset, seedance2_voice_asset, negative_prompt, updated_at FROM characters WHERE id = ? AND deleted_at IS NULL'
+          'SELECT id, drama_id, name, role, appearance, description, personality, voice_style, voice_id, image_url, local_path, polished_prompt, four_view_image_url, identity_anchors, seedance2_asset, seedance2_voice_asset, negative_prompt, updated_at FROM characters WHERE id = ? AND deleted_at IS NULL'
         ).get(Number(req.params.id));
         if (!row) return response.notFound(res, '角色不存在');
         if (row.seedance2_asset) {

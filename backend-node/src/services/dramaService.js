@@ -406,6 +406,7 @@ function rowToCharacter(r) {
     appearance: r.appearance,
     personality: r.personality,
     voice_style: r.voice_style,
+    voice_id: r.voice_id ?? null,
     image_url: sanitizeImageUrl(r.image_url),
     local_path: r.local_path,
     extra_images: r.extra_images || null,
