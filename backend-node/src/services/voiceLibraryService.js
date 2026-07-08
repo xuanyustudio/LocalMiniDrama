@@ -1,5 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('crypto');
+const omnivoiceService = require('./omnivoiceService');
+const elevenlabsService = require('./elevenlabsService');
+
+const DEFAULT_DESIGN_SAMPLE_TEXT = 'Hello, this is a test of a newly designed voice for a character in the story.';
 
 function rowToVoice(r) {
   let tags = [];
@@ -100,6 +105,87 @@ function insertVoice(db, log, fields) {
   return getVoice(db, info.lastInsertRowid);
 }
 
+async function importFromElevenLabs(db, log, storageBase, req) {
+  const voiceId = (req.voice_id || '').trim();
+  if (!voiceId) throw new Error('voice_id 不能为空');
+  if (!req.name || !req.name.trim()) throw new Error('name 不能为空');
+  const { apiKey, baseUrl } = elevenlabsService.getElevenLabsConfig(db);
+  const sampleText = elevenlabsService.ELEVENLABS_SAMPLE_TEXT;
+  const audioBuffer = await elevenlabsService.fetchSampleAudio(apiKey, baseUrl, voiceId, sampleText);
+  const dir = voiceLibraryDir(storageBase);
+  const filename = `el_${voiceId}_${randomUUID().slice(0, 8)}.mp3`;
+  fs.writeFileSync(path.join(dir, filename), audioBuffer);
+  return insertVoice(db, log, {
+    name: req.name,
+    description: req.description,
+    gender: req.gender,
+    age_range: req.age_range,
+    tags: req.tags,
+    source: 'elevenlabs',
+    source_ref: voiceId,
+    ref_audio_path: `voice_library/${filename}`,
+    ref_text: sampleText,
+    language: req.language || 'en',
+  });
+}
+
+async function previewDesign(db, log, storageBase, req) {
+  const instruct = (req.instruct || '').trim();
+  if (!instruct) throw new Error('instruct 不能为空');
+  const sampleText = (req.sample_text || '').trim() || DEFAULT_DESIGN_SAMPLE_TEXT;
+  const { baseUrl } = omnivoiceService.getOmnivoiceConfig(db);
+  const audioBuffer = await omnivoiceService.synthesizeDesign(sampleText, instruct, baseUrl);
+  const tmpDir = voiceLibraryTmpDir(storageBase);
+  const filename = `design_preview_${randomUUID().slice(0, 12)}.wav`;
+  fs.writeFileSync(path.join(tmpDir, filename), audioBuffer);
+  return {
+    temp_path: `voice_library/tmp/${filename}`,
+    sample_url: `/static/voice_library/tmp/${filename}`,
+    sample_text: sampleText,
+    instruct,
+  };
+}
+
+function saveDesign(db, log, storageBase, req) {
+  const tempPath = req.temp_path || '';
+  if (!tempPath.startsWith('voice_library/tmp/')) throw new Error('无效的 temp_path');
+  const absTemp = path.join(storageBase, tempPath);
+  if (!fs.existsSync(absTemp)) throw new Error('试听音频已过期，请重新生成');
+  if (!req.name || !req.name.trim()) throw new Error('name 不能为空');
+  if (!req.instruct || !req.instruct.trim()) throw new Error('instruct 不能为空');
+  if (!req.sample_text || !req.sample_text.trim()) throw new Error('sample_text 不能为空');
+  const dir = voiceLibraryDir(storageBase);
+  const filename = `design_${randomUUID().slice(0, 8)}.wav`;
+  fs.copyFileSync(absTemp, path.join(dir, filename));
+  fs.unlinkSync(absTemp);
+  return insertVoice(db, log, {
+    name: req.name,
+    description: req.description,
+    gender: req.gender,
+    age_range: req.age_range,
+    tags: req.tags,
+    source: 'design',
+    source_ref: req.instruct,
+    ref_audio_path: `voice_library/${filename}`,
+    ref_text: req.sample_text,
+    language: req.language || 'en',
+  });
+}
+
+async function testSynthesize(db, log, storageBase, req) {
+  const voice = getVoice(db, req.voice_id);
+  if (!voice) throw new Error('语音不存在');
+  const text = (req.text || '').trim();
+  if (!text) throw new Error('text 不能为空');
+  const { baseUrl } = omnivoiceService.getOmnivoiceConfig(db);
+  const absRefAudio = path.join(storageBase, voice.ref_audio_path);
+  const audioBuffer = await omnivoiceService.synthesizeCloning(text, absRefAudio, voice.ref_text, baseUrl);
+  const tmpDir = voiceLibraryTmpDir(storageBase);
+  const filename = `preview_${randomUUID().slice(0, 12)}.wav`;
+  fs.writeFileSync(path.join(tmpDir, filename), audioBuffer);
+  return { sample_url: `/static/voice_library/tmp/${filename}` };
+}
+
 module.exports = {
   rowToVoice,
   listVoices,
@@ -110,4 +196,9 @@ module.exports = {
   voiceLibraryDir,
   voiceLibraryTmpDir,
   insertVoice,
+  importFromElevenLabs,
+  previewDesign,
+  saveDesign,
+  testSynthesize,
+  DEFAULT_DESIGN_SAMPLE_TEXT,
 };
