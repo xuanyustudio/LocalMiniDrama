@@ -149,7 +149,6 @@ async function synthesize(db, log, { text, storyboard_id, config, storage_base, 
     const voiceLibraryService = require('./voiceLibraryService');
     const voice = voice_library_id ? voiceLibraryService.getVoice(db, voice_library_id) : null;
     if (!voice) throw new Error('未指定 voice_library_id 或对应语音不存在，请先在配音管理中选择语音');
-    const path = require('path');
     const absRefAudio = path.join(storage_base, voice.ref_audio_path);
     const { baseUrl } = omnivoiceService.getOmnivoiceConfig(db);
     audioBuffer = await omnivoiceService.synthesizeCloning(text, absRefAudio, voice.ref_text, baseUrl);
