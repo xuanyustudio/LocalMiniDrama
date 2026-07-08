@@ -157,9 +157,23 @@ async function loadVoices() {
   }
 }
 
+let previewAudio = null
+
 function playAudio(url) {
   if (!url) return
-  new Audio(url).play().catch(() => ElMessage.error('播放失败'))
+  if (previewAudio) {
+    previewAudio.pause()
+    previewAudio = null
+  }
+  const a = new Audio(url)
+  previewAudio = a
+  a.addEventListener('ended', () => {
+    if (previewAudio === a) previewAudio = null
+  })
+  a.play().catch(() => {
+    ElMessage.error('播放失败')
+    if (previewAudio === a) previewAudio = null
+  })
 }
 
 async function confirmDeleteVoice(voice) {
