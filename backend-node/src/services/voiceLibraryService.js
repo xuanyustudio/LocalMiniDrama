@@ -113,7 +113,8 @@ async function importFromElevenLabs(db, log, storageBase, req) {
   const sampleText = elevenlabsService.ELEVENLABS_SAMPLE_TEXT;
   const audioBuffer = await elevenlabsService.fetchSampleAudio(apiKey, baseUrl, voiceId, sampleText);
   const dir = voiceLibraryDir(storageBase);
-  const filename = `el_${voiceId}_${randomUUID().slice(0, 8)}.mp3`;
+  const safeVoiceId = voiceId.replace(/[^a-zA-Z0-9_-]/g, '');
+  const filename = `el_${safeVoiceId}_${randomUUID().slice(0, 8)}.mp3`;
   fs.writeFileSync(path.join(dir, filename), audioBuffer);
   return insertVoice(db, log, {
     name: req.name,
@@ -148,8 +149,9 @@ async function previewDesign(db, log, storageBase, req) {
 
 function saveDesign(db, log, storageBase, req) {
   const tempPath = req.temp_path || '';
-  if (!tempPath.startsWith('voice_library/tmp/')) throw new Error('无效的 temp_path');
-  const absTemp = path.join(storageBase, tempPath);
+  const tmpDir = path.resolve(voiceLibraryTmpDir(storageBase));
+  const absTemp = path.resolve(storageBase, tempPath);
+  if (!absTemp.startsWith(tmpDir + path.sep)) throw new Error('无效的 temp_path');
   if (!fs.existsSync(absTemp)) throw new Error('试听音频已过期，请重新生成');
   if (!req.name || !req.name.trim()) throw new Error('name 不能为空');
   if (!req.instruct || !req.instruct.trim()) throw new Error('instruct 不能为空');
