@@ -1352,6 +1352,8 @@ const providerConfigs = {
   ],
   tts: [
     { id: 'minimax', name: 'MiniMax T2A', models: ['speech-02-hd', 'speech-02-turbo'] },
+    { id: 'omnivoice', name: 'OmniVoice（本地）', models: ['omnivoice'] },
+    { id: 'elevenlabs', name: 'ElevenLabs（仅用于取样克隆）', models: ['eleven_multilingual_v2'] },
   ],
   jimeng2_character_auth: [
     { id: 'jimeng_material_api', name: '即梦业务素材 API（/api/business/v1）', models: ['-'] },
@@ -1407,6 +1409,8 @@ function getBaseUrlForProvider(provider) {
   if (p === 'jimeng_material_api') return 'https://silvamux.tingyutech.com'
   if (p === 'xai' || p === 'grok') return 'https://api.x.ai'
   if (p === 'agnes') return 'https://apihub.agnes-ai.com/v1'
+  if (p === 'omnivoice') return 'http://127.0.0.1:8712'
+  if (p === 'elevenlabs') return 'https://api.elevenlabs.io/v1'
   return 'https://api.chatfire.site/v1'
 }
 
