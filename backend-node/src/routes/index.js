@@ -21,6 +21,7 @@ const assetRoutes = require('./assets');
 const audioRoutes = require('./audio');
 const promptOverridesRoutes = require('./promptOverrides');
 const sceneModelMapRoutes = require('./sceneModelMap');
+const voiceLibraryRoutes = require('./voiceLibrary');
 
 function setupRouter(cfg, db, log) {
   const r = express.Router();
@@ -31,7 +32,8 @@ function setupRouter(cfg, db, log) {
   const prop = propRoutes(db, log, cfg);
   const stub = stubRoutes(db, cfg, log);
   const sceneModelMap = sceneModelMapRoutes(db, log);
-  
+  const voiceLibrary = voiceLibraryRoutes(db, cfg, log);
+
   const uploadService = require('../services/uploadService');
   const charLibrary = characterLibraryRoutes(db, cfg, log);
   const sceneLibrary = sceneLibraryRoutes(db, cfg, log);
@@ -297,6 +299,14 @@ function setupRouter(cfg, db, log) {
   // ---------- audio ----------
   r.post('/audio/extract', audio.extract);
   r.post('/audio/extract/batch', audio.extractBatch);
+
+  // ---------- voice-library ----------
+  r.get('/voice-library', voiceLibrary.list);
+  r.post('/voice-library/import-elevenlabs', voiceLibrary.importElevenLabs);
+  r.post('/voice-library/design/preview', voiceLibrary.designPreview);
+  r.post('/voice-library/design/save', voiceLibrary.designSave);
+  r.post('/voice-library/:id/test', voiceLibrary.test);
+  r.delete('/voice-library/:id', voiceLibrary.delete);
 
   // ---------- settings ----------
   r.get('/settings/language', settings.getLanguage);
