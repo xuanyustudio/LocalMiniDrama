@@ -554,7 +554,7 @@ async function callVolcengineOmniVideoApi(config, log, opts) {
     voice_reference_url,   // Seedance 2.0 音色参考（全能模式专用）
   } = opts;
 
-  const url = buildVideoUrl(config, { defaultEndpoint: '/v1/videos/generations' });
+  const url = buildVideoUrl(config);
   const model = getModelFromConfig(config, preferredModel);
   const finalModel = normalizeVolcModel(model);
   const ratio = aspect_ratio || '16:9';
@@ -945,15 +945,17 @@ function getVolcVideoBase(config) {
 }
 
 /**
- * 非官方火山厂商（中转、自托管等）走 OpenAI/即梦类路径；默认 /video/generations 为旧版中转。
- * volcengine_omni 传入 defaultEndpoint: '/v1/videos/generations' 以对齐方舟文档与 302.ai / jimeng-free-api。
+ * 显式选择 volcengine_omni 时，默认使用方舟任务接口；自定义 endpoint 仍可覆盖。
  */
 function buildVideoUrl(config, options = {}) {
   const p = (config.provider || '').toLowerCase();
+  const proto = resolveVideoProtocol(config);
   const isVolc = p === 'volces' || p === 'volcengine' || p === 'volc';
   if (isVolc) return getVolcVideoBase(config) + VOLC_VIDEO_CREATE_PATH;
   const base = (config.base_url || '').replace(/\/$/, '');
-  const fallbackEp = options.defaultEndpoint != null ? options.defaultEndpoint : '/video/generations';
+  const fallbackEp = proto === 'volcengine_omni'
+    ? VOLC_VIDEO_CREATE_PATH
+    : (options.defaultEndpoint != null ? options.defaultEndpoint : '/video/generations');
   let ep = config.endpoint || fallbackEp;
   if (!ep.startsWith('/')) ep = '/' + ep;
   return base + ep;
@@ -1051,7 +1053,7 @@ function buildQueryUrl(config, taskId) {
   else if (proto === 'xai') defaultEp = '/v1/videos/{taskId}';
   else if (proto === 'veo3') defaultEp = '/v1/video/query?id={taskId}';
   else if (isDashScope) defaultEp = '/api/v1/tasks/{taskId}';
-  else if (proto === 'volcengine_omni') defaultEp = '/v1/videos/generations/async/{taskId}';
+  else if (proto === 'volcengine_omni') defaultEp = VOLC_VIDEO_QUERY_PATH + '/{taskId}';
   else defaultEp = '/video/task/{taskId}';
   let ep = config.query_endpoint || defaultEp;
   ep = String(ep).replace(/\{taskId\}/gi, encodeURIComponent(taskId)).replace(/\{task_id\}/gi, encodeURIComponent(taskId)).replace(/\{id\}/gi, encodeURIComponent(taskId));
@@ -4458,6 +4460,8 @@ module.exports = {
   getDefaultVideoConfig,
   callVideoApi,
   pollVideoTask,
+  buildVideoUrl,
+  buildQueryUrl,
   normalizeAspectRatioForApi,
   isPlausibleHttpVideoUrl,
   pickProxyVideoUrl,
