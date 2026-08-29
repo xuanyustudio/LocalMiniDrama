@@ -11,7 +11,7 @@ export const useFilmStore = defineStore('film', () => {
   const currentEpisode = ref(null)
   const storyInput = ref('')
   const scriptContent = ref('')
-  const videoResolution = ref('480p')
+  const videoResolution = ref('720p')
   /** 按 dramaId:episodeId 存储合成视频进度与状态 */
   const videoStateByKey = ref({})
 

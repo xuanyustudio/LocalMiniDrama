@@ -52,6 +52,7 @@ function routes(db, log) {
         const seed = body.seed != null ? Number(body.seed) : null;
         const cameraFixed = body.camera_fixed != null ? (body.camera_fixed ? 1 : 0) : null;
         const watermark = body.watermark != null ? (body.watermark ? 1 : 0) : 0;
+        const generateAudio = body.generate_audio != null ? (body.generate_audio ? 1 : 0) : 0;
         const imageUrl = body.image_url ?? null;
         // 首尾帧：支持 URL 或本地路径（sxy，存到 first_frame_url / last_frame_url）
         const firstFrameUrl = body.first_frame_url ?? body.first_frame_local_path ?? null;
@@ -61,16 +62,22 @@ function routes(db, log) {
           body.reference_image_urls && Array.isArray(body.reference_image_urls)
             ? JSON.stringify(body.reference_image_urls.slice(0, 10))
             : null;
-        db.prepare(
-          `INSERT INTO video_generations (drama_id, storyboard_id, provider, prompt, model, duration, aspect_ratio, resolution, seed, camera_fixed, watermark, image_url, first_frame_url, last_frame_url, reference_image_urls, status, task_id, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?)`
-        ).run(dramaId, storyboardId, provider, prompt, model, duration, aspectRatio, resolution, seed, cameraFixed, watermark, imageUrl, firstFrameUrl, lastFrameUrl, refImagesJson, task.id, now, now);
+        try {
+          db.prepare(
+            `INSERT INTO video_generations (drama_id, storyboard_id, provider, prompt, model, duration, aspect_ratio, resolution, seed, camera_fixed, watermark, generate_audio, image_url, first_frame_url, last_frame_url, reference_image_urls, status, task_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?)`
+          ).run(dramaId, storyboardId, provider, prompt, model, duration, aspectRatio, resolution, seed, cameraFixed, watermark, generateAudio, imageUrl, firstFrameUrl, lastFrameUrl, refImagesJson, task.id, now, now);
+        } catch (e) {
+          if (!(e.message || '').includes('generate_audio')) throw e;
+          db.prepare(
+            `INSERT INTO video_generations (drama_id, storyboard_id, provider, prompt, model, duration, aspect_ratio, resolution, seed, camera_fixed, watermark, image_url, first_frame_url, last_frame_url, reference_image_urls, status, task_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?)`
+          ).run(dramaId, storyboardId, provider, prompt, model, duration, aspectRatio, resolution, seed, cameraFixed, watermark, imageUrl, firstFrameUrl, lastFrameUrl, refImagesJson, task.id, now, now);
+        }
         const videoGenId = db.prepare('SELECT last_insert_rowid() as id').get().id;
-        setImmediate(() => {
-          videoService.processVideoGeneration(db, log, videoGenId);
-        });
+        videoService.enqueueVideoGeneration(db, log, videoGenId);
         const item = videoService.getById(db, videoGenId);
-        response.created(res, item || { id: videoGenId, task_id: task.id, status: 'processing' });
+        response.created(res, item || { id: videoGenId, task_id: task.id, status: 'queued' });
       } catch (err) {
         log.error('videos create', { error: err.message });
         response.internalError(res, err.message);

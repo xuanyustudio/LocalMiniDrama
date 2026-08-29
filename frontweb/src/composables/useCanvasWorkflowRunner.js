@@ -10,6 +10,7 @@ import {
   toAbsoluteMediaUrl,
 } from '@/utils/canvasWorkflow'
 import { dramaUsesFirstLastFrame, sbVideoFirstLastUrls } from '@/utils/storyboardMedia'
+import { composeGrokAwareVideoBody, GROK_DEFAULT_DURATION, isXaiVideoConfig } from '@/utils/grokVideoMode'
 
 async function pollTaskSimple(taskId, options = {}) {
   if (!taskId) return { status: 'failed', error: '缺少 task_id' }
@@ -57,7 +58,7 @@ export async function runVideoStep(drama, sb, genOpts) {
   const absoluteFirst = toAbsoluteMediaUrl(imgPath)
   const absoluteLast = last ? toAbsoluteMediaUrl(last) : undefined
   const prompt = sb.video_prompt || sb.polished_prompt || sb.image_prompt || sb.description || ''
-  const res = await videosAPI.create({
+  const res = await videosAPI.create(composeGrokAwareVideoBody(genOpts.videoGenerationMode || 'auto', {
     drama_id: drama.id,
     storyboard_id: sb.id,
     prompt,
@@ -65,10 +66,10 @@ export async function runVideoStep(drama, sb, genOpts) {
     first_frame_url: absoluteFirst || undefined,
     last_frame_url: absoluteLast,
     style: genOpts.style || undefined,
-    aspect_ratio: genOpts.aspectRatio,
+    aspect_ratio: genOpts.aspectRatio || '9:16',
     resolution: genOpts.videoResolution || undefined,
-    duration: sb.duration || undefined,
-  })
+    duration: sb.duration || GROK_DEFAULT_DURATION,
+  }, { applyExclusive: isXaiVideoConfig(genOpts.videoAiConfig) }))
   if (res?.task_id) {
     const polled = await pollTaskSimple(res.task_id)
     if (polled.status !== 'completed') throw new Error(polled.error || '视频生成失败')

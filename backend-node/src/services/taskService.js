@@ -95,15 +95,39 @@ function cancelTask(db, log, taskId, reason) {
 /**
  * 进程内 setImmediate 任务在重启后会丢失；启动时将遗留的 pending/processing 标为失败，避免前端无限轮询。
  */
+function shouldKeepVideoAsyncTask(db, taskId) {
+  try {
+    const vg = db
+      .prepare(
+        `SELECT status, provider_task_id FROM video_generations
+         WHERE task_id = ? AND deleted_at IS NULL`
+      )
+      .get(taskId);
+    if (!vg) return false;
+    if (vg.status === 'queued' || vg.status === 'processing') return true;
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
+
 function failOrphanedAsyncTasksOnStartup(db, log) {
   const rows = db.prepare(
     `SELECT id, type, status, resource_id FROM async_tasks
      WHERE status IN ('pending', 'processing') AND deleted_at IS NULL`
   ).all();
   if (!rows.length) return 0;
-  log.warn('Failing orphaned async tasks after startup', { count: rows.length });
+  let failed = 0;
   for (const row of rows) {
+    if (row.type === 'video_generation' && shouldKeepVideoAsyncTask(db, row.id)) {
+      log.info('Keeping video async task across restart', {
+        task_id: row.id,
+        resource_id: row.resource_id,
+      });
+      continue;
+    }
     updateTaskError(db, row.id, ORPHAN_ASYNC_TASK_MSG);
+    failed += 1;
     log.info('Orphaned async task marked failed', {
       task_id: row.id,
       type: row.type,
@@ -111,7 +135,8 @@ function failOrphanedAsyncTasksOnStartup(db, log) {
       previous_status: row.status,
     });
   }
-  return rows.length;
+  if (failed) log.warn('Failing orphaned async tasks after startup', { count: failed });
+  return failed;
 }
 
 module.exports = {
@@ -122,6 +147,7 @@ module.exports = {
   updateTaskError,
   updateTaskResult,
   failOrphanedAsyncTasksOnStartup,
+  shouldKeepVideoAsyncTask,
   cancelTask,
   ORPHAN_ASYNC_TASK_MSG,
   USER_CANCEL_TASK_MSG,

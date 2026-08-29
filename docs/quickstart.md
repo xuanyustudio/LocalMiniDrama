@@ -34,6 +34,8 @@
 
 4. 点击软件右上角「AI 配置」，填入你的 AI API Key，即可开始使用。
 
+5. 若使用 **xAI Grok Imagine Video 1.5** 生成视频：不要在配置页填 Key。先设置环境变量 `XAI_API_KEY`（开发模式在启动后端的终端里设置；exe 在系统用户环境变量中设置后重启软件）。SuperGrok 订阅不是 API Key。详见 [AI 配置指南 · xAI](configuration.md#xai-grok-imagine-video-15)。
+
 > 💡 不知道去哪里申请 API Key？请看 → [AI 配置指南](configuration.md)
 
 ---
@@ -64,6 +66,8 @@ cp configs/config.example.yaml configs/config.yaml
 # copy configs\config.example.yaml configs\config.yaml
 
 # 编辑 config.yaml，填入你的 AI API 地址与密钥（见配置指南）
+# xAI 视频不要写进 YAML。PowerShell：
+# $env:XAI_API_KEY = "xai-..."
 
 # 首次运行：初始化数据库
 npm run migrate
@@ -171,6 +175,19 @@ style:
 ```
 
 AI 服务配置通过软件内「AI 配置」页面管理，无需手动编辑 YAML。  
+**xAI 视频 Key 例外**：只读环境变量 `XAI_API_KEY`，不写 YAML / SQLite / 前端。  
+
+```powershell
+$env:XAI_API_KEY = "xai-..."
+```
+
+桌面 exe 也会读取（仅当环境变量未设置时）：
+
+- `%APPDATA%\localminidrama-desktop\.env`
+- `%APPDATA%\localminidrama-desktop\backend\.env`
+
+文件内容示例：`XAI_API_KEY=xai-...`（该路径不在 Git 仓库内）。
+
 详细说明请见 → [AI 配置指南](configuration.md)
 
 ---

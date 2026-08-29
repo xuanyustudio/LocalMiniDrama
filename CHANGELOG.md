@@ -8,6 +8,21 @@
 
 ---
 
+## [Unreleased] — Grok-first
+
+### 新增
+
+- **xAI Grok Imagine Video 1.5**：官方 `POST /v1/videos/generations` + `GET /v1/videos/{request_id}`；T2V / I2V / R2V 互斥；默认草稿 **9:16 · 720p · 6 秒**
+- **Key 隔离**：只读环境变量 `XAI_API_KEY`；AI 配置页不收集、不入库；日志脱敏
+- **视频队列**：`queued` 持久化、并发读 `pipeline_video_concurrency`、有限重试、重启恢复 poll（过期任务不自动新开请求）
+- 制作页可选自动 / T2V / I2V / R2V；R2V 不可选 1080p；成功后立即本地下载远端临时 URL
+
+### 文档
+
+- `README.md`、`docs/configuration.md`、`docs/quickstart.md` 补充 xAI 与 `XAI_API_KEY`
+
+---
+
 ## [1.2.8] - 2026-07-01
 
 ### 新增

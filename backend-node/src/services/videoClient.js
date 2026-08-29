@@ -3066,33 +3066,189 @@ async function callJimengAiApiVideo(config, log, opts) {
   return { error: 'Jimeng AI API 未返回 data[0].url: ' + JSON.stringify(data).slice(0, 400) };
 }
 
-function resolveXaiVideoResolution(resolution) {
-  const s = String(resolution || '').toLowerCase();
-  if (s.includes('480')) return '480p';
-  if (s.includes('720')) return '720p';
-  return '720p';
+const XAI_DEFAULT_MODEL = 'grok-imagine-video-1.5';
+const XAI_DEFAULT_DURATION = 6;
+const XAI_DEFAULT_RESOLUTION = '720p';
+const XAI_DEFAULT_ASPECT_RATIO = '9:16';
+const XAI_R2V_MAX_REFERENCE_IMAGES = 7;
+const XAI_IMAGE_REF_MIX_ERROR = 'image and reference_images cannot both be submitted';
+const XAI_API_KEY_MISSING = 'XAI_API_KEY is not set';
+
+function resolveXaiApiKeyFromEnv() {
+  const key = process.env.XAI_API_KEY;
+  return key != null && String(key).trim() ? String(key).trim() : '';
 }
 
-/** grok-video-3 等官方示例：size 为 "720P" / "480P"（大写 P） */
+function xaiBearerHeaders() {
+  const key = resolveXaiApiKeyFromEnv();
+  if (!key) return { error: XAI_API_KEY_MISSING };
+  return { headers: { Authorization: 'Bearer ' + key } };
+}
+
+/**
+ * Imagine Video 1.5：480p / 720p / 1080p。缺省 720p。
+ * 参考图视频（r2v）官方上限 720p，1080p 降为 720p。
+ */
+function resolveXaiVideoResolution(resolution, mode) {
+  const s = String(resolution || '').toLowerCase();
+  let out = XAI_DEFAULT_RESOLUTION;
+  if (s.includes('1080') || s.includes('1920')) out = '1080p';
+  else if (s.includes('480') || s.includes('640')) out = '480p';
+  else if (s.includes('720') || s.includes('1280')) out = '720p';
+  if (String(mode || '').toLowerCase() === 'r2v' && out === '1080p') out = '720p';
+  return out;
+}
+
+/** grok-video-3 等中转：size 为 "720P" / "480P"（大写 P），不走 1080p */
 function formatGrokVideo3Size(resolution) {
   const s = resolveXaiVideoResolution(resolution);
   if (String(s).includes('480')) return '480P';
   return '720P';
 }
 
+/** Imagine 1.5：1–15 秒；缺省或非法时 6 秒 */
 function clampXaiDuration(d) {
   const n = Math.round(Number(d));
-  if (!Number.isFinite(n) || n < 1) return 8;
+  if (!Number.isFinite(n) || n < 1) return XAI_DEFAULT_DURATION;
   return Math.min(15, Math.max(1, n));
 }
 
-/** 模型名同时含 grok 与 video（不必相邻，如 grok-video-3、grok_imagine_1.0_video_apimart）→ images[] + size */
-function isXaiGrokVideoStyleModel(modelName) {
-  const m = String(modelName || '').toLowerCase();
-  return /grok/.test(m) && /video/.test(m);
+function normalizeXaiGenerateAudio(value) {
+  if (value === true || value === 1 || value === '1') return true;
+  if (typeof value === 'string' && value.toLowerCase() === 'true') return true;
+  return false;
 }
 
-/** 主图 + reference_urls 去重合并为公网 URL 字符串数组 */
+/**
+ * 中转 grok-video-3 等：images[] + size。
+ * grok-imagine / grok-imagine-video-1.5 必须走官方 Imagine 体，不能仅因含 grok+video 就误判。
+ */
+function isXaiGrokVideoStyleModel(modelName) {
+  const m = String(modelName || '').toLowerCase();
+  if (!m) return false;
+  if (/imagine/.test(m)) return false;
+  return /grok[-_]?video/.test(m);
+}
+
+function isXaiImagineModel(modelName) {
+  return !isXaiGrokVideoStyleModel(modelName);
+}
+
+function sameXaiImageRef(a, b) {
+  const x = String(a || '').trim();
+  const y = String(b || '').trim();
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const strip = (u) => u.split('?')[0].replace(/\/+$/, '');
+  return strip(x) === strip(y);
+}
+
+/**
+ * 官方三种模式互斥：T2V=prompt；I2V=image；R2V=reference_images。
+ * 首帧 URL 与 reference 列表里同一张图视为 I2V，不当成混用。
+ */
+function resolveXaiGenerationMode(opts) {
+  const image = String(opts?.first_frame_url || opts?.image_url || '').trim();
+  const refs = (Array.isArray(opts?.reference_urls) ? opts.reference_urls : [])
+    .map((u) => String(u || '').trim())
+    .filter(Boolean);
+  const extraRefs = image ? refs.filter((u) => !sameXaiImageRef(u, image)) : refs;
+  if (image && extraRefs.length > 0) {
+    return { error: XAI_IMAGE_REF_MIX_ERROR };
+  }
+  if (image) {
+    return { mode: 'i2v', image, reference_images: null };
+  }
+  if (refs.length > 0) {
+    const unique = [];
+    for (const u of refs) {
+      if (!unique.some((x) => sameXaiImageRef(x, u))) unique.push(u);
+    }
+    return {
+      mode: 'r2v',
+      image: null,
+      reference_images: unique.slice(0, XAI_R2V_MAX_REFERENCE_IMAGES),
+    };
+  }
+  return { mode: 't2v', image: null, reference_images: null };
+}
+
+function buildXaiImagineVideoBody(opts) {
+  const modeInfo = opts.modeInfo || resolveXaiGenerationMode(opts);
+  if (modeInfo.error) return { error: modeInfo.error };
+  const mode = modeInfo.mode;
+  const prompt = opts.prompt != null ? String(opts.prompt).trim() : '';
+  if ((mode === 't2v' || mode === 'r2v') && !prompt) {
+    return { error: 'xAI text-to-video and reference-to-video require a prompt' };
+  }
+  const body = {
+    model: opts.model || XAI_DEFAULT_MODEL,
+    duration: clampXaiDuration(opts.duration != null ? opts.duration : XAI_DEFAULT_DURATION),
+    aspect_ratio: normalizeAspectRatioForApi(opts.aspect_ratio) || XAI_DEFAULT_ASPECT_RATIO,
+    resolution: resolveXaiVideoResolution(opts.resolution, mode),
+    generate_audio: normalizeXaiGenerateAudio(opts.generate_audio),
+  };
+  if (prompt) body.prompt = prompt;
+  if (mode === 'i2v' && modeInfo.image) {
+    body.image = { url: modeInfo.image };
+  }
+  if (mode === 'r2v' && modeInfo.reference_images && modeInfo.reference_images.length) {
+    body.reference_images = modeInfo.reference_images.map((url) => ({ url }));
+  }
+  return { mode, body };
+}
+
+function extractXaiRequestId(data) {
+  if (!data || typeof data !== 'object') return null;
+  const id = data.request_id || data.task_id || data.id;
+  return id != null && String(id).trim() ? String(id).trim() : null;
+}
+
+function extractXaiVideoUrl(data) {
+  if (!data || typeof data !== 'object') return null;
+  const fromVideo =
+    data.video && typeof data.video === 'object'
+      ? coerceHttpVideoUrl(data.video.url) || coerceHttpVideoUrl(data.video.video_url)
+      : null;
+  return fromVideo || pickProxyVideoUrl(data);
+}
+
+/**
+ * 解析 GET /v1/videos/{request_id}：pending | done | failed | expired。
+ * done 且 respect_moderation === false 视为失败。
+ */
+function parseXaiPollResult(data) {
+  if (!data || typeof data !== 'object') {
+    return { status: 'pending' };
+  }
+  const status = extractPollTaskStatus(data);
+  if (status === 'expired') {
+    return { status: 'expired', error: 'xAI video request expired' };
+  }
+  if (status === 'failed' || status === 'failure' || status === 'error') {
+    const msg =
+      (data.error && (data.error.message || data.error.code)) ||
+      extractPollFailureMessage(data) ||
+      'xAI video generation failed';
+    return {
+      status: 'failed',
+      error: String(msg).slice(0, 500),
+      error_code: data.error && data.error.code ? String(data.error.code) : undefined,
+    };
+  }
+  const videoUrl = extractXaiVideoUrl(data);
+  if (status === 'done' || status === 'succeeded' || status === 'completed') {
+    if (data.video && data.video.respect_moderation === false) {
+      return { status: 'failed', error: 'xAI video blocked by moderation' };
+    }
+    if (videoUrl) return { status: 'done', video_url: videoUrl };
+    return { status: 'done', error: 'xAI video done but no url' };
+  }
+  if (videoUrl) return { status: status || 'pending', video_url: videoUrl };
+  return { status: status || 'pending' };
+}
+
+/** 主图 + reference_urls 去重合并为公网 URL 字符串数组（仅 grok-video-3 中转体） */
 function mergeXaiVideoImageUrls(imageUrlForApi, resolvedRefStrings, max = 10) {
   const images = [];
   if (imageUrlForApi) images.push(imageUrlForApi);
@@ -3103,9 +3259,9 @@ function mergeXaiVideoImageUrls(imageUrlForApi, resolvedRefStrings, max = 10) {
 }
 
 /**
- * xAI 视频（官方两套）：
- * - grok + video 模型：images: string[]、size（720P）、aspect_ratio、duration（中转 grok-video-3 等同此）。
- * - 其余 grok-imagine：image.url、resolution、duration、reference_images（主图与额外参考图可同时存在）。
+ * xAI 视频：
+ * - grok-imagine-video-1.5（默认）：官方 Imagine 体，T2V / I2V / R2V 互斥。
+ * - grok-video-3 等中转：images[] + size。
  */
 async function callXaiVideoApi(config, log, opts) {
   const {
@@ -3115,8 +3271,9 @@ async function callXaiVideoApi(config, log, opts) {
     aspect_ratio,
     resolution,
     image_url,
+    first_frame_url,
     reference_urls,
-    files_base_url,
+    generate_audio,
     storage_local_path,
     video_gen_id,
   } = opts;
@@ -3126,14 +3283,128 @@ async function callXaiVideoApi(config, log, opts) {
   if (!ep.startsWith('/')) ep = '/' + ep;
   const url = base + ep;
 
-  const ratio = normalizeAspectRatioForApi(aspect_ratio) || '16:9';
-  const dur = clampXaiDuration(duration != null ? duration : 8);
-  const reso = resolveXaiVideoResolution(resolution);
-  const modelName = model || 'grok-imagine-video';
+  const modelName = model || XAI_DEFAULT_MODEL;
   const useGrokVideoImages = isXaiGrokVideoStyleModel(modelName);
+  const auth = xaiBearerHeaders();
+  if (auth.error) return { error: auth.error };
+
+  if (!useGrokVideoImages) {
+    const modeCheck = resolveXaiGenerationMode({
+      first_frame_url,
+      image_url,
+      reference_urls,
+    });
+    if (modeCheck.error) {
+      log.warn('[xAI视频] 拒绝混用 image 与 reference_images', { video_gen_id, error: modeCheck.error });
+      return { error: modeCheck.error };
+    }
+    if ((modeCheck.mode === 't2v' || modeCheck.mode === 'r2v') && !String(prompt || '').trim()) {
+      return { error: 'xAI text-to-video and reference-to-video require a prompt' };
+    }
+
+    let resolvedImage = '';
+    if (modeCheck.mode === 'i2v' && modeCheck.image) {
+      const resolved = await resolveVeo3ImageForApi(
+        modeCheck.image,
+        storage_local_path,
+        log,
+        String(video_gen_id || '')
+      );
+      resolvedImage = (resolved && resolved.value) || modeCheck.image;
+    }
+    const resolvedRefs = [];
+    if (modeCheck.mode === 'r2v' && modeCheck.reference_images) {
+      for (let i = 0; i < modeCheck.reference_images.length; i++) {
+        const u = modeCheck.reference_images[i];
+        const r = await resolveVeo3ImageForApi(u, storage_local_path, log, `${video_gen_id || 0}_r${i}`);
+        resolvedRefs.push((r && r.value) || u);
+      }
+    }
+
+    const built = buildXaiImagineVideoBody({
+      prompt,
+      model: modelName,
+      duration,
+      aspect_ratio,
+      resolution,
+      generate_audio,
+      modeInfo: {
+        mode: modeCheck.mode,
+        image: resolvedImage || null,
+        reference_images: resolvedRefs.length ? resolvedRefs : null,
+      },
+    });
+    if (built.error) return { error: built.error };
+    const body = built.body;
+    const mode = built.mode;
+
+    log.info('[xAI视频] 提交', {
+      video_gen_id,
+      url,
+      model: body.model,
+      mode,
+      aspect_ratio: body.aspect_ratio,
+      duration: body.duration,
+      resolution: body.resolution,
+      generate_audio: body.generate_audio,
+      has_image: !!body.image,
+      ref_count: Array.isArray(body.reference_images) ? body.reference_images.length : 0,
+      image_url_head: body.image?.url ? String(body.image.url).slice(0, 100) : null,
+      reference_images_heads: Array.isArray(body.reference_images)
+        ? body.reference_images.map((r) => String(r?.url || '').slice(0, 100))
+        : undefined,
+    });
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...auth.headers,
+      },
+      body: JSON.stringify(body),
+    });
+    const raw = await res.text();
+    log.info('[xAI视频] 响应', { video_gen_id, status: res.status, head: raw.slice(0, 500) });
+
+    if (!res.ok) {
+      let errMsg = 'xAI 视频请求失败: ' + res.status;
+      try {
+        const errJson = JSON.parse(raw);
+        const msg = errJson.error?.message || errJson.message || errJson.error;
+        if (msg) errMsg += ' - ' + String(msg).slice(0, 220);
+      } catch (_) {
+        if (raw) errMsg += ' - ' + raw.slice(0, 200);
+      }
+      return { error: errMsg };
+    }
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      return { error: 'xAI 响应非 JSON: ' + raw.slice(0, 200) };
+    }
+
+    const direct = extractXaiVideoUrl(data);
+    if (direct) {
+      log.info('[xAI视频] 同步返回地址', { video_gen_id });
+      return { video_url: direct };
+    }
+
+    const reqId = extractXaiRequestId(data);
+    if (reqId) {
+      log.info('[xAI视频] 异步任务', { video_gen_id, request_id: reqId });
+      return { task_id: reqId, request_id: reqId, status: 'submitted' };
+    }
+
+    return { error: 'xAI 未返回 request_id 或视频地址: ' + JSON.stringify(data).slice(0, 300) };
+  }
+
+  const ratio = normalizeAspectRatioForApi(aspect_ratio) || XAI_DEFAULT_ASPECT_RATIO;
+  const dur = clampXaiDuration(duration != null ? duration : XAI_DEFAULT_DURATION);
 
   let imageUrlForApi = '';
-  const rawMain = (image_url || '').trim();
+  const rawMain = String(first_frame_url || image_url || '').trim();
   if (rawMain) {
     const resolved = await resolveVeo3ImageForApi(rawMain, storage_local_path, log, String(video_gen_id || ''));
     if (resolved?.value) {
@@ -3157,74 +3428,31 @@ async function callXaiVideoApi(config, log, opts) {
   }
 
   const mergedImages = mergeXaiVideoImageUrls(imageUrlForApi, resolvedRefStrings);
-
-  let body;
-  let logExtra = {};
-
-  if (useGrokVideoImages) {
-    body = {
-      model: modelName,
-      prompt: prompt || '',
-      aspect_ratio: ratio,
-      size: formatGrokVideo3Size(resolution),
-      duration: dur,
-    };
-    if (mergedImages.length) body.images = mergedImages;
-    logExtra = {
-      body_shape: 'grok-video',
-      images_count: body.images?.length || 0,
-      size: body.size,
-    };
-  } else {
-    body = {
-      model: modelName,
-      prompt: prompt || '',
-      duration: dur,
-      aspect_ratio: ratio,
-      resolution: reso,
-    };
-    if (imageUrlForApi) {
-      body.image = { url: imageUrlForApi };
-      const extraRefs = mergedImages.filter((u) => u !== imageUrlForApi);
-      if (extraRefs.length > 0) {
-        body.reference_images = extraRefs.map((u) => ({ url: u }));
-      }
-    } else if (mergedImages.length > 0) {
-      body.reference_images = mergedImages.map((u) => ({ url: u }));
-    }
-    logExtra = {
-      body_shape: 'grok-imagine',
-      has_image: !!body.image,
-      ref_count: body.reference_images?.length || 0,
-      total_unique_images: mergedImages.length,
-    };
-  }
-
-  const first = mergedImages[0] || '';
-  const mainTransport =
-    first && String(first).startsWith('data:') ? 'data_url' : first ? 'http_url' : 'none';
+  const body = {
+    model: modelName,
+    prompt: prompt || '',
+    aspect_ratio: ratio,
+    size: formatGrokVideo3Size(resolution),
+    duration: dur,
+  };
+  if (mergedImages.length) body.images = mergedImages;
 
   log.info('[xAI视频] 提交', {
     video_gen_id,
     url,
     model: body.model,
+    body_shape: 'grok-video',
     aspect_ratio: ratio,
-    duration: body.duration != null ? body.duration : dur,
-    resolution: body.resolution != null ? body.resolution : undefined,
-    image_transport: mainTransport,
-    ...logExtra,
-    images: body.images,
-    image_url_head: body.image?.url ? String(body.image.url).slice(0, 100) : null,
-    reference_images_heads: Array.isArray(body.reference_images)
-      ? body.reference_images.map((r) => String(r?.url || '').slice(0, 100))
-      : undefined,
+    duration: body.duration,
+    images_count: body.images?.length || 0,
+    size: body.size,
   });
 
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + (config.api_key || ''),
+      ...auth.headers,
     },
     body: JSON.stringify(body),
   });
@@ -3250,16 +3478,16 @@ async function callXaiVideoApi(config, log, opts) {
     return { error: 'xAI 响应非 JSON: ' + raw.slice(0, 200) };
   }
 
-  const direct = pickProxyVideoUrl(data);
+  const direct = extractXaiVideoUrl(data) || pickProxyVideoUrl(data);
   if (direct) {
     log.info('[xAI视频] 同步返回地址', { video_gen_id });
     return { video_url: direct };
   }
 
-  const reqId = data.request_id || data.task_id || data.id;
+  const reqId = extractXaiRequestId(data);
   if (reqId) {
     log.info('[xAI视频] 异步任务', { video_gen_id, request_id: reqId });
-    return { task_id: String(reqId), status: 'submitted' };
+    return { task_id: reqId, request_id: reqId, status: 'submitted' };
   }
 
   return { error: 'xAI 未返回 request_id 或视频地址: ' + JSON.stringify(data).slice(0, 300) };
@@ -3771,7 +3999,9 @@ async function callVideoApi(db, log, opts) {
       aspect_ratio,
       resolution: opts.resolution,
       image_url: opts.image_url,
+      first_frame_url: opts.first_frame_url || opts.first_frame_local_path,
       reference_urls: opts.reference_urls,
+      generate_audio: opts.generate_audio,
       files_base_url: opts.files_base_url,
       storage_local_path: opts.storage_local_path,
       video_gen_id: opts.video_gen_id,
@@ -4085,6 +4315,7 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
   const isKling = protocol === 'kling';
   const isKlingOmni = protocol === 'kling_omni' || (typeof taskId === 'string' && taskId.startsWith('omni:'));
   const isVeo3 = protocol === 'veo3';
+  const isXai = protocol === 'xai';
   /** 轮询日志里响应体最大字符数（即梦/方舟等 JSON 可能较长）；0 表示不截断（慎用） */
   const pollLogBodyMax = (() => {
     const v = String(process.env.VIDEO_POLL_LOG_MAX || '16384').trim();
@@ -4155,6 +4386,11 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
         if (!qep.startsWith('/')) qep = '/' + qep;
         url = viduBase + qep;
         headers = { Authorization: (isOfficialVidu ? 'Token ' : 'Bearer ') + (config.api_key || '') };
+      } else if (isXai) {
+        url = queryUrl();
+        const auth = xaiBearerHeaders();
+        if (auth.error) return { error: auth.error };
+        headers = auth.headers;
       } else {
         url = queryUrl();
         headers = { Authorization: 'Bearer ' + (config.api_key || '') };
@@ -4399,6 +4635,19 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
         continue;
       }
 
+      if (isXai) {
+        const parsed = parseXaiPollResult(data);
+        log.info('[xAI poll] 状态', {
+          video_gen_id: videoGenId,
+          attempt,
+          status: parsed.status,
+          has_url: !!parsed.video_url,
+        });
+        if (parsed.video_url) return { video_url: parsed.video_url };
+        if (parsed.error) return { error: parsed.error };
+        continue;
+      }
+
       if (isDashScope) {
         const taskStatus = data?.output?.task_status;
         const videoUrl = parseDashScopeVideoUrl(data);
@@ -4451,13 +4700,14 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
       log.warn('Video poll request failed', { attempt, error: e.message });
     }
   }
-  return { error: '??????' };
+  return { error: isXai ? 'xAI video poll timed out' : '视频生成超时' };
 }
 
 module.exports = {
   getDefaultVideoConfig,
   callVideoApi,
   pollVideoTask,
+  resolveVideoProtocol,
   normalizeAspectRatioForApi,
   isPlausibleHttpVideoUrl,
   pickProxyVideoUrl,
@@ -4474,4 +4724,24 @@ module.exports = {
   extractMinimaxH3VideoUrl,
   normalizeMinimaxH3Duration,
   normalizeMinimaxH3Resolution,
+  XAI_DEFAULT_MODEL,
+  XAI_DEFAULT_DURATION,
+  XAI_DEFAULT_RESOLUTION,
+  XAI_DEFAULT_ASPECT_RATIO,
+  XAI_R2V_MAX_REFERENCE_IMAGES,
+  XAI_IMAGE_REF_MIX_ERROR,
+  XAI_API_KEY_MISSING,
+  resolveXaiApiKeyFromEnv,
+  xaiBearerHeaders,
+  resolveXaiVideoResolution,
+  clampXaiDuration,
+  normalizeXaiGenerateAudio,
+  isXaiGrokVideoStyleModel,
+  isXaiImagineModel,
+  resolveXaiGenerationMode,
+  buildXaiImagineVideoBody,
+  extractXaiRequestId,
+  extractXaiVideoUrl,
+  parseXaiPollResult,
+  callXaiVideoApi,
 };

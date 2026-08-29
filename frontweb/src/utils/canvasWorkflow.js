@@ -63,9 +63,9 @@ export function findStoryboardInDrama(drama, storyboardId) {
 export function getDramaGenerationOptions(drama) {
   const meta = parseDramaMetadata(drama?.metadata)
   return {
-    aspectRatio: meta.aspect_ratio || '16:9',
+    aspectRatio: meta.aspect_ratio || '9:16',
     style: meta.style_prompt_en || meta.style_prompt_zh || drama?.style || '',
-    videoResolution: meta.video_resolution || '480p',
+    videoResolution: meta.video_resolution || '720p',
   }
 }
 

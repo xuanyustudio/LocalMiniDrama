@@ -4,10 +4,12 @@ const path = require('path');
 const fs = require('fs');
 const { getDb } = require('./db/index.js');
 const { loadConfig } = require('./config/index.js');
+const { loadXaiApiKeyFromDefaultLocations } = require('./config/loadXaiEnv.js');
 const logger = require('./logger.js');
 const { setupRouter } = require('./routes/index.js');
 
 function createApp() {
+  loadXaiApiKeyFromDefaultLocations(null, logger);
   const config = loadConfig();
   const db = getDb(config.database);
   const { runMigrationsAndEnsure } = require('./db/migrate.js');

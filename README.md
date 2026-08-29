@@ -27,7 +27,7 @@
 <tr>
 <td width="25%" align="center"><b>🔒 本地优先</b><br/>SQLite + 本地文件，素材不上云</td>
 <td width="25%" align="center"><b>🎬 全流程</b><br/>剧本 → 角色/场景 → 分镜 → 视频合成</td>
-<td width="25%" align="center"><b>🤖 多模型</b><br/>通义 / 火山 / 可灵 / Gemini 等</td>
+<td width="25%" align="center"><b>🤖 多模型</b><br/>Grok Imagine 1.5 / 通义 / 火山 / 可灵 等</td>
 <td width="25%" align="center"><b>🗺 双视图</b><br/>列表精细编辑 + 画布批量编排</td>
 </tr>
 </table>
@@ -39,8 +39,9 @@
 
 ---
 
-## 📌 最新动态（v1.2.8）
+## 📌 最新动态（Grok-first / v1.2.8）
 
+- 🆕 **xAI Grok Imagine Video 1.5**：漫剧默认视频生成；`XAI_API_KEY` 仅环境变量；T2V / I2V / R2V
 - 🆕 **Agnes AI 接入**：文本 / 图片 / 视频一键配置，一个 Key 覆盖全流程
 - 🆕 **画布模式增强**：剧本节点、右键菜单、浮动工具栏、画布内新建/删除/整集生成
 - 🆕 **ModelArk 私有资产库**：SD2 角色认证对接火山方舟资产组，AK/SK 与 Bearer 双鉴权
@@ -117,7 +118,7 @@
   </tr>
 </table>
 
-> 💡 同时支持火山 **Seedance 2.0**、通义万相、Vidu、可灵 Kling（含 Omni）等，模型越新效果通常越好。
+> 💡 漫剧视频默认 **xAI Grok Imagine Video 1.5**（`XAI_API_KEY` 环境变量）。同时支持火山 **Seedance 2.0**、通义万相、Vidu、可灵 Kling（含 Omni）等。
 
 ---
 
@@ -213,6 +214,7 @@ cd frontweb && npm install && npm run dev
 
 | 服务商 | 文本 | 图片 | 视频 |
 |--------|:----:|:----:|:----:|
+| **xAI Grok Imagine Video 1.5** | — | — | ✅ |
 | 阿里云 DashScope（通义） | ✅ | ✅ | ✅ |
 | 火山引擎 Volcengine（豆包 / Seedance 2.0） | ✅ | ✅ | ✅ |
 | 可灵 Kling AI（含 Omni） | — | ✅ | ✅ |
@@ -248,6 +250,7 @@ LocalMiniDrama/
 
 | 状态 | 计划 | 说明 |
 |:----:|------|------|
+| ✅ | xAI Grok Imagine Video 1.5 | 环境变量 Key · T2V/I2V/R2V · 默认 9:16 720p 6s |
 | ✅ | Seedance 2.0 + 全能模式 | 多图 `@图片N` · `universal_segment_text` |
 | ✅ | 画布工作流 | 列表/画布双视图 · 整组重跑 · 节点面板 |
 | 📋 | **场景图 → 全景图** | 由场景参考图 AI 扩展超宽/360° 全景，供大景别运镜与场景库 |

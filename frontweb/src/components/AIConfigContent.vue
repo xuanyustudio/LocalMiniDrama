@@ -531,7 +531,16 @@ input_reference = (图片文件，可选)</pre>
             :placeholder="form.service_type === 'jimeng2_character_auth' ? '如 https://your-gateway.com' : '选择预设厂商后自动填充，可修改'"
           />
         </el-form-item>
-        <el-form-item prop="api_key">
+        <el-form-item v-if="isXaiVideoProvider">
+          <template #label><span class="form-label-tip">API Key</span></template>
+          <el-alert
+            type="info"
+            :closable="false"
+            show-icon
+            title="xAI 使用环境变量 XAI_API_KEY，不在此填写，也不会写入数据库。"
+          />
+        </el-form-item>
+        <el-form-item v-else prop="api_key">
           <template #label>
             <span class="form-label-tip">{{ form.service_type === 'jimeng2_character_auth' ? 'Token' : 'API Key' }}
               <el-tooltip placement="top" popper-class="cfg-tip-popper">
@@ -1198,6 +1207,11 @@ const form = ref({
 const presetModelPick = ref('')
 
 const formModelList = computed(() => parseModelText(form.value.modelText))
+const isXaiVideoProvider = computed(() => {
+  const p = String(form.value.provider || '').toLowerCase()
+  const proto = String(form.value.api_protocol || '').toLowerCase()
+  return p === 'xai' || p === 'grok' || proto === 'xai'
+})
 
 // 保证「生成时默认使用」下拉有可选且选中值在列表内，否则会不显示或修改无效
 watch(
@@ -1268,6 +1282,8 @@ const rules = computed(() => ({
           if (v != null && String(v).trim()) return cb()
           return cb(new Error('请填写 Token'))
         }
+        const p = String(form.value.provider || '').toLowerCase()
+        if (p === 'xai' || p === 'grok' || form.value.api_protocol === 'xai') return cb()
         const proto = form.value.api_protocol
         const ak = (form.value.kling_access_key || '').trim()
         const sk = (form.value.kling_secret_key || '').trim()
@@ -1349,7 +1365,7 @@ const providerConfigs = {
       ],
     },
     { id: 'openai', name: 'OpenAI', models: ['sora-2', 'sora-2-pro'] },
-    { id: 'xai', name: 'xAI Grok Imagine', models: ['grok-imagine-video'] },
+    { id: 'xai', name: 'xAI Grok Imagine', models: ['grok-imagine-video-1.5', 'grok-imagine-video'] },
     { id: 'agnes', name: 'Agnes AI', models: ['agnes-video-v2.0'] },
   ],
   tts: [
@@ -1877,7 +1893,7 @@ async function submit() {
       provider: form.value.provider,
       api_protocol: form.value.api_protocol || '',
       base_url: form.value.base_url,
-      api_key: form.value.api_key,
+      api_key: isXaiVideoProvider.value ? '' : form.value.api_key,
       endpoint: form.value.endpoint || '',
       query_endpoint: form.value.query_endpoint || '',
       model: modelList,
@@ -1987,7 +2003,7 @@ async function openTest(row) {
   try {
     await aiAPI.testConnection({
       base_url: row.base_url,
-      api_key: row.api_key,
+      api_key: (row.provider === 'xai' || row.provider === 'grok' || row.api_protocol === 'xai') ? '' : row.api_key,
       model: Array.isArray(row.model) ? row.model[0] : row.model,
       provider: row.provider,
       endpoint: row.endpoint,

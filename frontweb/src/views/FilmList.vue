@@ -129,8 +129,8 @@
         </el-form-item>
         <el-form-item label="画面比例">
           <el-select v-model="newForm.aspect_ratio" style="width: 100%">
-            <el-option label="16:9 横屏（默认）" value="16:9" />
-            <el-option label="9:16 竖屏（短视频）" value="9:16" />
+            <el-option label="9:16 竖屏（默认，漫剧）" value="9:16" />
+            <el-option label="16:9 横屏" value="16:9" />
             <el-option label="3:4 竖版" value="3:4" />
             <el-option label="1:1 方形" value="1:1" />
             <el-option label="4:3 传统横屏" value="4:3" />
@@ -592,7 +592,7 @@ async function onDeletePropLibrary(item) {
 }
 
 const showNewDialog = ref(false)
-const newForm = ref({ title: '', description: '', aspect_ratio: '16:9' })
+const newForm = ref({ title: '', description: '', aspect_ratio: '9:16' })
 const newSaving = ref(false)
 const exportingId = ref(null)
 const importing = ref(false)
@@ -672,7 +672,7 @@ function goNewProject() {
 }
 
 function resetNewForm() {
-  newForm.value = { title: '', description: '', aspect_ratio: '16:9' }
+  newForm.value = { title: '', description: '', aspect_ratio: '9:16' }
 }
 
 async function submitNew() {
@@ -680,7 +680,7 @@ async function submitNew() {
   if (!title) return
   newSaving.value = true
   try {
-    const drama = await dramaAPI.create({ title, description: newForm.value.description?.trim() || undefined, metadata: { aspect_ratio: newForm.value.aspect_ratio || '16:9' } })
+    const drama = await dramaAPI.create({ title, description: newForm.value.description?.trim() || undefined, metadata: { aspect_ratio: newForm.value.aspect_ratio || '9:16' } })
     showNewDialog.value = false
     ElMessage.success('项目已创建')
     loadList()

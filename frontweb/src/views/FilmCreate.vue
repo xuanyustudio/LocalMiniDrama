@@ -358,8 +358,8 @@
         <div class="one-click-actions">
           <span class="one-click-label">🚀 一键全流程</span>
           <el-select v-model="projectAspectRatio" style="width: 130px" @change="() => saveProjectSettings(false)">
+            <el-option label="9:16 竖屏（默认，漫剧）" value="9:16" />
             <el-option label="16:9 横屏" value="16:9" />
-            <el-option label="9:16 竖屏" value="9:16" />
             <el-option label="3:4 竖版" value="3:4" />
             <el-option label="1:1 方形" value="1:1" />
             <el-option label="4:3" value="4:3" />
@@ -368,6 +368,7 @@
           <el-select v-model="videoClipDuration" style="width: 105px" @change="() => saveProjectSettings(false)">
             <el-option label="4秒/段" :value="4" />
             <el-option label="5秒/段" :value="5" />
+            <el-option label="6秒/段（默认）" :value="6" />
             <el-option label="8秒/段" :value="8" />
             <el-option label="10秒/段" :value="10" />
             <el-option label="12秒/段" :value="12" />
@@ -1572,11 +1573,20 @@
       <section class="section card">
         <h2 class="section-title">视频配置</h2>
         <div class="config-grid">
+          <el-form-item label="生成模式">
+            <el-select v-model="videoGenerationMode" style="width: 200px">
+              <el-option label="自动（有首帧则图生视频）" value="auto" />
+              <el-option label="文生视频 T2V" value="t2v" />
+              <el-option label="图生视频 I2V" value="i2v" />
+              <el-option label="参考图视频 R2V" value="r2v" />
+            </el-select>
+            <p class="video-option-hint">T2V / I2V / R2V 互斥：有首帧默认图生视频；参考图走 R2V。不可同时提交首帧和参考图。R2V 最高 720p。</p>
+          </el-form-item>
           <el-form-item label="分辨率">
             <el-select v-model="videoResolution" style="width: 160px">
               <el-option label="480p" value="480p" />
               <el-option label="720p" value="720p" />
-              <el-option label="1080p" value="1080p" />
+              <el-option label="1080p" value="1080p" :disabled="!isGrok1080pAllowed(videoGenerationMode)" />
             </el-select>
           </el-form-item>
           <!--
@@ -2647,6 +2657,7 @@ import { sceneAPI } from '@/api/scenes'
 import { taskAPI } from '@/api/task'
 import { imagesAPI } from '@/api/images'
 import { videosAPI } from '@/api/videos'
+import { isGrok1080pAllowed, GROK_DEFAULT_DURATION, composeGrokAwareVideoBody, isXaiVideoConfig } from '@/utils/grokVideoMode'
 import { storyboardsAPI } from '@/api/storyboards'
 import { uploadAPI } from '@/api/upload'
 import { characterLibraryAPI } from '@/api/characterLibrary'
@@ -2740,8 +2751,9 @@ const isStoryGenRunning = computed(() => {
 })
 const generationStyle = ref('')
 const customStylePrompt = ref('')
-const projectAspectRatio = ref('16:9')
-const videoClipDuration = ref(5)
+const projectAspectRatio = ref('9:16')
+const videoClipDuration = ref(GROK_DEFAULT_DURATION)
+const videoGenerationMode = ref('auto')
 
 /** 根据 value 查找样式选项对象 */
 function _findStyleOption(val) {
@@ -2789,6 +2801,11 @@ const scriptContent = computed({
   set: (v) => store.setScriptContent(v)
 })
 const videoResolution = storeVideoResolution
+watch(videoGenerationMode, (mode) => {
+  if (!isGrok1080pAllowed(mode) && String(videoResolution.value || '').includes('1080')) {
+    videoResolution.value = '720p'
+  }
+})
 const videoMusic = ref('')
 const videoSfx = ref('')
 const videoQuality = ref('high')
@@ -3298,7 +3315,7 @@ const gridMode = ref('single') // 序列图模式：single / quad_grid / nine_gr
 /** 用于估算的每段时长（秒），与一键成片处「X秒/段」一致 */
 function clipSecondsForStoryboardEstimate() {
   const c = Number(videoClipDuration.value)
-  return Math.max(2, Math.min(60, Number.isFinite(c) && c > 0 ? c : 5))
+  return Math.max(2, Math.min(60, Number.isFinite(c) && c > 0 ? c : GROK_DEFAULT_DURATION))
 }
 
 /** 由估算总时长与每段秒数得镜数中枢与宽松参考区间（±1 镜） */
@@ -4301,7 +4318,7 @@ async function onGenerateSbFrameImage(sb, slot) {
       model: undefined,
       style: getSelectedStyle(),
       frame_type: frameTypeForSlot(slot),
-      aspect_ratio: projectAspectRatio.value || '16:9',
+      aspect_ratio: projectAspectRatio.value || '9:16',
       reference_images: refImagesForCreate,
       use_first_frame_layout_lock: isLast ? !!lastFrameUseFirstLayoutLock.value : undefined,
     })
@@ -4385,7 +4402,7 @@ async function onGenerateSbImage(sb) {
       model: undefined,
       style: getSelectedStyle(),
       frame_type: gridMode.value !== 'single' ? gridMode.value : undefined,
-      aspect_ratio: projectAspectRatio.value || '16:9',
+      aspect_ratio: projectAspectRatio.value || '9:16',
     })
     ElMessage.success('分镜图生成任务已提交')
     if (res?.task_id) {
@@ -4511,7 +4528,7 @@ function syncStoryboardStateFromEpisode(ep) {
     nextTitle[sb.id] = (sb.title ?? '').toString()
     nextLocation[sb.id] = (sb.location ?? '').toString()
     nextTime[sb.id] = (sb.time ?? '').toString()
-    nextDuration[sb.id] = sb.duration != null ? Number(sb.duration) : 5
+    nextDuration[sb.id] = sb.duration != null ? Number(sb.duration) : GROK_DEFAULT_DURATION
     nextAction[sb.id] = (sb.action ?? '').toString()
     nextResult[sb.id] = (sb.result ?? '').toString()
     nextAtmosphere[sb.id] = (sb.atmosphere ?? '').toString()
@@ -4589,8 +4606,8 @@ async function loadDrama() {
     } else {
       customStylePrompt.value = ''
     }
-    projectAspectRatio.value = (d.metadata && d.metadata.aspect_ratio) ? d.metadata.aspect_ratio : '16:9'
-    videoClipDuration.value = (d.metadata && d.metadata.video_clip_duration) ? Number(d.metadata.video_clip_duration) : 5
+    projectAspectRatio.value = (d.metadata && d.metadata.aspect_ratio) ? d.metadata.aspect_ratio : '9:16'
+    videoClipDuration.value = (d.metadata && d.metadata.video_clip_duration) ? Number(d.metadata.video_clip_duration) : GROK_DEFAULT_DURATION
     storyboardIncludeNarration.value = !!(d.metadata && d.metadata.storyboard_include_narration)
     storyboardUniversalOmni.value = !!(d.metadata && d.metadata.storyboard_universal_omni)
     storyboardUseFirstLastFrame.value = !!(d.metadata && d.metadata.storyboard_use_first_last_frame)
@@ -4827,7 +4844,7 @@ async function onRegenAffectedSbImages(assetKey, affectedBoards) {
           prompt,
           style: getSelectedStyle(),
           frame_type: frameTypeForCreate,
-          aspect_ratio: projectAspectRatio.value || '16:9',
+          aspect_ratio: projectAspectRatio.value || '9:16',
         })
         if (res?.task_id) {
           const pollRes = await new Promise((resolve) => {
@@ -4895,7 +4912,7 @@ async function saveScriptToBackend(content) {
       metadata: {
         ...projectStylePromptMetadata(),
         story_style: storyStyle.value || undefined,
-        aspect_ratio: projectAspectRatio.value || '16:9',
+        aspect_ratio: projectAspectRatio.value || '9:16',
       },
     })
     store.setDrama(drama)
@@ -4933,7 +4950,7 @@ async function saveScriptToBackend(content) {
         metadata: {
           ...projectStylePromptMetadata(),
           story_style: storyStyle.value || undefined,
-          aspect_ratio: projectAspectRatio.value || '16:9',
+          aspect_ratio: projectAspectRatio.value || '9:16',
         },
       }).catch(() => {})
     }
@@ -4971,7 +4988,7 @@ async function saveScriptToBackend(content) {
       metadata: {
         ...projectStylePromptMetadata(),
         story_style: storyStyle.value || undefined,
-        aspect_ratio: projectAspectRatio.value || '16:9',
+        aspect_ratio: projectAspectRatio.value || '9:16',
       },
     }).catch(() => {})
   }
@@ -4987,8 +5004,8 @@ async function saveProjectSettings(includeGenerationStyle = false) {
   if (!store.dramaId) return
   const metadata = {
     story_style: storyStyle.value || undefined,
-    aspect_ratio: projectAspectRatio.value || '16:9',
-    video_clip_duration: videoClipDuration.value || 5,
+    aspect_ratio: projectAspectRatio.value || '9:16',
+    video_clip_duration: videoClipDuration.value || GROK_DEFAULT_DURATION,
     storyboard_include_narration: !!storyboardIncludeNarration.value,
     storyboard_universal_omni: !!storyboardUniversalOmni.value,
     storyboard_use_first_last_frame: !!storyboardUseFirstLastFrame.value,
@@ -5750,7 +5767,7 @@ function onExportNarrationSrt() {
   let idx = 1
   for (const sb of boards) {
     const durSec = Number(sbDuration.value[sb.id] ?? sb.duration)
-    const sec = Number.isFinite(durSec) && durSec > 0 ? durSec : 5
+    const sec = Number.isFinite(durSec) && durSec > 0 ? durSec : GROK_DEFAULT_DURATION
     const durMs = Math.round(sec * 1000)
     const text = ((sbNarration.value[sb.id] ?? sb.narration) || '').toString().trim()
     if (text) {
@@ -5841,7 +5858,7 @@ function universalSegmentDurationSecForSb(sb) {
       ? dRow
       : Number.isFinite(dProj) && dProj > 0
         ? dProj
-        : 5
+        : GROK_DEFAULT_DURATION
 }
 
 /** 提交视频 API 时使用的时长：优先本分镜配置，其次项目「每段秒数」 */
@@ -5850,7 +5867,7 @@ function getSbVideoDurationForApi(sb) {
   if (Number.isFinite(perSb) && perSb > 0) return perSb
   const clip = Number(videoClipDuration.value)
   if (Number.isFinite(clip) && clip > 0) return clip
-  return undefined
+  return GROK_DEFAULT_DURATION
 }
 
 /** 全能提示词生成/润色：提交当前编辑区中的分镜字段（避免未点保存时仍用库内旧对白） */
@@ -6201,6 +6218,13 @@ async function getActiveVideoAiConfig() {
   }
   activeVideoAiConfigCacheAt = now
   return activeVideoAiConfigCache
+}
+
+async function createStoryboardVideo(payload) {
+  const cfg = await getActiveVideoAiConfig()
+  const mode = videoGenerationMode.value
+  const applyExclusive = isXaiVideoConfig(cfg) || mode !== 'auto'
+  return videosAPI.create(composeGrokAwareVideoBody(mode, payload, { applyExclusive }))
 }
 
 function videoModelNameFromAiConfig(cfg) {
@@ -6598,7 +6622,7 @@ async function onGenerateSbVideo(sb) {
       referenceUrls = [...referenceUrls, vLast]
     }
     const preferClassicPrompt = universal && !universalOmniApi
-    const res = await videosAPI.create({
+    const res = await createStoryboardVideo({
       drama_id: dramaId.value,
       storyboard_id: sb.id,
       prompt: buildSbVideoPromptForApi(sb, { preferClassicPrompt }),
@@ -6607,7 +6631,7 @@ async function onGenerateSbVideo(sb) {
       last_frame_url: universalOmniApi ? undefined : vLast,
       reference_image_urls: referenceUrls,
       style: getSelectedStyle(),
-      aspect_ratio: projectAspectRatio.value || '16:9',
+      aspect_ratio: projectAspectRatio.value || '9:16',
       resolution: videoResolution.value || undefined,
       duration: getSbVideoDurationForApi(sb),
     })
@@ -6791,7 +6815,7 @@ async function onGenerateStoryboard() {
       style: getSelectedStyle(),
       storyboard_count: getStoryboardCountForApi(),
       video_duration: getVideoDurationForApi(),
-      aspect_ratio: projectAspectRatio.value || '16:9',
+      aspect_ratio: projectAspectRatio.value || '9:16',
       include_narration: !!storyboardIncludeNarration.value,
       universal_omni_storyboard: !!storyboardUniversalOmni.value,
     })
@@ -6920,7 +6944,7 @@ async function startBatchImageGeneration() {
             prompt,
             style: getSelectedStyle(),
             frame_type: frameTypeForCreate,
-            aspect_ratio: projectAspectRatio.value || '16:9',
+            aspect_ratio: projectAspectRatio.value || '9:16',
           })
           if (res?.task_id) {
             const pollRes = await pollTask(res.task_id, () => loadSingleStoryboardMedia(sb.id))
@@ -7043,7 +7067,7 @@ async function startBatchVideoGeneration() {
           if (!universal && vLast && refUrls && !refUrls.includes(vLast)) {
             refUrls = [...refUrls, vLast]
           }
-          const res = await videosAPI.create({
+          const res = await createStoryboardVideo({
             drama_id: dramaId.value,
             storyboard_id: sb.id,
             prompt: buildSbVideoPromptForApi(sb),
@@ -7052,7 +7076,7 @@ async function startBatchVideoGeneration() {
             last_frame_url: vLast,
             reference_image_urls: refUrls,
             style: getSelectedStyle(),
-            aspect_ratio: projectAspectRatio.value || '16:9',
+            aspect_ratio: projectAspectRatio.value || '9:16',
             resolution: videoResolution.value || undefined,
             duration: getSbVideoDurationForApi(sb),
           })
@@ -7472,7 +7496,7 @@ async function runOneClickPipeline(textOnly = false) {
       try {
         const res = await dramaAPI.generateStoryboard(episodeId, {
           style,
-          aspect_ratio: projectAspectRatio.value || '16:9',
+          aspect_ratio: projectAspectRatio.value || '9:16',
           storyboard_count: getStoryboardCountForApi(),
           video_duration: getVideoDurationForApi(),
           include_narration: !!storyboardIncludeNarration.value,
@@ -7683,7 +7707,7 @@ async function runOneClickPipeline(textOnly = false) {
               model: undefined,
               style,
               frame_type: frameTypeForCreate,
-              aspect_ratio: projectAspectRatio.value || '16:9',
+              aspect_ratio: projectAspectRatio.value || '9:16',
             })
             if (res?.task_id) {
               const result = await pollTaskWithPause(res.task_id, () => loadSingleStoryboardMedia(sb.id))
@@ -7740,7 +7764,7 @@ async function runOneClickPipeline(textOnly = false) {
             if (!universal && vLast && refUrls && !refUrls.includes(vLast)) {
               refUrls = [...refUrls, vLast]
             }
-            const res = await videosAPI.create({
+            const res = await createStoryboardVideo({
               drama_id: dramaIdVal,
               storyboard_id: sb.id,
               prompt: buildSbVideoPromptForApi(sb),
@@ -7749,7 +7773,7 @@ async function runOneClickPipeline(textOnly = false) {
               last_frame_url: vLast,
               reference_image_urls: refUrls,
               style,
-              aspect_ratio: projectAspectRatio.value || '16:9',
+              aspect_ratio: projectAspectRatio.value || '9:16',
               resolution: videoResolution.value || undefined,
               duration: getSbVideoDurationForApi(sb),
             })
@@ -7983,7 +8007,7 @@ async function runRepairPipeline() {
       pipelineCurrentStep.value = '正在生成分镜...'
       try {
         const res = await dramaAPI.generateStoryboard(episodeId, {
-          aspect_ratio: projectAspectRatio.value || '16:9',
+          aspect_ratio: projectAspectRatio.value || '9:16',
           storyboard_count: getStoryboardCountForApi(),
           video_duration: getVideoDurationForApi(),
           include_narration: !!storyboardIncludeNarration.value,
@@ -8039,7 +8063,7 @@ async function runRepairPipeline() {
             model: undefined,
             style,
             frame_type: frameTypeForCreate,
-            aspect_ratio: projectAspectRatio.value || '16:9',
+            aspect_ratio: projectAspectRatio.value || '9:16',
           })
           if (res?.task_id) {
             const result = await pollTaskWithPause(res.task_id, () => loadSingleStoryboardMedia(sb.id))
@@ -8081,7 +8105,7 @@ async function runRepairPipeline() {
             if (!universal && vLast && refUrls && !refUrls.includes(vLast)) {
               refUrls = [...refUrls, vLast]
             }
-            const res = await videosAPI.create({
+            const res = await createStoryboardVideo({
               drama_id: dramaIdVal,
               storyboard_id: sb.id,
               prompt: buildSbVideoPromptForApi(sb),
@@ -8089,7 +8113,7 @@ async function runRepairPipeline() {
               first_frame_url: vFirst,
               last_frame_url: vLast,
               reference_image_urls: refUrls,
-              aspect_ratio: projectAspectRatio.value || '16:9',
+              aspect_ratio: projectAspectRatio.value || '9:16',
               resolution: videoResolution.value || undefined,
               duration: getSbVideoDurationForApi(sb),
             })

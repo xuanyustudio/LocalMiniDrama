@@ -16,6 +16,7 @@
   - [申请 API Key](#申请-api-key-1)
   - [可用模型](#可用模型-1)
   - [配置示例](#配置示例-1)
+- [xAI Grok Imagine Video 1.5](#xai-grok-imagine-video-15)
 - [本地部署模型（Ollama 等）](#本地部署模型ollama-等)
 - [其他 OpenAI 兼容接口](#其他-openai-兼容接口)
 - [一键配置功能](#一键配置功能)
@@ -43,7 +44,7 @@
 |------|------|----------|
 | 文本生成 | 剧本生成、角色提取、分镜脚本、提示词优化 | 通义 Qwen、豆包 Pro |
 | 图片生成 | 角色形象图、场景背景图、分镜静帧图 | 通义万象、豆包图片 |
-| 视频生成 | 分镜视频片段 | 豆包 Seedance（经典单链路或 **Seedance 2.0 多图 / 全能模式**） |
+| 视频生成 | 分镜视频片段 | **xAI Grok Imagine 1.5**（漫剧默认）、豆包 Seedance（经典单链路或 **Seedance 2.0 多图 / 全能模式**） |
 
 ---
 
@@ -158,6 +159,52 @@ API Key：xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 ---
 
+## xAI Grok Imagine Video 1.5
+
+漫剧默认视频链路。接口：`POST /v1/videos/generations`，轮询 `GET /v1/videos/{request_id}`。
+
+**不要**把 xAI Key 填进「AI 配置」表单，也**不要**写入 `config.yaml` 或 SQLite。SuperGrok 订阅不是 API Key。
+
+### 环境变量
+
+只认后端进程里的 `XAI_API_KEY`：
+
+```bash
+# PowerShell（当前窗口）
+$env:XAI_API_KEY = "xai-..."
+
+# 开发模式启动后端前设置；桌面 exe 请在系统「环境变量」里为当前用户添加同名变量后重启软件
+```
+
+仓库根目录可复制 `.env.example` 为 `.env`（已被 gitignore，且后端默认不自动加载；请用系统/终端环境变量）。
+
+### AI 配置页
+
+1. 服务商选 **xAI Grok Imagine**
+2. 模型填 `grok-imagine-video-1.5`
+3. 页面只提示使用环境变量，无 Key 输入框；保存时不会把 Key 发给后端
+
+### 三种模式（制作页「生成模式」）
+
+| 模式 | 提交字段 | 说明 |
+|------|----------|------|
+| 自动 | 有首帧 → I2V；仅参考图 → R2V；都没有 → T2V | 首帧确认后默认图生视频 |
+| T2V | 仅 `prompt` | 文生视频 |
+| I2V | `prompt` + `image` | 图生视频，不附带 `reference_images` |
+| R2V | `prompt` + `reference_images`（最多 7 张） | 不可选 1080p，最高 720p |
+
+`image` 与 `reference_images` 不能同时提交，前后端都会拒绝。
+
+### 新建漫剧默认值
+
+制作页 / 新建项目默认 **9:16**、草稿 **720p / 6 秒**。最终镜头可选 1080p（R2V 除外）。
+
+`backend-node/configs/config.yaml` 里的 `default_image_ratio` / `default_video_ratio` 仍可能是 `16:9`，那是已有工程与其他供应商的 YAML 缺省，**不会**被本阶段强行改写。新项目以界面 metadata 为准。
+
+Seedance / Kling / Agnes 等配置项保留，可继续作为视频供应商。
+
+---
+
 ## 本地部署模型（Ollama 等）
 
 如果你在本机或内网部署了兼容 OpenAI 接口的模型服务（如 Ollama、LM Studio、vLLM 等）：
@@ -218,7 +265,8 @@ image_proxy:
 ## 连接测试
 
 每条 AI 配置记录右侧有「测试」按钮，点击后会发送一条简短请求验证连接是否正常。  
-测试成功显示绿色提示，失败会显示具体错误信息（如认证失败、模型不存在等）。
+测试成功显示绿色提示，失败会显示具体错误信息（如认证失败、模型不存在等）。  
+**xAI 例外**：测试只检查进程环境变量 `XAI_API_KEY` 是否已设置，不会向 `api.x.ai` 发请求。
 
 ---
 
@@ -226,7 +274,14 @@ image_proxy:
 
 ### Q: API Key 填错了或过期了怎么办？
 
-在「AI 配置」页面找到对应记录，点击编辑，修改 API Key 后保存即可立即生效。
+在「AI 配置」页面找到对应记录，点击编辑，修改 API Key 后保存即可立即生效。  
+**xAI 例外**：改系统/终端里的 `XAI_API_KEY`，然后重启后端或桌面软件。配置页没有 Key 输入框。
+
+---
+
+### Q: 视频生成提示「XAI_API_KEY is not set」
+
+说明当前后端进程读不到环境变量。SuperGrok 网页订阅不能当 API Key。请在启动后端的同一环境设置 `XAI_API_KEY`，或在 Windows 用户环境变量中添加后重启 exe。不要把 Key 写进 `config.yaml` 或 SQLite。
 
 ---
 

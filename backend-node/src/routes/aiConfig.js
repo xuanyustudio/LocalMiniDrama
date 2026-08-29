@@ -34,7 +34,10 @@ function create(db, log, cfg) {
     if (!body.service_type || !body.name || !body.provider || !body.base_url) {
       return response.badRequest(res, '缺少必填字段: service_type, name, provider, base_url');
     }
-    if (body.api_key === undefined || body.api_key === null) {
+    const isXai =
+      ['xai', 'grok'].includes(String(body.provider || '').toLowerCase()) ||
+      String(body.api_protocol || '').toLowerCase() === 'xai';
+    if (!isXai && (body.api_key === undefined || body.api_key === null)) {
       return response.badRequest(res, '缺少必填字段: api_key');
     }
     try {

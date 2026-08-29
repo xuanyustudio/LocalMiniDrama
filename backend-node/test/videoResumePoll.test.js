@@ -113,4 +113,29 @@ describe('videoService.resumeFailedVideoPoll', () => {
     assert.equal(task.progress, 10);
     assert.match(String(task.message || ''), /继续查询/);
   });
+
+  it('can resume an xAI request_id without exposing it on the item', () => {
+    const db = createTestDb();
+    const now = new Date().toISOString();
+    db.prepare(
+      `INSERT INTO async_tasks
+        (id, type, status, progress, message, error, resource_id, created_at, updated_at, completed_at)
+       VALUES ('task-xai-1', 'video_generation', 'failed', 0, '', 'xAI video request expired', '1', ?, ?, ?)`
+    ).run(now, now, now);
+    db.prepare(
+      `INSERT INTO video_generations
+        (drama_id, storyboard_id, provider, prompt, model, status, task_id, provider_task_id, error_msg, created_at, updated_at)
+       VALUES (1, 10, 'xai', 'p', 'grok-imagine-video-1.5', 'failed', 'task-xai-1', 'd97415a1-5796-b7ec-379f-4e6819e08fdf', 'xAI video request expired', ?, ?)`
+    ).run(now, now);
+
+    const listed = videoService.getById(db, 1);
+    assert.equal(listed.can_resume_poll, true);
+    assert.equal(listed.provider_task_id, undefined);
+
+    const result = videoService.resumeFailedVideoPoll(db, silentLog, 1);
+    assert.equal(result.ok, true);
+    assert.equal(result.item.status, 'processing');
+    const stored = db.prepare('SELECT provider_task_id FROM video_generations WHERE id = 1').get();
+    assert.equal(stored.provider_task_id, 'd97415a1-5796-b7ec-379f-4e6819e08fdf');
+  });
 });

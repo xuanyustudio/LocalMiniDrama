@@ -9,6 +9,12 @@ function normalizeApiKeyForService(serviceType, apiKey) {
   }
   return apiKey;
 }
+
+function isXaiConfigReq(req) {
+  const p = String(req?.provider || '').toLowerCase();
+  const proto = String(req?.api_protocol || '').toLowerCase();
+  return p === 'xai' || p === 'grok' || proto === 'xai';
+}
 const { applyDeepSeekConnectivityOptions } = require('./deepseekConfig');
 function modelToDb(model) {
   if (model == null) return null;
@@ -121,7 +127,7 @@ function createConfig(db, log, req) {
     req.api_protocol || '',
     req.name || '',
     req.base_url || '',
-    normalizeApiKeyForService(req.service_type, req.api_key || ''),
+    isXaiConfigReq(req) ? '' : normalizeApiKeyForService(req.service_type, req.api_key || ''),
     model,
     defaultModel,
     endpoint,
@@ -159,7 +165,10 @@ function updateConfig(db, log, id, req) {
     updates.push('base_url = ?');
     params.push(req.base_url);
   }
-  if (req.api_key != null) {
+  if (isXaiConfigReq({ ...existing, ...req })) {
+    updates.push('api_key = ?');
+    params.push('');
+  } else if (req.api_key != null) {
     updates.push('api_key = ?');
     const st = req.service_type != null ? req.service_type : existing.service_type;
     params.push(normalizeApiKeyForService(st, req.api_key));
@@ -220,7 +229,7 @@ function rowToConfig(r) {
     api_protocol: r.api_protocol || '',
     name: r.name,
     base_url: r.base_url,
-    api_key: r.api_key,
+    api_key: isXaiConfigReq(r) ? '' : r.api_key,
     model: modelFromDb(r.model),
     default_model: r.default_model ? String(r.default_model).trim() : null,
     endpoint: r.endpoint,
@@ -251,6 +260,12 @@ function rowToConfig(r) {
 async function testConnection(opts) {
   const base = (opts.base_url || '').replace(/\/$/, '');
   if (!base) throw new Error('base_url 必填');
+  if (isXaiConfigReq(opts)) {
+    if (!String(process.env.XAI_API_KEY || '').trim()) {
+      throw new Error('XAI_API_KEY is not set');
+    }
+    return;
+  }
   if (!opts.api_key) throw new Error('api_key 必填');
   const models = Array.isArray(opts.model) ? opts.model : opts.model != null ? [opts.model] : [];
   const model = models[0] || '';
@@ -579,4 +594,5 @@ module.exports = {
   getVendorLockStatus,
   applyVendorLock,
   bulkUpdateApiKey,
+  isXaiConfigReq,
 };

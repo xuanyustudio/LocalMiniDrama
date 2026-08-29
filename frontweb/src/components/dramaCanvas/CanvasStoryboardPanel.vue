@@ -187,6 +187,7 @@ import {
 } from '@/utils/canvasEntityIds'
 import { runImageStep, runVideoStep, runAudioStep } from '@/composables/useCanvasWorkflowRunner'
 import { findStoryboardInDrama, getDramaGenerationOptions } from '@/utils/canvasWorkflow'
+import { GROK_DEFAULT_DURATION } from '@/utils/grokVideoMode'
 
 const props = defineProps({
   storyboard: { type: Object, required: true },
@@ -209,7 +210,7 @@ const form = reactive({
   video_prompt: '',
   universal_segment_text: '',
   shot_type: '',
-  duration: 5,
+  duration: GROK_DEFAULT_DURATION,
 })
 
 const sbNodeId = computed(() => props.nodeId || (props.storyboard?.id ? `sb:${props.storyboard.id}` : ''))
@@ -233,7 +234,7 @@ function syncForm(sb) {
   form.video_prompt = sb?.video_prompt || ''
   form.universal_segment_text = sb?.universal_segment_text || ''
   form.shot_type = sb?.shot_type || ''
-  form.duration = sb?.duration != null ? Number(sb.duration) : 5
+  form.duration = sb?.duration != null ? Number(sb.duration) : GROK_DEFAULT_DURATION
   characterIds.value = parseStoryboardCharacterIds(sb)
   sceneId.value = parseStoryboardSceneId(sb)
   propIds.value = parseStoryboardPropIds(sb)

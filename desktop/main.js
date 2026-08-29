@@ -210,6 +210,20 @@ async function startBackend() {
   const backendCwd = getBackendCwd();
   ensureBackendCwd(backendCwd);
   ensureFfmpeg(backendCwd);
+  try {
+    const { loadXaiApiKeyFromDefaultLocations } = require(path.join(
+      getBackendModulePath(),
+      'src',
+      'config',
+      'loadXaiEnv.js'
+    ));
+    loadXaiApiKeyFromDefaultLocations(
+      [USERDATA_DIR, backendCwd, path.join(backendCwd, 'configs')],
+      { info: (msg, meta) => writeMainLog(`${msg}${meta ? ' ' + JSON.stringify(meta) : ''}`) }
+    );
+  } catch (e) {
+    writeMainLog(`loadXaiEnv skipped: ${e.message}`);
+  }
   process.env.WEB_DIST_PATH = getWebDistPath();
   if (app.isPackaged) {
     process.env.LOG_FILE = path.join(backendCwd, 'logs', 'app.log');

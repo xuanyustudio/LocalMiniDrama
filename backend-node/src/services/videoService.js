@@ -36,7 +36,7 @@ function list(db, query) {
   // 与 Go 前端行为对齐：请求 status=processing 时，同时包含“刚结束”的记录（5 分钟内变为 completed/failed），
   // 这样轮询刷新后任务不会从列表消失，无需改 Vue
   if (query.status === 'processing') {
-    sql += " AND (status = 'processing' OR (status IN ('completed','failed') AND updated_at >= datetime('now', '-5 minutes')))";
+    sql += " AND (status IN ('processing','queued') OR (status IN ('completed','failed') AND updated_at >= datetime('now', '-5 minutes')))";
   } else if (query.status) {
     sql += ' AND status = ?';
     params.push(query.status);
@@ -88,6 +88,7 @@ const { spawnSync } = require('child_process');
 const { randomUUID } = require('crypto');
 const videoClient = require('./videoClient');
 const taskService = require('./taskService');
+const settingsService = require('./settingsService');
 const storageLayout = require('./storageLayout');
 const { getFfmpegPath, hasLocalFfmpeg } = require('../utils/ffmpegPath');
 
@@ -211,6 +212,115 @@ function maybeNormalizeVideoAfterDownload(storagePath, localPath, row, videoGenI
 
 /** 防止同一 videoGenId 重复发起 poll（含重启恢复） */
 const activeVideoPolls = new Set();
+const DEFAULT_VIDEO_CONCURRENCY = 3;
+const DEFAULT_VIDEO_RETRY = 2;
+
+function getVideoConcurrency(db) {
+  const n = Number(settingsService.getGlobalSetting(db, 'pipeline_video_concurrency', DEFAULT_VIDEO_CONCURRENCY));
+  return Number.isFinite(n) && n > 0 ? Math.min(8, Math.max(1, Math.floor(n))) : DEFAULT_VIDEO_CONCURRENCY;
+}
+
+function getVideoRetryLimit(db) {
+  const n = Number(settingsService.getGlobalSetting(db, 'pipeline_video_retry', DEFAULT_VIDEO_RETRY));
+  return Number.isFinite(n) && n >= 0 ? Math.min(5, Math.floor(n)) : DEFAULT_VIDEO_RETRY;
+}
+
+function countActiveVideoJobs(db) {
+  try {
+    return (
+      db
+        .prepare(
+          `SELECT COUNT(*) as n FROM video_generations
+           WHERE deleted_at IS NULL AND status = 'processing'`
+        )
+        .get().n || 0
+    );
+  } catch (_) {
+    return 0;
+  }
+}
+
+function isNonRetryableVideoError(msg) {
+  const s = String(msg || '');
+  return /XAI_API_KEY is not set|cannot both be submitted|moderation|未配置视频模型|缺少厂商任务 ID|expired/.test(s);
+}
+
+function incrementRetryOrFail(db, log, videoGenId, row, errorMsg, now) {
+  const maxRetry = getVideoRetryLimit(db);
+  const retryCount = Number(row.retry_count || 0);
+  if (isNonRetryableVideoError(errorMsg) || retryCount >= maxRetry) {
+    setVideoGenFailed(db, videoGenId, errorMsg, now);
+    if (row.task_id) taskService.updateTaskError(db, row.task_id, errorMsg);
+    return false;
+  }
+  const next = retryCount + 1;
+  try {
+    db.prepare(
+      `UPDATE video_generations
+       SET status = ?, retry_count = ?, provider_task_id = NULL, error_msg = ?, updated_at = ?
+       WHERE id = ?`
+    ).run('queued', next, String(errorMsg || '').slice(0, 500), now, videoGenId);
+  } catch (e) {
+    if ((e.message || '').includes('retry_count')) {
+      db.prepare(
+        `UPDATE video_generations SET status = ?, provider_task_id = NULL, error_msg = ?, updated_at = ? WHERE id = ?`
+      ).run('queued', String(errorMsg || '').slice(0, 500), now, videoGenId);
+    } else throw e;
+  }
+  if (row.task_id) {
+    taskService.updateTaskStatus(db, row.task_id, 'pending', 0, `失败重试 ${next}/${maxRetry}`);
+  }
+  log.warn('Video generation requeued for retry', { id: videoGenId, retry: next, error: errorMsg });
+  return true;
+}
+
+function pumpVideoQueue(db, log) {
+  const limit = getVideoConcurrency(db);
+  const active = countActiveVideoJobs(db);
+  const slots = Math.max(0, limit - active);
+  if (slots === 0) return 0;
+  let queued = [];
+  try {
+    queued = db
+      .prepare(
+        `SELECT id FROM video_generations
+         WHERE deleted_at IS NULL AND status = 'queued'
+         ORDER BY created_at ASC, id ASC
+         LIMIT ?`
+      )
+      .all(slots);
+  } catch (_) {
+    return 0;
+  }
+  const now = new Date().toISOString();
+  for (const q of queued) {
+    db.prepare('UPDATE video_generations SET status = ?, updated_at = ? WHERE id = ?').run(
+      'processing',
+      now,
+      q.id
+    );
+    setImmediate(() => {
+      processVideoGeneration(db, log, q.id)
+        .catch((e) => {
+          log.error('queued video generation unhandled', { videoGenId: q.id, error: e.message });
+        })
+        .then(() => pumpVideoQueue(db, log));
+    });
+  }
+  return queued.length;
+}
+
+function enqueueVideoGeneration(db, log, videoGenId) {
+  const now = new Date().toISOString();
+  const row = db.prepare('SELECT * FROM video_generations WHERE id = ? AND deleted_at IS NULL').get(Number(videoGenId));
+  if (!row) return false;
+  if (row.status !== 'queued') {
+    db.prepare('UPDATE video_generations SET status = ?, updated_at = ? WHERE id = ?').run('queued', now, videoGenId);
+  }
+  if (row.task_id) taskService.updateTaskStatus(db, row.task_id, 'pending', 0, '排队等待视频并发名额…');
+  pumpVideoQueue(db, log);
+  return true;
+}
 
 function resolveStoragePath(cfg) {
   return path.isAbsolute(cfg.storage?.local_path)
@@ -228,6 +338,16 @@ async function finalizeSuccessfulVideo(db, log, videoGenId, row, rowForAspect, v
     localPath = await downloadVideoToLocal(storagePath, videoUrl, videoGenId, log, projectSubdir);
     maybeNormalizeVideoAfterDownload(storagePath, localPath, rowForAspect, videoGenId, log);
   } catch (_) {}
+  const isXaiRow =
+    String(row.provider || '').toLowerCase() === 'xai' ||
+    /grok-imagine/i.test(String(row.model || ''));
+  if (isXaiRow && !localPath) {
+    const downloadErr = 'xAI video download failed; remote URL is temporary';
+    setVideoGenFailed(db, videoGenId, downloadErr, now);
+    if (row.task_id) taskService.updateTaskError(db, row.task_id, downloadErr);
+    log.error('Video generation failed (local download)', { id: videoGenId, error: downloadErr });
+    return;
+  }
   try {
     db.prepare(
       'UPDATE video_generations SET status = ?, video_url = ?, local_path = ?, completed_at = ?, updated_at = ? WHERE id = ?'
@@ -287,8 +407,7 @@ async function pollProviderTaskAndFinalize(db, log, videoGenId, row, rowForAspec
   if (polledVideo.ok) {
     await finalizeSuccessfulVideo(db, log, videoGenId, row, rowForAspect, polledVideo.video_url, 'after poll');
   } else {
-    setVideoGenFailed(db, videoGenId, polledVideo.error, now);
-    if (row.task_id) taskService.updateTaskError(db, row.task_id, polledVideo.error);
+    incrementRetryOrFail(db, log, videoGenId, row, polledVideo.error, now);
     log.error('Video generation failed (after poll)', { id: videoGenId, error: polledVideo.error });
   }
 }
@@ -401,8 +520,9 @@ function resumeFailedVideoPoll(db, log, videoGenId) {
   return { ok: true, item: getById(db, id) };
 }
 
-/** 启动时恢复 processing 视频任务；无 provider_task_id 的视为中断 */
+/** 启动时恢复 processing 视频任务；无 provider_task_id 的重新入队，queued 继续排队 */
 function resumeProcessingVideoGenerations(db, log) {
+  const now = new Date().toISOString();
   const stuck = db
     .prepare(
       `SELECT id, task_id FROM video_generations
@@ -410,12 +530,14 @@ function resumeProcessingVideoGenerations(db, log) {
          AND (provider_task_id IS NULL OR TRIM(provider_task_id) = '')`
     )
     .all();
-  const stuckMsg = '服务重启后无法恢复轮询（缺少厂商任务 ID），请重新生成';
   for (const s of stuck) {
-    const now = new Date().toISOString();
-    setVideoGenFailed(db, s.id, stuckMsg, now);
-    if (s.task_id) taskService.updateTaskError(db, s.task_id, stuckMsg);
-    log.warn('Marked interrupted video generation as failed', { videoGenId: s.id });
+    db.prepare('UPDATE video_generations SET status = ?, updated_at = ? WHERE id = ?').run(
+      'queued',
+      now,
+      s.id
+    );
+    if (s.task_id) taskService.updateTaskStatus(db, s.task_id, 'pending', 0, '重启后重新入队…');
+    log.info('Requeued interrupted video generation', { videoGenId: s.id });
   }
 
   const resumable = db
@@ -430,11 +552,14 @@ function resumeProcessingVideoGenerations(db, log) {
   }
   for (const r of resumable) {
     setImmediate(() => {
-      resumePollForVideoGeneration(db, log, r.id).catch((e) => {
-        log.error('resumePollForVideoGeneration unhandled', { videoGenId: r.id, error: e.message });
-      });
+      resumePollForVideoGeneration(db, log, r.id)
+        .catch((e) => {
+          log.error('resumePollForVideoGeneration unhandled', { videoGenId: r.id, error: e.message });
+        })
+        .then(() => pumpVideoQueue(db, log));
     });
   }
+  pumpVideoQueue(db, log);
 }
 
 async function processVideoGeneration(db, log, videoGenId) {
@@ -499,7 +624,13 @@ async function processVideoGeneration(db, log, videoGenId) {
       } catch (_) {}
     }
     const rowForAspect = { ...row, aspect_ratio: aspectForVideo || row.aspect_ratio };
+    const videoProtocol = videoClient.resolveVideoProtocol
+      ? videoClient.resolveVideoProtocol(config, row.model)
+      : '';
+    const isXai = videoProtocol === 'xai';
     const hasOmniRefs = !!(reference_urls && reference_urls.length > 0);
+    // 非 xAI 的全能参考图会清掉首帧，避免同时走首尾帧。xAI 必须把首帧留给 I2V，由适配层互斥校验。
+    const dropImageWhenRefs = hasOmniRefs && !isXai;
     if (row.task_id && hasOmniRefs) {
       taskService.updateTaskStatus(
         db,
@@ -521,18 +652,18 @@ async function processVideoGeneration(db, log, videoGenId) {
       provider: row.provider,
       drama_id: row.drama_id,
       storyboard_id: row.storyboard_id || undefined,
-      image_url: hasOmniRefs ? undefined : row.image_url,
-      first_frame_url: hasOmniRefs ? undefined : row.first_frame_url,
-      last_frame_url: hasOmniRefs ? undefined : row.last_frame_url,
+      image_url: dropImageWhenRefs ? undefined : row.image_url,
+      first_frame_url: dropImageWhenRefs ? undefined : row.first_frame_url,
+      last_frame_url: dropImageWhenRefs ? undefined : row.last_frame_url,
       reference_urls,
+      generate_audio: row.generate_audio,
       files_base_url: filesBaseUrl,
       storage_local_path: storageLocalPath,
       video_gen_id: videoGenId,
     });
     const now2 = new Date().toISOString();
     if (result.error) {
-      setVideoGenFailed(db, videoGenId, result.error, now2);
-      if (row.task_id) taskService.updateTaskError(db, row.task_id, result.error);
+      incrementRetryOrFail(db, log, videoGenId, row, result.error, now2);
       log.error('Video generation failed', { id: videoGenId, error: result.error });
       return;
     }
@@ -542,27 +673,26 @@ async function processVideoGeneration(db, log, videoGenId) {
       return;
     }
     if (result.video_url) {
-      setVideoGenFailed(db, videoGenId, directVideo.error, now2);
-      if (row.task_id) taskService.updateTaskError(db, row.task_id, directVideo.error);
+      incrementRetryOrFail(db, log, videoGenId, row, directVideo.error, now2);
       log.error('Video generation failed', { id: videoGenId, error: directVideo.error });
       return;
     }
-    if (result.task_id) {
+    const providerTaskId = String(result.request_id || result.task_id || '').trim();
+    if (providerTaskId) {
       db.prepare(
         'UPDATE video_generations SET status = ?, provider_task_id = ?, updated_at = ? WHERE id = ?'
-      ).run('processing', result.task_id, now2, videoGenId);
-      await pollProviderTaskAndFinalize(db, log, videoGenId, row, rowForAspect, result.task_id, config);
+      ).run('processing', providerTaskId, now2, videoGenId);
+      await pollProviderTaskAndFinalize(db, log, videoGenId, row, rowForAspect, providerTaskId, config);
       return;
     }
-    setVideoGenFailed(db, videoGenId, '未返回 task_id 或 video_url', now2);
-    if (row.task_id) taskService.updateTaskError(db, row.task_id, '未返回 task_id 或 video_url');
+    incrementRetryOrFail(db, log, videoGenId, row, '未返回 task_id 或 video_url', now2);
   } catch (err) {
     const now2 = new Date().toISOString();
-    setVideoGenFailed(db, videoGenId, err.message, now2);
-    if (row && row.task_id) taskService.updateTaskError(db, row.task_id, err.message);
+    incrementRetryOrFail(db, log, videoGenId, row, err.message, now2);
     log.error('Video generation error', { id: videoGenId, error: err.message });
   } finally {
     activeVideoPolls.delete(videoGenId);
+    pumpVideoQueue(db, log);
   }
 }
 
@@ -577,6 +707,9 @@ module.exports = {
   getById,
   deleteById,
   processVideoGeneration,
+  enqueueVideoGeneration,
+  pumpVideoQueue,
+  getVideoConcurrency,
   resumeProcessingVideoGenerations,
   resumeFailedVideoPoll,
   resumePollForVideoGeneration,

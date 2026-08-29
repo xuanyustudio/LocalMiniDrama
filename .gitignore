@@ -25,3 +25,6 @@ frontweb-edu
 .superpowers
 build_edu
 node_modules
+.env
+.env.*
+!.env.example
