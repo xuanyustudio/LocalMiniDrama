@@ -992,6 +992,7 @@ function buildAgnesPollUrl(config, pollId) {
   const id = String(pollId || '').trim();
   const cfgEp = String(config.query_endpoint || '').trim();
 
+  let url;
   if (cfgEp && !isAgnesBuiltinQueryEndpoint(cfgEp)) {
     const base = (config.base_url || '').replace(/\/$/, '');
     let ep = cfgEp;
@@ -1002,10 +1003,17 @@ function buildAgnesPollUrl(config, pollId) {
       .replace(/\{task_id\}/gi, encodeURIComponent(id))
       .replace(/\{id\}/gi, encodeURIComponent(id));
     if (!ep.startsWith('/')) ep = '/' + ep;
-    return base + ep;
+    url = base + ep;
+  } else {
+    url = `${root}/v1/videos/${encodeURIComponent(id)}`;
   }
 
-  return `${root}/v1/videos/${encodeURIComponent(id)}`;
+  // Agnes Video 2.5 官方推荐轮询携带 model_name（keyframe / reference 模式必填）
+  const agnesModel = getModelFromConfig(config);
+  if (isAgnesVideo25(agnesModel)) {
+    url += (url.includes('?') ? '&' : '?') + 'model_name=' + encodeURIComponent(agnesModel);
+  }
+  return url;
 }
 
 /**
@@ -2449,6 +2457,37 @@ function agnesSnapNumFrames(durationSec, frameRate = 24) {
   return best;
 }
 
+/** Agnes Video 2.5 系列使用 OpenAI Videos 兼容协议（mode/seconds/size），与 V2.0 的 width/num_frames 旧协议不同 */
+function isAgnesVideo25(model) {
+  return /agnes-video-2\.5/i.test(String(model || ''));
+}
+
+/** Agnes Video 2.5 时长约束：字符串 "4"–"12"，默认 "5" */
+function agnes25Seconds(durationSec) {
+  return String(Math.min(12, Math.max(4, Math.round(Number(durationSec) || 5))));
+}
+
+/**
+ * Agnes Video 2.5 图片策略（可单测，OpenAI Videos 兼容协议）：
+ * - reference：顶层 images 数组，Flash 最多 5 张
+ * - keyframe：顶层 first_frame / last_frame，至少一个
+ * - text：纯文本，不允许任何媒体字段
+ */
+function buildAgnesVideo25ImagePayload({ resolvedRefs, firstResolved, lastResolved }) {
+  const refs = Array.isArray(resolvedRefs) ? resolvedRefs.filter(Boolean) : [];
+  if (refs.length > 0) {
+    return { mode: 'reference', images: refs.slice(0, 5) };
+  }
+  if (firstResolved || lastResolved) {
+    return {
+      mode: 'keyframe',
+      ...(firstResolved ? { first_frame: firstResolved } : {}),
+      ...(lastResolved ? { last_frame: lastResolved } : {}),
+    };
+  }
+  return { mode: 'text' };
+}
+
 /**
  * Agnes 视频入参图片策略（可单测）：
  * - 顶层 image 仅支持 string（服务端 Go 结构体不接受 array）
@@ -2505,17 +2544,30 @@ async function callAgnesVideoApi(db, config, log, opts) {
   const url = base + ep;
 
   const frameRate = 24;
+  // Agnes Video 2.5 系列改用 OpenAI Videos 兼容协议（mode/seconds/size）；V2.0 沿用 width/num_frames 旧协议
+  const useV25 = isAgnesVideo25(model);
   const dims = agnesDimensionsFromAspectRatio(aspect_ratio || '16:9');
   const numFrames = agnesSnapNumFrames(duration, frameRate);
 
-  const body = {
-    model: model || 'agnes-video-v2.0',
-    prompt: prompt || '',
-    width: dims.width,
-    height: dims.height,
-    num_frames: numFrames,
-    frame_rate: frameRate,
-  };
+  let body;
+  if (useV25) {
+    body = {
+      model: model || 'agnes-video-2.5-flash',
+      prompt: prompt || '',
+      seconds: agnes25Seconds(duration),
+      size: '720P',
+      aspect_ratio: aspect_ratio || '16:9',
+    };
+  } else {
+    body = {
+      model: model || 'agnes-video-v2.0',
+      prompt: prompt || '',
+      width: dims.width,
+      height: dims.height,
+      num_frames: numFrames,
+      frame_rate: frameRate,
+    };
+  }
 
   const rawRefList = Array.isArray(reference_urls) ? reference_urls.filter(Boolean) : [];
   const resolvedRefs = [];
@@ -2557,17 +2609,37 @@ async function callAgnesVideoApi(db, config, log, opts) {
     };
   }
 
-  const imagePayload = buildAgnesVideoImagePayload({
-    useOmniReference,
-    resolvedRefs,
-    firstResolved,
-    lastResolved,
-  });
-  if (imagePayload.image != null) {
-    body.image = imagePayload.image;
-  }
-  if (imagePayload.extra_body) {
-    body.extra_body = imagePayload.extra_body;
+  let imageStrategy;
+  if (useV25) {
+    // 2.5 协议：mode = text / keyframe / reference，媒体字段全部放在顶层（keyframe 首尾帧至少一个，reference 图片最多 5 张）
+    const payload25 = buildAgnesVideo25ImagePayload({
+      resolvedRefs,
+      firstResolved,
+      lastResolved,
+    });
+    imageStrategy = payload25.mode;
+    if (payload25.mode === 'reference') {
+      body.mode = payload25.mode;
+      body.images = payload25.images;
+    } else if (payload25.mode === 'keyframe') {
+      body.mode = payload25.mode;
+      if (payload25.first_frame) body.first_frame = payload25.first_frame;
+      if (payload25.last_frame) body.last_frame = payload25.last_frame;
+    }
+  } else {
+    const imagePayload = buildAgnesVideoImagePayload({
+      useOmniReference,
+      resolvedRefs,
+      firstResolved,
+      lastResolved,
+    });
+    imageStrategy = imagePayload.strategy;
+    if (imagePayload.image != null) {
+      body.image = imagePayload.image;
+    }
+    if (imagePayload.extra_body) {
+      body.extra_body = imagePayload.extra_body;
+    }
   }
 
   log.info('[Agnes] 参考图输入（解析前）', {
@@ -2584,7 +2656,7 @@ async function callAgnesVideoApi(db, config, log, opts) {
     resolved_refs: resolvedRefs.map((u, i) => ({ index: i, url: u })),
     first_resolved: firstResolved,
     last_resolved: lastResolved,
-    image_strategy: imagePayload.strategy,
+    image_strategy: imageStrategy,
   });
 
   logVideoPostRequest(log, 'Agnes', url, body, video_gen_id, {
@@ -2595,7 +2667,7 @@ async function callAgnesVideoApi(db, config, log, opts) {
     frame_rate: body.frame_rate,
     duration_sec: duration,
     aspect_ratio: aspect_ratio || '16:9',
-    image_strategy: imagePayload.strategy,
+    image_strategy: imageStrategy,
     extra_body_mode: body.extra_body?.mode || null,
     omni_reference: useOmniReference,
     prompt_len: (body.prompt || '').length,
@@ -4465,6 +4537,9 @@ module.exports = {
   buildAgnesPollUrl,
   getAgnesApiRoot,
   buildAgnesVideoImagePayload,
+  isAgnesVideo25,
+  agnes25Seconds,
+  buildAgnesVideo25ImagePayload,
   formatVideoPostBodyForLog,
   isSeedance2FamilyModel,
   normalizeVolcengineDuration,
