@@ -1,6 +1,7 @@
 import { taskAPI } from '@/api/task'
 import { imagesAPI } from '@/api/images'
 import { videosAPI } from '@/api/videos'
+import { storyboardsAPI } from '@/api/storyboards'
 import request from '@/utils/request'
 import { storyboardImageUrl } from '@/utils/mediaUrl'
 import {
@@ -138,6 +139,11 @@ export async function runWorkflowGroup(drama, group, hooks = {}) {
     try {
       await runStoryboardPipeline(drama, sbId, pipeline, hooks)
       summary.ok.push(sbId)
+      const currentIndex = ids.indexOf(sbId)
+      if (pipeline.includes('video') && currentIndex >= 0 && currentIndex < ids.length - 1) {
+        await storyboardsAPI.linkTailFrame(sbId, { drama_id: drama.id })
+        if (hooks.reloadStoryboard) await hooks.reloadStoryboard(ids[currentIndex + 1])
+      }
       hooks.onStoryboardComplete?.({ group, storyboardId: sbId })
     } catch (err) {
       summary.failed.push({ storyboardId: sbId, error: err.message || String(err) })

@@ -349,7 +349,7 @@ function loadFromSavedRow(row) {
   if (!row) return
   savedConfigId.value = row.id
   baseUrl.value = (row.base_url || '').replace(/\/$/, '')
-  apiKey.value = row.api_key || ''
+  apiKey.value = ''
   const s = parseSettingsJson(row.settings)
   authMode.value = s.auth_mode || 'volc_sign'
   pathMode.value = s.path_mode || 'open_api_query'
@@ -358,7 +358,7 @@ function loadFromSavedRow(row) {
   billingModel.value = s.billing_model || ''
   assetGroupIdForCert.value = s.asset_group_id || ''
   accessKeyId.value = s.access_key_id || ''
-  secretAccessKey.value = s.secret_access_key || ''
+  secretAccessKey.value = ''
   signRegion.value = s.sign_region || ''
   if (assetGroupIdForCert.value) assetGroupIdInput.value = assetGroupIdForCert.value
 }
@@ -477,9 +477,8 @@ function onFillFromSaved(id) {
   if (id == null || id === '') return
   const c = (props.configs || []).find((x) => x.id === id)
   if (!c) return
-  baseUrl.value = (c.base_url || '').replace(/\/$/, '')
-  apiKey.value = c.api_key || ''
-  ElMessage.success('已填入所选配置的 Base URL 与 API Key')
+  loadFromSavedRow(c)
+  ElMessage.success('已加载所选配置；密钥由后端安全复用，无需回显')
 }
 
 function onGroupRowChange(row) {
@@ -497,21 +496,29 @@ function mergeBillingModel(payload, withModel) {
   return p
 }
 
+function savedConfigRow() {
+  return (props.configs || []).find((c) => c.id === savedConfigId.value) || null
+}
+
+function savedSecretAvailable(key) {
+  return !!savedConfigRow()?.secret_status?.[key]
+}
+
 function connReady() {
   if (!baseUrl.value.trim()) return false
   if (authMode.value === 'volc_sign') {
-    return !!(accessKeyId.value.trim() && secretAccessKey.value.trim())
+    return !!(accessKeyId.value.trim() && (secretAccessKey.value.trim() || savedSecretAvailable('secret_access_key')))
   }
-  return !!apiKey.value.trim()
+  return !!(apiKey.value.trim() || savedConfigRow()?.has_api_key)
 }
 
 function connWarn() {
   if (!baseUrl.value.trim()) return '请先填写 Base URL'
   if (authMode.value === 'volc_sign') {
-    if (!accessKeyId.value.trim() || !secretAccessKey.value.trim()) {
+    if (!accessKeyId.value.trim() || (!secretAccessKey.value.trim() && !savedSecretAvailable('secret_access_key'))) {
       return '官方 OpenAPI 请填写 Access Key ID 与 Secret Access Key（控制台 IAM，非推理 API Key）'
     }
-  } else if (!apiKey.value.trim()) {
+  } else if (!apiKey.value.trim() && !savedConfigRow()?.has_api_key) {
     return '请先填写 API Key'
   }
   if (authMode.value === 'volc_sign' && pathMode.value !== 'open_api_query') {
@@ -524,6 +531,7 @@ async function call(action, payload, opts = {}) {
   const { withBillingModel = false } = opts
   const body = {
     base_url: baseUrl.value.trim(),
+    config_id: savedConfigId.value || undefined,
     action,
     path_mode: pathMode.value,
     api_version: apiVersion.value.trim() || undefined,

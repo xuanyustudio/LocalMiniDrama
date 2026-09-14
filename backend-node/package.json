@@ -1,7 +1,7 @@
 {
-  "name": "LocalMiniDrama-backend",
-  "version": "1.2.8",
-  "description": "Node.js backend for LocalMiniDrama",
+  "name": "lingdong-creation-backend",
+  "version": "1.2.9",
+  "description": "灵动创世 Node.js 后端服务",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -10,19 +10,32 @@
     "migrate:07": "node scripts/run-migration-07.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "dependencies": {
-    "@volcengine/openapi": "^1.36.1",
-    "adm-zip": "^0.5.16",
-    "better-sqlite3": "^11.6.0",
+    "@volcengine/openapi": "^1.36.2",
+    "adm-zip": "^0.6.0",
+    "better-sqlite3": "^13.0.3",
     "cors": "^2.8.5",
     "express": "^4.21.0",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.3.1",
     "jsonrepair": "^3.13.3",
     "jsonwebtoken": "^9.0.3",
-    "multer": "^1.4.5-lts.1",
-    "sharp": "^0.34.5",
-    "uuid": "^10.0.0"
+    "multer": "^2.3.0",
+    "sharp": "^0.35.4",
+    "uuid": "^11.1.1"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.3": true,
+    "protobufjs@7.6.6": true,
+    "sharp@0.35.4": true
+  },
+  "overrides": {
+    "protobufjs": "7.6.6",
+    "axios": "1.20.0",
+    "form-data": "4.0.6",
+    "path-to-regexp": "0.1.13",
+    "qs": "6.16.0",
+    "uuid": "$uuid"
   }
 }

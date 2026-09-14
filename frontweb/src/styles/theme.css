@@ -17,11 +17,20 @@ html.dark {
   --shadow:        0 2px 12px rgba(0,0,0,.4);
 }
 
+/* 灵动创世：与 ldcs 统一的视觉令牌 */
+:root {
+  --ld-violet: #6d4ae8;
+  --ld-violet-2: #8560f2;
+  --ld-radius: 18px;
+  --ld-panel-shadow: 0 6px 24px rgba(16, 24, 40, .06), 0 1px 2px rgba(16, 24, 40, .04);
+  --ld-font: "HarmonyOS Sans SC", "Source Han Sans SC", "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft Yahei", Arial, sans-serif;
+}
+
 /* =====================================================
    亮色模式 — html.light 时生效
    ===================================================== */
 html.light {
-  --bg-page:       #f4f4f5;
+  --bg-page:       #f4f7fc;
   --bg-card:       #ffffff;
   --bg-inner:      #fafafa;
   --bg-hover:      #f0f0f1;
@@ -32,13 +41,14 @@ html.light {
   --text-muted:    #52525b;
   --text-subtle:   #71717a;
   --text-faint:    #a1a1aa;
-  --shadow:        0 2px 12px rgba(0,0,0,.08);
+  --shadow:        var(--ld-panel-shadow);
 }
 
 /* ── 通用基础 ── */
 html, body, #app, .app {
   background: var(--bg-page) !important;
   color: var(--text-primary) !important;
+  font-family: var(--ld-font);
 }
 
 /* ── 各页面结构 ── */
@@ -247,7 +257,7 @@ html.light span, html.light label, html.light p {
 
 /* 主色改为紫色系 */
 html.light {
-  --el-color-primary: #7c3aed;
+  --el-color-primary: #6d4ae8;
   --el-color-primary-light-3: #a78bfa;
   --el-color-primary-light-5: #c4b5fd;
   --el-color-primary-light-7: #ddd6fe;
@@ -261,7 +271,7 @@ html.light .card,
 html.light .el-card {
   box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04) !important;
   border-color: #e8e8ef !important;
-  border-radius: 14px !important;
+  border-radius: var(--ld-radius) !important;
 }
 
 /* 页面标题区美化 */

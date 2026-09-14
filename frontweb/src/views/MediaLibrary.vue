@@ -6,20 +6,20 @@
           <el-icon><ArrowLeft /></el-icon>
           返回
         </el-button>
-        <h2 class="page-title">媒体素材库</h2>
+        <div class="page-brand"><strong>灵动创世</strong><span>全局素材中心</span></div>
       </div>
       <div class="header-actions">
         <el-button type="primary" plain @click="triggerUpload">
           <el-icon><Upload /></el-icon>
-          上传素材
+          上传图片
         </el-button>
-        <input ref="uploadInput" type="file" accept="image/*,video/*" multiple style="display:none" @change="onUpload" />
+        <input ref="uploadInput" type="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple style="display:none" @change="onUpload" />
       </div>
     </div>
 
     <!-- 筛选栏 -->
     <div class="filter-bar">
-      <el-radio-group v-model="mediaType" class="type-filter" @change="loadMedia">
+      <el-radio-group v-model="mediaType" class="type-filter" @change="onTypeChange">
         <el-radio-button value="all">全部</el-radio-button>
         <el-radio-button value="image">图片</el-radio-button>
         <el-radio-button value="video">视频</el-radio-button>
@@ -156,27 +156,55 @@ function triggerUpload() {
 }
 
 async function onUpload(e) {
-  const files = Array.from(e.target.files || [])
-  if (!files.length) return
+  const selected = Array.from(e.target.files || [])
+  const files = selected.filter((file) => file.type?.startsWith('image/'))
+  e.target.value = ''
+  if (!files.length) {
+    if (selected.length) ElMessage.warning('素材中心当前支持直接上传图片；视频可从生成结果加入素材库')
+    return
+  }
+
   uploading.value = true
   uploadProgress.value = { current: 0, total: files.length }
+  let successCount = 0
+  let failedCount = 0
   for (const file of files) {
     try {
-      await uploadAPI.uploadImage(file)
+      const uploaded = await uploadAPI.uploadImage(file)
+      const localPath = uploaded?.local_path || uploaded?.path || null
+      const url = uploaded?.url || (localPath ? `/static/${String(localPath).replace(/^\/+/, '')}` : '')
+      await request.post('/assets', {
+        name: file.name,
+        type: 'image',
+        url,
+        local_path: localPath,
+        file_size: file.size,
+        mime_type: file.type,
+      })
+      successCount++
+    } catch (_) {
+      failedCount++
+    } finally {
       uploadProgress.value.current++
-    } catch (err) {
-      ElMessage.warning(`${file.name} 上传失败: ${err.message}`)
     }
   }
   uploading.value = false
-  e.target.value = ''
-  ElMessage.success(`${files.length} 个素材上传完成`)
+  if (successCount) ElMessage.success(`${successCount} 个图片素材已加入素材中心`)
+  if (failedCount) ElMessage.warning(`${failedCount} 个素材上传失败`)
+  await loadMedia()
+}
+
+function onTypeChange() {
+  page.value = 1
+  selectedIds.clear()
   loadMedia()
 }
 
 function debouncedLoad() {
   clearTimeout(keywordTimer)
-  keywordTimer = setTimeout(loadMedia, 400)
+  page.value = 1
+  selectedIds.clear()
+  keywordTimer = setTimeout(loadMedia, 350)
 }
 
 async function loadMedia() {
@@ -190,7 +218,7 @@ async function loadMedia() {
     if (keyword.value) params.keyword = keyword.value
     const res = await request.get('/assets', { params })
     mediaItems.value = (res?.items || []).map(normalizeItem)
-    total.value = res?.total || 0
+    total.value = res?.pagination?.total ?? 0
   } catch (err) {
     mediaItems.value = []
   } finally {
@@ -205,6 +233,7 @@ function normalizeItem(item) {
     ...item,
     type: isVideo ? 'video' : 'image',
     name: item.name || item.filename || (url.split('/').pop()),
+    size: item.file_size ?? item.size ?? null,
   }
 }
 
@@ -267,16 +296,24 @@ onMounted(loadMedia)
 <style scoped>
 .media-library-page {
   min-height: 100vh;
-  background: #f5f7fa;
-  padding: 20px;
+  background: var(--bg-page);
+  background-image: radial-gradient(circle at 8% -10%, rgba(109, 74, 232, .14), transparent 36%);
+  padding: 28px clamp(18px, 4vw, 64px) 56px;
 }
 
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  max-width: 1440px;
+  margin: 0 auto 24px;
+  padding: 16px 0;
 }
+
+.page-brand { display: flex; flex-direction: column; gap: 3px; }
+.page-brand strong { font-size: 20px; font-weight: 800; color: var(--text-primary); }
+.page-brand span { font-size: 11px; color: var(--text-muted); letter-spacing: .14em; text-transform: uppercase; }
+.filter-bar, .media-grid, .pagination, .batch-bar, .upload-progress { max-width: 1440px; margin-left: auto; margin-right: auto; }
 
 .header-left {
   display: flex;
@@ -320,17 +357,18 @@ onMounted(loadMedia)
 }
 
 .media-card {
-  background: #fff;
-  border-radius: 8px;
+  background: var(--bg-card);
+  border-radius: 16px;
   overflow: hidden;
   border: 2px solid transparent;
   cursor: pointer;
   transition: all .2s;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  box-shadow: var(--ld-panel-shadow);
 }
 
 .media-card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,.1);
+  transform: translateY(-3px);
+  box-shadow: 0 18px 42px rgba(38, 30, 72, .12);
 }
 
 .media-card.selected {
@@ -368,6 +406,15 @@ onMounted(loadMedia)
 
 .media-card.selected .media-overlay {
   opacity: 1;
+}
+
+@media (max-width: 640px) {
+  .page-header { align-items: stretch; flex-direction: column; gap: 12px; }
+  .header-left { justify-content: space-between; }
+  .header-actions, .header-actions .el-button { width: 100%; }
+  .filter-bar { align-items: stretch; flex-direction: column; }
+  .search-input { width: 100% !important; }
+  .media-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 }
 
 .check-icon {

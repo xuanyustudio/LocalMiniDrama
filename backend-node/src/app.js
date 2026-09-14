@@ -28,13 +28,27 @@ function createApp() {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
 
-  app.use(
-    cors({
-      origin: config.server.cors_origins && config.server.cors_origins.length
-        ? config.server.cors_origins
-        : '*',
-    })
-  );
+  const configuredOrigins = Array.isArray(config.server?.cors_origins) ? config.server.cors_origins : [];
+  const allowAnyOrigin = configuredOrigins.includes('*');
+  const allowedOrigins = new Set(configuredOrigins.filter((origin) => origin && origin !== '*'));
+  const localOnly = ['127.0.0.1', 'localhost', '::1'].includes(String(config.server?.host || '').toLowerCase());
+  const isLoopbackOrigin = (origin) => {
+    try {
+      const hostname = new URL(origin).hostname.toLowerCase();
+      return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+    } catch (_) {
+      return false;
+    }
+  };
+  app.use(cors({
+    origin(origin, callback) {
+      // 无 Origin 的同机客户端（Electron/CLI）允许；本机模式下允许动态回环端口。
+      if (!origin || allowAnyOrigin || allowedOrigins.has(origin) || (localOnly && isLoopbackOrigin(origin))) {
+        return callback(null, true);
+      }
+      return callback(new Error('CORS origin not allowed'));
+    },
+  }));
 
   app.use((req, res, next) => {
     log.info(req.method, req.path);
@@ -85,8 +99,8 @@ function createApp() {
   } else {
     app.get('/', (req, res) => {
       res.send(
-        '<!DOCTYPE html><html><head><meta charset="utf-8"><title>LocalMiniDrama</title></head><body>' +
-          '<h1>LocalMiniDrama API</h1><p>后端已启动。请先构建前端：</p>' +
+        '<!DOCTYPE html><html><head><meta charset="utf-8"><title>灵动创世</title></head><body>' +
+          '<h1>灵动创世 API</h1><p>后端已启动。请先构建前端：</p>' +
           '<pre>cd web &amp;&amp; pnpm install &amp;&amp; pnpm build</pre>' +
           '<p>然后将 <code>web/dist</code> 放到与 backend-node 同级的 <code>web/dist</code>，或访问 <a href="/health">/health</a> 检查接口。</p></body></html>'
       );

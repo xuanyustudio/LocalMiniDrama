@@ -4,8 +4,8 @@
     <header class="header">
       <div class="header-inner">
         <h1 class="logo" @click="goList">
-          <span class="logo-main">本地短剧助手</span>
-          <span class="logo-sub">LocalMiniDrama</span>
+          <span class="logo-main">灵动创世</span>
+          <span class="logo-sub">Lingdong Creation</span>
         </h1>
         <span class="breadcrumb-sep">›</span>
         <span class="page-title">{{ dramaId ? (store.drama?.title || '项目') : '新建故事' }}</span>
@@ -365,13 +365,12 @@
             <el-option label="4:3" value="4:3" />
             <el-option label="21:9 宽银幕" value="21:9" />
           </el-select>
-          <el-select v-model="videoClipDuration" style="width: 105px" @change="() => saveProjectSettings(false)">
-            <el-option label="4秒/段" :value="4" />
-            <el-option label="5秒/段" :value="5" />
-            <el-option label="8秒/段" :value="8" />
-            <el-option label="10秒/段" :value="10" />
-            <el-option label="12秒/段" :value="12" />
-            <el-option label="15秒/段" :value="15" />
+          <el-select v-model="videoClipDuration" title="节奏倾向仅作为空镜与镜数规划参考；每镜时长会根据对白、旁白和动作复杂度自动计算" style="width: 126px" @change="() => saveProjectSettings(false)">
+            <el-option label="紧凑节奏" :value="4" />
+            <el-option label="智能均衡" :value="5" />
+            <el-option label="叙事舒展" :value="8" />
+            <el-option label="情绪长镜" :value="12" />
+            <el-option label="沉浸长镜" :value="15" />
           </el-select>
           <el-select v-model="scriptLanguage" placeholder="分镜语言" clearable style="width: 105px">
             <el-option label="中文" value="zh" />
@@ -399,6 +398,14 @@
           >
             生成文本框架
           </el-button>
+          <el-button
+            type="warning"
+            plain
+            :loading="pipelineRunning && !pipelinePaused"
+            :disabled="!currentEpisodeId || pipelineRunning"
+            title="按当前项目状态只补生成缺失的图片、分镜、视频和成片"
+            @click="startRepairPipeline"
+          >补全缺失内容</el-button>
           <template v-if="pipelineRunning">
             <el-button v-if="!pipelinePaused" type="warning" @click="pipelinePaused = true">⏸ 暂停</el-button>
             <el-button v-else type="success" @click="onPipelineResume">▶ 继续</el-button>
@@ -2840,7 +2847,7 @@ const pipelineCurrentStep = ref('')
 const pipelineStepIndex = ref(0)    // 当前步骤序号（1-based）
 /** 全流程 10 步；仅文本框架为前 4 步 */
 const pipelineStepTotal = ref(10)
-let pipelineResolveResume = null
+const pipelineResumeWaiters = new Set()
 // 倒计时（两个生成阶段之间的确认窗口）
 const pipelineCountdown = ref(0)      // 剩余秒数，0 表示不在倒计时
 const pipelineCountdownMsg = ref('')  // 倒计时说明文字
@@ -3293,9 +3300,9 @@ const exportingStoryboardSheet = ref(false)
 const lastFrameUseFirstLayoutLock = ref(true)
 const gridMode = ref('single') // 序列图模式：single / quad_grid / nine_grid
 
-// ── 剧本长度 → 估算总时长；自动分镜数与项目「每段秒数」(videoClipDuration) 对齐 ──
+// ── 剧本长度 → 估算总时长；节奏倾向只用于镜数规划，单镜时长由后端按内容决定 ──
 
-/** 用于估算的每段时长（秒），与一键成片处「X秒/段」一致 */
+/** 用于镜数粗估的节奏基准（秒），不作为单镜固定时长 */
 function clipSecondsForStoryboardEstimate() {
   const c = Number(videoClipDuration.value)
   return Math.max(2, Math.min(60, Number.isFinite(c) && c > 0 ? c : 5))
@@ -3356,7 +3363,7 @@ const scriptEstimateStoryboardHint = computed(() => {
 const scriptEstimateStoryboardTitle = computed(() => {
   const e = scriptStoryboardEstimate.value
   if (!e) return ''
-  return `按估算时长 ${e.sec}s ÷ 项目「每段 ${e.clip} 秒」四舍五入粗估约 ${e.locked} 镜；旁注区间为 ±1 镜供参考。切换「X秒/段」会同步改变本估算。`
+  return `根据约 ${e.sec}s 的剧本体量与当前节奏倾向，建议约 ${e.locked} 镜；实际每镜会按对白、旁白和动作复杂度智能分配 4–15 秒。`
 })
 
 function scriptTextTrimmedForEstimate() {
@@ -3381,7 +3388,7 @@ function getVideoDurationForApi() {
   return estimateVideoDurationSecFromCharLen(len) ?? undefined
 }
 
-/** 请求后端的分镜数量：仅未手动填时按「估算总时长 ÷ 每段秒数」推算，与项目 X秒/段 一致 */
+/** 请求后端的分镜数量：未手动填写时，以总时长和节奏倾向推算 */
 function getStoryboardCountForApi() {
   if (userFilledStoryboardCount()) return Math.round(Number(storyboardCount.value))
   const sec = getVideoDurationForApi()
@@ -3569,6 +3576,13 @@ function assetImageUrl(item) {
   }
   if (item.image_url) return imageUrl(item.image_url)
   return ''
+}
+/** 视频服务优先使用上游返回的公网图片地址，避免把局域网 static URL 发给 AI007。 */
+function assetImageUrlForRemoteVideo(item) {
+  if (item && typeof item === 'object' && /^https?:\/\//i.test(String(item.image_url || '').trim())) {
+    return String(item.image_url).trim()
+  }
+  return assetImageUrl(item)
 }
 function hasAssetImage(item) {
   if (!item) return false
@@ -5435,6 +5449,12 @@ function getSbFirstFrameUrl(sb) {
   if (sb.composed_image || sb.image_url) return imageUrl(sb.composed_image || sb.image_url)
   return ''
 }
+function getSbFirstFrameUrlForVideo(sb) {
+  const img = storyboardUseFirstLastFrame.value ? getSbFirstImage(sb.id) : getSbImage(sb.id)
+  if (img) return assetImageUrlForRemoteVideo(img)
+  if (/^https?:\/\//i.test(String(sb.composed_image || sb.image_url || '').trim())) return sb.composed_image || sb.image_url
+  return getSbFirstFrameUrl(sb)
+}
 
 function getSbLastFrameUrl(sb) {
   const img = getSbLastImage(sb.id)
@@ -5449,9 +5469,9 @@ function getSbLastFrameUrl(sb) {
 function sbVideoFirstLastUrls(sb, universal, contiguityFirstFrameUrl) {
   let first =
     contiguityFirstFrameUrl ||
-    (universal ? '' : toAbsoluteImageUrl(getSbFirstFrameUrl(sb) || ''))
+    (universal ? '' : toAbsoluteImageUrl(getSbFirstFrameUrlForVideo(sb) || ''))
   if (!first && !universal) {
-    first = toAbsoluteImageUrl(getSbFirstFrameUrl(sb) || '')
+    first = toAbsoluteImageUrl(getSbFirstFrameUrlForVideo(sb) || '')
   }
   let last = undefined
   if (storyboardUseFirstLastFrame.value && !universal) {
@@ -6070,7 +6090,7 @@ async function polishUniversalSegmentsAfterGeneration(opts = {}) {
 
 /** 为视频生成获取参考图的真实 URL */
 async function getMainImageUrlForVideo(sb) {
-  return getSbFirstFrameUrl(sb)
+  return getSbFirstFrameUrlForVideo(sb)
 }
 
 /** 转为视频接口可请求的绝对 URL（后端/第三方需能访问） */
@@ -7172,8 +7192,9 @@ async function pollUntilResourceHasImage(checker, maxAttempts = 20, intervalMs =
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise((r) => setTimeout(r, intervalMs))
     await loadDrama()
-    if (checker()) return
+    if (checker()) return true
   }
+  throw new Error('图片生成完成后未获得可用图片，已停止继续后续步骤')
 }
 
 function resolvePollMeta(meta = {}) {
@@ -7193,7 +7214,7 @@ function pollTask(taskId, onDone, meta = {}) {
   return genStore.pollTask(taskId, resolvePollMeta(meta), onDone, { ElMessage })
 }
 
-/** 一键生成视频：暂停时等待，返回 { paused: true } 表示被暂停中断 */
+/** 一键流程任务轮询；暂停仅冻结轮询，恢复后继续等待同一个任务。 */
 function pollTaskWithPause(taskId, onDone, meta = {}) {
   const resolvedMeta = resolvePollMeta(meta)
   const trackInStore = resolvedMeta.resourceType !== 'unknown' && resolvedMeta.resourceId != null
@@ -7216,8 +7237,7 @@ function pollTaskWithPause(taskId, onDone, meta = {}) {
         return
       }
       if (pipelinePaused.value) {
-        resolve({ paused: true })
-        return
+        await checkPause()
       }
       attempts++
       try {
@@ -7255,16 +7275,14 @@ function pollTaskWithPause(taskId, onDone, meta = {}) {
 
 function waitForResume() {
   return new Promise((resolve) => {
-    pipelineResolveResume = resolve
+    pipelineResumeWaiters.add(resolve)
   })
 }
 
 function onPipelineResume() {
   pipelinePaused.value = false
-  if (pipelineResolveResume) {
-    pipelineResolveResume()
-    pipelineResolveResume = null
-  }
+  for (const resolve of pipelineResumeWaiters) resolve()
+  pipelineResumeWaiters.clear()
 }
 
 function addPipelineError(step, message) {
@@ -7721,8 +7739,10 @@ async function runOneClickPipeline(textOnly = false) {
         }
         return !!getSbFirstFrameUrl(sb)
       })
-      const concurrency = pipelineVideoConcurrency.value
-      setPipelineStep(9, `生成分镜视频（${boards2.length} 个，并发 ${concurrency}）...`)
+      // 相邻镜头必须按顺序生成：上一镜真实尾帧会成为下一镜首帧。
+      // 并发只适用于资产/分镜图，不适用于有连续性依赖的视频链。
+      const concurrency = 1
+      setPipelineStep(9, `连续生成分镜视频（${boards2.length} 个，自动尾帧衔接）...`)
       const { paused } = await runConcurrently(boards2, concurrency, async (sb) => {
         await checkPause()
         generatingSbVideoIds.add(sb.id)
@@ -7761,6 +7781,13 @@ async function runOneClickPipeline(textOnly = false) {
             } else await loadSingleStoryboardMedia(sb.id)
           })
           if (ok && typeof ok === 'object' && ok.paused) return { paused: true }
+          const hasNextStoryboard = (store.storyboards || []).some((next) =>
+            Number(next.storyboard_number) > Number(sb.storyboard_number)
+          )
+          if (ok && hasNextStoryboard) {
+            await storyboardsAPI.linkTailFrame(sb.id, { drama_id: dramaIdVal })
+            await loadStoryboardMedia()
+          }
         } finally {
           generatingSbVideoIds.delete(sb.id)
         }
@@ -7802,9 +7829,12 @@ async function startRepairPipeline() {
   if (!currentEpisodeId.value || pipelineRunning.value) return
   pipelineErrorLog.value = []
   pipelineCurrentStep.value = ''
+  pipelineStepIndex.value = 0
+  pipelineStepTotal.value = 10
   pipelineActiveTasks.clear()
   pipelineRunning.value = true
   pipelinePaused.value = false
+  pipelineAbortRequested.value = false
   try {
     await runRepairPipeline()
   } finally {
@@ -8062,8 +8092,8 @@ async function runRepairPipeline() {
       return !!getSbFirstFrameUrl(sb)
     })
     {
-      const concurrency = pipelineVideoConcurrency.value
-      pipelineCurrentStep.value = `正在生成分镜视频（并发${concurrency}）...`
+      const concurrency = 1
+      pipelineCurrentStep.value = '正在连续生成分镜视频（自动尾帧衔接）...'
       const { paused } = await runConcurrently(boards2, concurrency, async (sb) => {
         await checkPause()
         generatingSbVideoIds.add(sb.id)
@@ -8101,6 +8131,13 @@ async function runRepairPipeline() {
             } else await loadSingleStoryboardMedia(sb.id)
           })
           if (ok && typeof ok === 'object' && ok.paused) return { paused: true }
+          const hasNextStoryboard = (store.storyboards || []).some((next) =>
+            Number(next.storyboard_number) > Number(sb.storyboard_number)
+          )
+          if (ok && hasNextStoryboard) {
+            await storyboardsAPI.linkTailFrame(sb.id, { drama_id: dramaIdVal })
+            await loadStoryboardMedia()
+          }
         } finally {
           generatingSbVideoIds.delete(sb.id)
         }

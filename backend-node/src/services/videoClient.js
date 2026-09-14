@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const aiConfigService = require('./aiConfigService');
+const { filterUsableVideoModels, isForbiddenVideoModel, chooseVideoModel, quantizeStoryboardDuration } = require('./videoModelPolicy');
 let sharp; try { sharp = require('sharp'); } catch (_) { sharp = null; }
 const { uploadLocalImageToProxy, uploadToImageProxy } = require('./uploadService');
 const imageClient = require('./imageClient');
@@ -33,6 +34,7 @@ function inferVideoProtocol(provider) {
   if (p === 'xai' || p === 'grok') return 'xai';
   if (p === 'agnes') return 'agnes';
   if (p === 'minimax_h3') return 'minimax_h3';
+  if (p === 'ai007') return 'ai007';
   return 'openai';
 }
 
@@ -922,7 +924,10 @@ function parseKlingOmniPollVideoUrl(data) {
 // ??????????????????listConfigs ?? is_default DESC, priority DESC ??
 function getDefaultVideoConfig(db, preferredModel) {
   const configs = aiConfigService.listConfigs(db, 'video');
-  const active = configs.filter((c) => c.is_active);
+  const active = configs
+    .filter((c) => c.is_active)
+    .map((c) => ({ ...c, model: filterUsableVideoModels(c.model) }))
+    .filter((c) => c.model.length > 0);
   if (active.length === 0) return null;
   if (preferredModel) {
     for (const c of active) {
@@ -1047,7 +1052,8 @@ function buildQueryUrl(config, taskId) {
   if (proto === 'minimax_h3') return buildMinimaxH3PollUrl(config, taskId);
   const base = (config.base_url || '').replace(/\/$/, '');
   let defaultEp;
-  if (isSora) defaultEp = '/v1/videos/{taskId}';
+  if (proto === 'ai007') defaultEp = '/v1/video/generations/{taskId}';
+  else if (isSora) defaultEp = '/v1/videos/{taskId}';
   else if (proto === 'xai') defaultEp = '/v1/videos/{taskId}';
   else if (proto === 'veo3') defaultEp = '/v1/video/query?id={taskId}';
   else if (isDashScope) defaultEp = '/api/v1/tasks/{taskId}';
@@ -1080,10 +1086,7 @@ function normalizeVolcModel(name) {
 }
 
 function getModelFromConfig(config, preferredModel) {
-  const models = Array.isArray(config.model) ? config.model : (config.model != null ? [config.model] : []);
-  if (preferredModel && models.includes(preferredModel)) return preferredModel;
-  if (config.default_model && models.includes(config.default_model)) return config.default_model;
-  return models[0] || '';
+  return chooseVideoModel(config.model, preferredModel, null, { defaultModel: config.default_model });
 }
 
 /** 仅把 http(s) 当作可下载直链，避免方舟/中转让 result_url 填入错误文案 */
@@ -1271,6 +1274,11 @@ function pickProxyVideoUrl(data) {
       const dr = pickVideoUrlFromResultShape(d.result);
       if (dr) return dr;
     }
+    // AI007 completion payload: data.data.url
+    if (d.data && typeof d.data === 'object' && !Array.isArray(d.data)) {
+      u = videoUrlFromRecord(d.data);
+      if (u) return u;
+    }
   }
   const r = data.result;
   if (r && typeof r === 'object') {
@@ -1305,6 +1313,14 @@ function pickProxyVideoUrl(data) {
     if (u) return u;
   }
   return null;
+}
+
+/** AI007 completion payload contains both its internal result_url and the
+ * upstream signed media URL.  The former commonly points at localhost:3000
+ * and cannot be consumed by this application, so always prefer the latter. */
+function extractAi007VideoUrl(data) {
+  const upstream = data?.data?.data?.url;
+  return coerceHttpVideoUrl(upstream) || pickProxyVideoUrl(data);
 }
 
 // ? DashScope ?????????? URL
@@ -3665,6 +3681,65 @@ async function callMinimaxH3VideoApi(config, log, opts) {
  * ?????? API?ChatFire/?? ? ?????
  * @returns {Promise<{ task_id?: string, video_url?: string, error?: string }>}
  */
+/** AI007 unified async video protocol. */
+async function callAi007VideoApi(config, log, opts) {
+  const base = String(config.base_url || 'https://image.ai007.my').replace(/\/$/, '');
+  let endpoint = config.endpoint || '/v1/video/generations';
+  if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
+  const sourceImage = String(opts.first_frame_url || opts.image_url || '').trim();
+  // AI007 supports 1–4 public multi-reference URLs.  Keep the first frame
+  // first so the temporal anchor is stable, then append appearance references
+  // in their caller-provided order.
+  const rawReferences = [sourceImage, ...(Array.isArray(opts.reference_urls) ? opts.reference_urls : [])]
+    .map((url) => String(url || '').trim())
+    .filter((url) => /^https?:\/\//i.test(url) || url.startsWith('/static/') || url.startsWith('projects/'));
+  const referenceUrls = [];
+  for (const reference of rawReferences) {
+    // AI007 can only fetch public URLs.  Convert local/static references to the
+    // configured image proxy before submission rather than exposing LAN URLs.
+    const isPublic = /^https:\/\//i.test(reference) && !/localhost|127\.0\.0\.1|192\.168\./i.test(reference);
+    const publicUrl = isPublic
+      ? reference
+      : await uploadLocalImageToProxy(opts.storage_local_path, reference, log, `ai007-video-${opts.video_gen_id || 'preview'}`);
+    if (publicUrl && /^https?:\/\//i.test(publicUrl)) referenceUrls.push(publicUrl);
+  }
+  const uniqueReferenceUrls = [...new Set(referenceUrls)].slice(0, 4);
+  // H3 upstream only treats the singular `image` field as image-to-video.
+  // Sending H3 `image_urls` is accepted by the relay but is routed as
+  // textGenerate (image_count=0), so the alleged first frame is ignored.
+  // Dola/Seedance multi-reference models keep the documented image_urls path.
+  const h3SingleFrame = /^H3(?:$|[-_])/i.test(String(opts.model || 'H3'));
+  const body = {
+    model: opts.model || 'H3',
+    prompt: opts.prompt || '',
+    seconds: String(quantizeStoryboardDuration(opts.duration || 5)),
+    ...(opts.aspect_ratio ? { aspect_ratio: opts.aspect_ratio } : {}),
+    ...(!h3SingleFrame && uniqueReferenceUrls.length > 1
+      ? { image_urls: uniqueReferenceUrls }
+      : (uniqueReferenceUrls[0] ? { image: uniqueReferenceUrls[0] } : {})),
+  };
+  const url = base + endpoint;
+  logVideoPostRequest(log, 'AI007', url, body, opts.video_gen_id, { model: body.model, reference_image_count: uniqueReferenceUrls.length });
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (config.api_key || '') },
+    body: JSON.stringify(body),
+  });
+  const raw = await res.text();
+  if (!res.ok) {
+    let detail = raw.slice(0, 300);
+    try { const parsed = JSON.parse(raw); detail = parsed.error?.message || parsed.message || detail; } catch (_) {}
+    return { error: `AI007 请求失败: ${res.status}${detail ? ` - ${detail}` : ''}` };
+  }
+  let data;
+  try { data = JSON.parse(raw); } catch (e) { return { error: 'AI007 响应非 JSON: ' + e.message }; }
+  const videoUrl = pickProxyVideoUrl(data);
+  if (videoUrl) return { video_url: videoUrl };
+  const taskId = data.task_id || data.id || data.data?.task_id || data.data?.id;
+  if (taskId) return { task_id: String(taskId), status: data.status || data.data?.status || 'processing' };
+  return { error: 'AI007 未返回 task_id 或视频地址' };
+}
+
 async function callVideoApi(db, log, opts) {
   const {
     prompt,
@@ -3688,9 +3763,15 @@ async function callVideoApi(db, log, opts) {
   if (!config) {
     throw new Error('???????????AI ?????? video ?????????');
   }
-  const model = getModelFromConfig(config, preferredModel);
+  if (preferredModel && isForbiddenVideoModel(preferredModel)) {
+    throw new Error(`视频模型 ${preferredModel} 已被项目策略禁用`);
+  }
+  const model = chooseVideoModel(config.model, preferredModel, duration, { defaultModel: config.default_model });
+  if (!model) throw new Error('当前视频配置没有可用模型（已排除海螺和 Seedance 1.0）');
+  opts.model = model;
+  opts.duration = quantizeStoryboardDuration(duration || 5);
   const provider = (config.provider || '').toLowerCase();
-  const protocol = resolveVideoProtocol(config, preferredModel);
+  const protocol = resolveVideoProtocol(config, model);
   if (db && opts.drama_id && VIDEO_PROTOCOLS_SUPPORT_SD2_ASSET_SCHEME.has(protocol)) {
     opts = applySeedance2CertifiedAssetUrlsToVideoOpts(db, log, opts);
   }
@@ -3749,7 +3830,7 @@ async function callVideoApi(db, log, opts) {
   if (protocol === 'jimeng_ai_api') {
     return callJimengAiApiVideo(config, log, {
       prompt,
-      model: preferredModel,
+      model,
       duration: opts.duration,
       aspect_ratio,
       resolution: opts.resolution,
@@ -3925,8 +4006,22 @@ async function callVideoApi(db, log, opts) {
     });
   }
 
+  if (protocol === 'ai007') {
+    return callAi007VideoApi(config, log, {
+      prompt, model,
+      duration: opts.duration,
+      aspect_ratio,
+      image_url: opts.image_url,
+      first_frame_url: opts.first_frame_url,
+      reference_urls: opts.reference_urls,
+      files_base_url: opts.files_base_url,
+      storage_local_path: opts.storage_local_path,
+      video_gen_id: opts.video_gen_id,
+    });
+  }
+
   const url = buildVideoUrl(config);
-  const dur = duration ? Number(duration) : 5;
+  const dur = opts.duration;
   const ratio = aspect_ratio || '16:9';
 
   const isVolc = protocol === 'volcengine';
@@ -4085,6 +4180,7 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
   const isKling = protocol === 'kling';
   const isKlingOmni = protocol === 'kling_omni' || (typeof taskId === 'string' && taskId.startsWith('omni:'));
   const isVeo3 = protocol === 'veo3';
+  const isAi007 = protocol === 'ai007';
   /** 轮询日志里响应体最大字符数（即梦/方舟等 JSON 可能较长）；0 表示不截断（慎用） */
   const pollLogBodyMax = (() => {
     const v = String(process.env.VIDEO_POLL_LOG_MAX || '16384').trim();
@@ -4242,6 +4338,20 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
         if (st === 'failed' || st === 'error') {
           const errMsg = data?.data?.task_status_msg || data?.task_status_msg || data?.message || '任务失败';
           return { error: 'Kling Omni: ' + String(errMsg).slice(0, 400) };
+        }
+        continue;
+      }
+
+      if (isAi007) {
+        const status = String(data?.data?.status || data?.status || '').toLowerCase();
+        const videoUrl = extractAi007VideoUrl(data);
+        log.info('[AI007 poll] 状态', { video_gen_id: videoGenId, attempt, status, has_url: !!videoUrl });
+        if (status === 'failed' || status === 'error') {
+          return { error: String(data?.data?.fail_reason || data?.message || 'AI007 视频任务失败').slice(0, 500) };
+        }
+        if (videoUrl) return { video_url: videoUrl };
+        if (status === 'success' || status === 'completed' || status === 'done' || status === 'succeeded') {
+          return { error: 'AI007 任务已完成但未返回可访问的视频地址' };
         }
         continue;
       }
@@ -4474,4 +4584,5 @@ module.exports = {
   extractMinimaxH3VideoUrl,
   normalizeMinimaxH3Duration,
   normalizeMinimaxH3Resolution,
+  callAi007VideoApi,
 };

@@ -4,7 +4,7 @@
 
 **A locally-running AI short drama & comic generator — download and run, no cloud required, fully open source**
 
-[![version](https://img.shields.io/badge/version-1.2.8-blue?style=flat-square)](../../releases)
+[![version](https://img.shields.io/badge/version-1.2.9-blue?style=flat-square)](../../releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](../LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)](#)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#)
@@ -102,7 +102,7 @@ Double-click → open **AI Config** → enter your API key → start creating.
 
 ### Option B — Development Mode
 
-> Requires Node.js >= 18
+> Requires Node.js >= 22
 
 ```bash
 # 1. Clone
@@ -185,12 +185,18 @@ LocalMiniDrama/
 
 Full version history → **[CHANGELOG](changelog.md)**
 
-**Latest v1.2.8 highlights:**
+**Latest v1.2.9 highlights:**
+- 🆕 **Project workspace** — search, content/status filters, sorting, production progress, next-step hints, and one-click continue
+- ⚡ **Faster startup** — on-demand Element Plus components and lazy-loaded AI configuration reduce the initial JS payload
+- 🔒 **Local security hardening** — loopback-only backend by default, restricted CORS, AI/API secrets no longer returned to the browser, and global TLS bypass removed
+- 🔧 **Media library fixes** — uploaded images are registered correctly; keyword search, pagination, and file metadata now work end to end
+- 🛡️ **Dependency/import hardening** — updated Electron, archive/image/upload dependencies, plus ZIP expansion limits
+
+**v1.2.8 highlights:**
 - 🆕 **Agnes AI** — one-click setup for text (`agnes-2.0-flash`), image (`agnes-image-2.1-flash`), and video (`agnes-video-v2.0`) with a single API key
 - 🆕 **Canvas mode enhancements** — script node on canvas, context menu, floating toolbar, in-canvas create/delete, batch episode generation
 - 🆕 **ModelArk private asset library** — configure BytePlus / Volcengine Ark asset groups for Seedance 2.0 character certification (AK/SK or Bearer auth)
 - 🔧 **Configurable image proxy** — `upload_url`, timeout (default 180s), and retry count in `config.yaml`; stale cache URLs auto-reupload
-- 🔧 **Prompt improvements** · **Storyboard image count limit fix**
 
 **v1.2.7 highlights:**
 - 🆕 **Tail-frame link** — one-click extract the last frame of the current shot’s video (server-side ffmpeg) and set it as the **next shot’s first frame**

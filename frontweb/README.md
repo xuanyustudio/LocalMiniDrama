@@ -2,7 +2,7 @@
 
 与现有 `web` 并列的前端项目，实现**单页**从故事到成片的完整流程，对接现有 Node 后端 `backend-node`。
 
-**包版本：** `1.2.8`（与仓库根目录 [CHANGELOG](../CHANGELOG.md) 一致）
+**包版本：** `1.2.9`（与仓库根目录 [CHANGELOG](../CHANGELOG.md) 一致）
 
 ## 功能流程
 

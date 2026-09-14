@@ -5,6 +5,7 @@ const taskService = require('./taskService');
 const dramaService = require('./dramaService');
 const { safeParseAIJSON } = require('../utils/safeJson');
 const loadConfig = require('../config').loadConfig;
+const { getContentTypeProfile } = require('./contentTypeProfile');
 
 async function generateStory(db, log, body) {
   const premise = (body.premise || body.prompt || body.text || '').trim();
@@ -16,8 +17,12 @@ async function generateStory(db, log, body) {
   const type = body.type || null;
   const episodeCount = Math.max(1, Math.floor(Number(body.episode_count) || 1));
 
-  const systemPrompt = promptI18n.getStoryExpansionSystemPrompt(cfg, episodeCount);
-  const userPrompt = promptI18n.buildStoryExpansionUserPrompt(cfg, premise, style, type, episodeCount);
+  const drama = body.drama_id
+    ? db.prepare('SELECT metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(Number(body.drama_id))
+    : null;
+  const contentProfile = getContentTypeProfile(body.metadata || drama?.metadata);
+  const systemPrompt = `${promptI18n.getStoryExpansionSystemPrompt(cfg, episodeCount)}\n\n【内容形态：${contentProfile.label}】\n${contentProfile.storyRule}`;
+  const userPrompt = `${promptI18n.buildStoryExpansionUserPrompt(cfg, premise, style, type, episodeCount)}\n目标成片基准约 ${contentProfile.targetSeconds} 秒/集；以剧情完整和对白可表演时长为准。`;
 
   // 每集约 800 字（中文）≈ 1600 token，多留余量作为最低需求；
   // 不使用 max_tokens 硬上限，而是用 min_max_tokens 确保即使用户 AI 配置了小上限也能保证基本输出量。

@@ -5,6 +5,10 @@ const AdmZip = require('adm-zip');
 const { randomUUID } = require('crypto');
 const storageLayout = require('./storageLayout');
 
+const MAX_ZIP_ENTRIES = 5000;
+const MAX_ZIP_ENTRY_BYTES = 128 * 1024 * 1024;
+const MAX_ZIP_EXPANDED_BYTES = 512 * 1024 * 1024;
+
 function getStoragePath(cfg) {
   const raw = cfg?.storage?.local_path || './data/storage';
   return path.isAbsolute(raw) ? raw : path.join(process.cwd(), raw);
@@ -31,6 +35,23 @@ function parseZip(zipBuffer) {
     throw new Error('ZIP 格式不正确：缺少 project.json');
   }
 
+  const entries = zip.getEntries();
+  if (entries.length > MAX_ZIP_ENTRIES) {
+    throw new Error(`ZIP 文件条目过多（最多 ${MAX_ZIP_ENTRIES} 个）`);
+  }
+  let expandedBytes = 0;
+  for (const entry of entries) {
+    if (entry.isDirectory) continue;
+    const declaredSize = Number(entry.header?.size || 0);
+    if (!Number.isFinite(declaredSize) || declaredSize < 0 || declaredSize > MAX_ZIP_ENTRY_BYTES) {
+      throw new Error(`ZIP 内单个文件过大: ${entry.entryName}`);
+    }
+    expandedBytes += declaredSize;
+    if (expandedBytes > MAX_ZIP_EXPANDED_BYTES) {
+      throw new Error('ZIP 解压后总大小超过 512MB 限制');
+    }
+  }
+
   let data;
   try {
     data = JSON.parse(projectEntry.getData().toString('utf8'));
@@ -44,7 +65,7 @@ function parseZip(zipBuffer) {
 
   // 读取所有媒体文件到 Map
   const files = new Map();
-  for (const entry of zip.getEntries()) {
+  for (const entry of entries) {
     if (!entry.isDirectory && entry.entryName !== 'project.json') {
       files.set(entry.entryName, entry.getData());
     }

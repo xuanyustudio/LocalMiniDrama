@@ -75,7 +75,7 @@ git push origin feature/your-feature-name
 
 ## 开发环境搭建 / Development Setup
 
-> 需要 Node.js >= 18 / Requires Node.js >= 18
+> 需要 Node.js >= 22 / Requires Node.js >= 22
 
 ### 启动后端
 

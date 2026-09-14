@@ -76,13 +76,16 @@ function routes(db, cfg, log) {
         const outputAbsPath = path.join(imagesDir, outputFileName);
         const outputRelPath = `media/images/${outputFileName}`;
 
-        // 6. 使用 ffmpeg 提取最后一帧
-        // 使用 -sseof -1 定位到最后一秒，然后取第一帧
+        // 6. 使用 ffmpeg 提取真实最后一帧。
+        // -sseof -1 只把输入定位到最后一秒；直接 -frames:v 1 会得到“倒数约一秒”的
+        // 第一帧，而不是尾帧。只反转这一秒再取首帧，既避免整段视频反转占用内存，
+        // 也能稳定拿到解码后的最后一张完整画面。
         log.info('[尾帧衔接] 开始提取', { from: video.local_path, to: outputRelPath });
 
         const result = spawnSync(ffmpeg, [
           '-sseof', '-1',
           '-i', videoAbsPath,
+          '-vf', 'reverse',
           '-update', '1',
           '-q:v', '2',
           '-frames:v', '1',
@@ -151,13 +154,13 @@ function routes(db, cfg, log) {
 
         // 9. 更新下一个分镜的 first_frame_image_id
         // 先获取当前首帧（用于历史记录，如果需要）
-        const nextSbCurrent = db.prepare('SELECT first_frame_image_id, image_url, local_path FROM storyboards WHERE id = ?').get(nextSb.id);
+        const nextSbCurrent = db.prepare('SELECT first_frame_image_id FROM storyboards WHERE id = ?').get(nextSb.id);
 
         db.prepare(`
           UPDATE storyboards
-          SET first_frame_image_id = ?, image_url = ?, local_path = ?, updated_at = ?
+          SET first_frame_image_id = ?, updated_at = ?
           WHERE id = ?
-        `).run(newImageId, imageUrl, outputRelPath, now, nextSb.id);
+        `).run(newImageId, now, nextSb.id);
 
         log.info('[尾帧衔接] 完成', {
           from_storyboard: storyboardId,

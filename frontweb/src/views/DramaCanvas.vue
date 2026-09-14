@@ -3,7 +3,7 @@
     <header class="header">
       <div class="header-inner">
         <h1 class="logo" @click="router.push('/')">
-          <span class="logo-main">本地短剧助手</span>
+          <span class="logo-main">灵动创世</span>
           <span class="logo-sub">画布模式</span>
         </h1>
         <span class="breadcrumb-sep">›</span>
@@ -920,6 +920,15 @@ onBeforeUnmount(() => {
   background: var(--bg-page, #0f0f12);
   color: var(--text-primary, #e4e4e7);
   overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .header-inner { overflow-x: auto; flex-wrap: nowrap; padding: 8px 10px; }
+  .header-actions { flex-wrap: nowrap; }
+  .header-actions .el-button { flex: 0 0 auto; }
+  .workflow-bar, .generate-bar { overflow-x: auto; flex-wrap: nowrap; padding: 7px 10px; }
+  .workflow-bar > *, .generate-bar > * { flex: 0 0 auto; }
+  .canvas-sidebar { width: 172px; }
 }
 
 .header {

@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { normalizeMaterialHubToken } = require('./jimengMaterialHubService');
+const { filterUsableVideoModels, filterDiscoveredProjectVideoModels, isForbiddenVideoModel } = require('./videoModelPolicy');
 
 function normalizeApiKeyForService(serviceType, apiKey) {
   if (serviceType === 'jimeng2_character_auth' && apiKey != null) {
@@ -10,10 +11,11 @@ function normalizeApiKeyForService(serviceType, apiKey) {
   return apiKey;
 }
 const { applyDeepSeekConnectivityOptions } = require('./deepseekConfig');
-function modelToDb(model) {
+function modelToDb(model, serviceType) {
   if (model == null) return null;
-  if (Array.isArray(model)) return JSON.stringify(model);
-  if (typeof model === 'string') return JSON.stringify([model]);
+  const values = Array.isArray(model) ? model : (typeof model === 'string' ? [model] : []);
+  const sanitized = serviceType === 'video' ? filterUsableVideoModels(values) : values;
+  if (sanitized.length) return JSON.stringify(sanitized);
   return JSON.stringify([]);
 }
 
@@ -25,6 +27,62 @@ function modelFromDb(val) {
   } catch {
     return [String(val)];
   }
+}
+
+function parseSettingsObject(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'object' && !Array.isArray(raw)) return { ...raw };
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function isSensitiveSettingKey(key) {
+  const normalized = String(key || '').toLowerCase();
+  // 这是密钥编码方式的布尔开关，不包含凭据本身，必须允许前端读取并保持编辑状态。
+  if (normalized === 'kling_secret_key_base64') return false;
+  return /(secret|token|password|api[_-]?key)/i.test(normalized);
+}
+
+function mergeSensitiveSettings(existingRaw, incomingRaw) {
+  const existing = parseSettingsObject(existingRaw);
+  const incoming = parseSettingsObject(incomingRaw);
+  for (const [key, value] of Object.entries(existing)) {
+    if (!isSensitiveSettingKey(key)) continue;
+    const next = incoming[key];
+    if (next === undefined || next === null || String(next).trim() === '') incoming[key] = value;
+  }
+  return JSON.stringify(incoming);
+}
+
+function sanitizeSettingsForClient(raw) {
+  if (!raw) return { settings: raw, secret_status: {} };
+  const parsed = parseSettingsObject(raw);
+  const secretStatus = {};
+  for (const key of Object.keys(parsed)) {
+    if (!isSensitiveSettingKey(key)) continue;
+    secretStatus[key] = parsed[key] !== undefined && parsed[key] !== null && String(parsed[key]).trim() !== '';
+    delete parsed[key];
+  }
+  return {
+    settings: Object.keys(parsed).length ? JSON.stringify(parsed) : null,
+    secret_status: secretStatus,
+  };
+}
+
+function toPublicConfig(config) {
+  if (!config) return config;
+  const { settings, secret_status } = sanitizeSettingsForClient(config.settings);
+  return {
+    ...config,
+    api_key: '',
+    has_api_key: !!String(config.api_key || '').trim(),
+    settings,
+    secret_status,
+  };
 }
 
 /** 每种服务类型只保留一个默认：若有多个 is_default=1，只保留优先级最高（同优先级取 id 最小）的那条 */
@@ -67,15 +125,45 @@ function getConfig(db, id) {
   return row ? rowToConfig(row) : null;
 }
 
+async function refreshRemoteModels(db, log, id) {
+  const config = getConfig(db, id);
+  if (!config) throw new Error('配置不存在');
+  const base = String(config.base_url || '').replace(/\/$/, '');
+  if (!base || !config.api_key) throw new Error('缺少 Base URL 或 API Key');
+  const res = await fetch(`${base}/v1/models`, {
+    headers: { Authorization: `Bearer ${config.api_key}`, Accept: 'application/json' },
+  });
+  const raw = await res.text();
+  if (!res.ok) throw new Error(`读取模型列表失败: HTTP ${res.status} ${raw.slice(0, 200)}`);
+  let payload;
+  try { payload = JSON.parse(raw); } catch (_) { throw new Error('模型列表响应不是有效 JSON'); }
+  const records = Array.isArray(payload) ? payload : (payload.data || payload.models || []);
+  let models = records.map((item) => String(item?.id || item?.name || item || '').trim()).filter(Boolean);
+  if (config.service_type === 'video') models = filterDiscoveredProjectVideoModels(models);
+  models = [...new Set(models)];
+  if (!models.length) throw new Error('上游未返回可用模型');
+  const defaultModel = models.includes(config.default_model) ? config.default_model : models[0];
+  db.prepare('UPDATE ai_service_configs SET model = ?, default_model = ?, updated_at = ? WHERE id = ?')
+    .run(modelToDb(models, config.service_type), defaultModel, new Date().toISOString(), Number(id));
+  log.info('AI config remote models refreshed', { config_id: Number(id), model_count: models.length });
+  return getConfig(db, id);
+}
+
 function createConfig(db, log, req) {
   const now = new Date().toISOString();
-  const model = modelToDb(req.model);
+  const model = modelToDb(req.model, req.service_type);
   let endpoint = req.endpoint || '';
   let queryEndpoint = req.query_endpoint || '';
   if (!endpoint && req.provider) {
     const p = req.provider.toLowerCase();
     const st = (req.service_type || 'text').toLowerCase();
-    if (p === 'openai') {
+    if (p === 'ai007') {
+      if (st === 'image' || st === 'storyboard_image') endpoint = '/v1/images/generations';
+      else if (st === 'video') {
+        endpoint = '/v1/video/generations';
+        queryEndpoint = '/v1/video/generations/{taskId}';
+      }
+    } else if (p === 'openai') {
       if (st === 'text') endpoint = '/chat/completions';
       else if (st === 'image') endpoint = '/images/generations';
       else if (st === 'video') {
@@ -159,14 +247,14 @@ function updateConfig(db, log, id, req) {
     updates.push('base_url = ?');
     params.push(req.base_url);
   }
-  if (req.api_key != null) {
+  if (req.api_key != null && String(req.api_key).trim() !== '') {
     updates.push('api_key = ?');
     const st = req.service_type != null ? req.service_type : existing.service_type;
     params.push(normalizeApiKeyForService(st, req.api_key));
   }
   if (req.model != null) {
     updates.push('model = ?');
-    params.push(modelToDb(req.model));
+    params.push(modelToDb(req.model, existing.service_type));
   }
   if (req.default_model !== undefined) {
     updates.push('default_model = ?');
@@ -186,7 +274,7 @@ function updateConfig(db, log, id, req) {
   }
   if (req.settings != null) {
     updates.push('settings = ?');
-    params.push(req.settings);
+    params.push(mergeSensitiveSettings(existing.settings, req.settings));
   }
   if (typeof req.is_default === 'boolean') {
     updates.push('is_default = ?');
@@ -221,8 +309,10 @@ function rowToConfig(r) {
     name: r.name,
     base_url: r.base_url,
     api_key: r.api_key,
-    model: modelFromDb(r.model),
-    default_model: r.default_model ? String(r.default_model).trim() : null,
+    model: r.service_type === 'video' ? filterUsableVideoModels(modelFromDb(r.model)) : modelFromDb(r.model),
+    default_model: r.default_model && !(r.service_type === 'video' && isForbiddenVideoModel(r.default_model))
+      ? String(r.default_model).trim()
+      : null,
     endpoint: r.endpoint,
     query_endpoint: r.query_endpoint,
     priority: r.priority ?? 0,
@@ -579,4 +669,7 @@ module.exports = {
   getVendorLockStatus,
   applyVendorLock,
   bulkUpdateApiKey,
+  toPublicConfig,
+  parseSettingsObject,
+  refreshRemoteModels,
 };

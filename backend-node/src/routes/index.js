@@ -55,7 +55,7 @@ function setupRouter(cfg, db, log) {
   // 导出/导入（放在 :id 路由前，避免被 :id 捕获）
   r.get('/dramas/:id/export', drama.exportDrama);
   const multer = require('multer');
-  const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 500 * 1024 * 1024 } });
+  const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 256 * 1024 * 1024 } });
   r.post('/dramas/import', importUpload.single('file'), drama.importDrama);
   r.post('/dramas/import-novel', importUpload.single('file'), async (req, res) => {
     try {
@@ -99,6 +99,8 @@ function setupRouter(cfg, db, log) {
   r.get('/ai-configs/vendor-lock', aiConfig.vendorLock);  // 必须在 /:id 之前
   r.put('/ai-configs/bulk-update-key', aiConfig.bulkUpdateKey);  // 必须在 /:id 之前
   r.get('/ai-configs/:id', aiConfig.get);
+  r.post('/ai-configs/:id/test', aiConfig.testSavedConnection);
+  r.post('/ai-configs/:id/refresh-models', aiConfig.refreshModels);
   r.put('/ai-configs/:id', aiConfig.update);
   r.delete('/ai-configs/:id', aiConfig.delete);
 

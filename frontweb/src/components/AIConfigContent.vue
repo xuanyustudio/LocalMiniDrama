@@ -102,9 +102,10 @@
                 <span v-else class="no-default">—</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="180" fixed="right">
+            <el-table-column label="操作" width="230" fixed="right">
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="openTest(row)">测试</el-button>
+                <el-button v-if="row.service_type === 'video'" link type="primary" size="small" @click="refreshModels(row)">读取模型</el-button>
                 <el-button link type="primary" size="small" @click="onRowEdit(row)">{{ vendorLock.enabled ? '修改Key' : '编辑' }}</el-button>
                 <el-button v-if="!vendorLock.enabled" link type="danger" size="small" @click="onDelete(row)">删除</el-button>
               </template>
@@ -217,12 +218,12 @@
           <el-descriptions-item label="厂商">{{ form.provider }}</el-descriptions-item>
         </el-descriptions>
         <el-form ref="formRef" :model="form" label-width="100px">
-          <el-form-item prop="api_key" :rules="[{ required: true, message: '请输入 API Key', trigger: 'blur' }]">
+          <el-form-item prop="api_key" :rules="[{ required: !editingHasApiKey, message: '请输入 API Key', trigger: 'blur' }]">
             <template #label><span class="form-label-tip">API Key</span></template>
             <el-input
               v-model="form.api_key"
               type="password"
-              :placeholder="form.provider === 'jimeng_ai_api' ? '即梦 Session，多个用英文逗号分隔' : '输入你的 API 密钥'"
+              :placeholder="editingHasApiKey ? '已安全保存；留空则保持原密钥' : (form.provider === 'jimeng_ai_api' ? '即梦 Session，多个用英文逗号分隔' : '输入你的 API 密钥')"
               show-password
             />
           </el-form-item>
@@ -334,6 +335,7 @@
             <el-option label="可灵 Omni-Video（官方 api-beijing / ffir 中转，O1 全能）" value="kling_omni" />
             <el-option label="xAI Grok Imagine（官方 prompt + aspect_ratio，/v1/videos/generations）" value="xai" />
             <el-option label="MiniMax H3（官方 V2：/v2/video_generation，模型 MiniMax-H3）" value="minimax_h3" />
+            <el-option label="AI007 统一视频（Dola / H3）" value="ai007" />
             <el-option label="NanoBanana" value="nano_banana" />
           </el-select>
         </el-form-item>
@@ -554,7 +556,7 @@ input_reference = (图片文件，可选)</pre>
           <el-input
             v-model="form.api_key"
             type="password"
-            :placeholder="form.service_type === 'jimeng2_character_auth' ? 'Bearer Token' : (form.provider === 'jimeng_ai_api' ? '即梦 Session，多个用英文逗号分隔' : 'API 密钥')"
+            :placeholder="editingHasApiKey ? '已安全保存；留空则保持原密钥' : (form.service_type === 'jimeng2_character_auth' ? 'Bearer Token' : (form.provider === 'jimeng_ai_api' ? '即梦 Session，多个用英文逗号分隔' : 'API 密钥'))"
             show-password
           />
         </el-form-item>
@@ -1161,6 +1163,8 @@ const batchDeleting = ref(false)
 const vendorLock = ref({ enabled: false, config_file: '' })
 const dialogVisible = ref(false)
 const editingId = ref(null)
+const editingHasApiKey = ref(false)
+const editingSecretStatus = ref({})
 const saving = ref(false)
 const showProtocolHelp = ref(false)
 const bulkKeyVisible = ref(false)
@@ -1271,8 +1275,9 @@ const rules = computed(() => ({
         const proto = form.value.api_protocol
         const ak = (form.value.kling_access_key || '').trim()
         const sk = (form.value.kling_secret_key || '').trim()
-        if (st === 'video' && proto === 'kling_omni' && ak && sk) return cb()
+        if (st === 'video' && proto === 'kling_omni' && ak && (sk || editingSecretStatus.value.kling_secret_key)) return cb()
         if (v != null && String(v).trim()) return cb()
+        if (editingId.value && editingHasApiKey.value) return cb()
         cb(new Error('请输入 API Key，或使用官方 AccessKey + SecretKey（可不填 API Key）'))
       },
       trigger: 'blur',
@@ -1305,6 +1310,7 @@ const providerConfigs = {
     { id: 'agnes', name: 'Agnes AI', models: ['agnes-2.0-flash'] }
   ],
   image: [
+    { id: 'ai007', name: 'AI007 图片', models: ['gpt-image-2', 'seedream-5-0-lite', 'nano-banana-2'] },
     { id: 'volcengine', name: '火山引擎', models: ['doubao-seedream-4-5-251128', 'doubao-seedream-4-0-250828'] },
     { id: 'kling', name: '可灵 Kling', models: ['kling-image', 'kling-omni-image'] },
     { id: 'nano_banana', name: 'NanoBanana', models: ['nano-banana-2', 'nano-banana-pro', 'nano-banana'] },
@@ -1316,6 +1322,7 @@ const providerConfigs = {
     { id: 'agnes', name: 'Agnes AI', models: ['agnes-image-2.1-flash', 'agnes-image-2.0-flash'] }
   ],
   storyboard_image: [
+    { id: 'ai007', name: 'AI007 分镜图', models: ['gpt-image-2', 'seedream-5-0-lite', 'nano-banana-2'] },
     { id: 'dashscope', name: '通义万象', models: ['wan2.6-image', 'qwen-image-edit-plus-2026-01-09', 'qwen-image-edit-plus', 'qwen-image-edit-max'] },
     { id: 'volcengine', name: '火山引擎', models: ['doubao-seedream-4-5-251128', 'doubao-seedream-4-0-250828'] },
     { id: 'kling', name: '可灵 Kling', models: ['kling-image', 'kling-omni-image'] },
@@ -1326,14 +1333,14 @@ const providerConfigs = {
     { id: 'agnes', name: 'Agnes AI', models: ['agnes-image-2.1-flash', 'agnes-image-2.0-flash'] }
   ],
   video: [
+    { id: 'ai007', name: 'AI007 Seedance / H3', models: ['H3', 'Dola', 'H3-edit', 'H3-concat', 'seedance-2.0-fast-5s', 'seedance-2.0-fast-10s', 'seedance-2.0-fast-15s', 'seedance-2.5-5s', 'seedance-2.5-10s', 'seedance-2.5-30s'] },
     { id: 'klingai', name: '可灵官方 Omni (api-beijing.klingai.com)', models: ['kling-video-o1', 'kling-v3-omni'] },
     { id: 'ffir', name: '飞儿API / 可灵 Omni-Video (ffir.cn)', models: ['kling-video-o1', 'kling-v3-omni'] },
     { id: 'kling', name: '可灵 Kling', models: ['kling-omni-video', 'kling-video', 'kling-motion-control'] },
     { id: 'vidu', name: 'Vidu', models: ['viduq2', 'viduq2-pro', 'viduq2-turbo', 'viduq3-pro'] },
-    { id: 'volces', name: '火山引擎', models: ['doubao-seedance-2-0-260128', 'doubao-seedance-2-0-fast-260128', 'doubao-seedance-1-5-pro-251215', 'doubao-seedance-1-0-lite-i2v-250428', 'doubao-seedance-1-0-lite-t2v-250428', 'doubao-seedance-1-0-pro-250528', 'doubao-seedance-1-0-pro-fast-251015'] },
+    { id: 'volces', name: '火山引擎', models: ['doubao-seedance-2-0-260128', 'doubao-seedance-2-0-fast-260128'] },
     // { id: 'chatfire', name: 'Chatfire', models: ['doubao-seedance-1-5-pro-251215', 'doubao-seedance-1-0-lite-i2v-250428', 'doubao-seedance-1-0-lite-t2v-250428', 'doubao-seedance-1-0-pro-250528', 'doubao-seedance-1-0-pro-fast-251015', 'sora-2', 'sora-2-pro'] },
     { id: 'minimax_h3', name: 'MiniMax H3', models: ['MiniMax-H3'] },
-    { id: 'minimax', name: 'MiniMax 海螺', models: ['MiniMax-Hailuo-2.3', 'MiniMax-Hailuo-2.3-Fast', 'MiniMax-Hailuo-02'] },
     { id: 'gemini', name: 'Google Gemini (Veo)', models: ['veo-3.1-generate-preview', 'veo-3.0-generate-preview', 'veo-3.0-fast-generate-preview'] },
     { id: 'dashscope', name: '通义万相', models: ['wan2.6-r2v-flash', 'wan2.6-t2v', 'wan2.2-kf2v-flash', 'wan2.6-i2v-flash', 'wanx2.1-vace-plus'] },
     {
@@ -1380,6 +1387,7 @@ const providerProtocolMap = {
   grok: 'xai',
   minimax: 'openai',
   minimax_h3: 'minimax_h3',
+  ai007: 'ai007',
   openai: 'openai',
   chatfire: 'openai',
   qwen: 'openai',
@@ -1396,6 +1404,7 @@ function getBaseUrlForProvider(provider) {
   if (p === 'gemini' || p === 'google') return 'https://generativelanguage.googleapis.com'
   if (p === 'minimax_h3') return 'https://api.minimaxi.com'
   if (p === 'minimax') return 'https://api.minimaxi.com/v1'
+  if (p === 'ai007') return 'https://image.ai007.my'
   if (p === 'volces' || p === 'volcengine') return 'https://ark.cn-beijing.volces.com/api/v3'
   if (p === 'openai') return 'https://api.openai.com/v1'
   if (p === 'deepseek') return 'https://api.deepseek.com'
@@ -1545,6 +1554,8 @@ const endpointPreviewInfo = computed(() => {
       submitPath = '/v1/videos'
     } else if (proto === 'agnes' || p === 'agnes') {
       submitPath = '/videos'
+    } else if (proto === 'ai007' || p === 'ai007') {
+      submitPath = '/v1/video/generations'
     } else if (proto === 'minimax_h3' || p === 'minimax_h3') {
       submitPath = '/v2/video_generation'
     } else if (proto === 'xai') {
@@ -1584,6 +1595,8 @@ const endpointPreviewInfo = computed(() => {
       queryPath = '/v1/videos/{taskId}'
     } else if (proto === 'agnes' || p === 'agnes') {
       queryPath = '/videos/{taskId}'
+    } else if (proto === 'ai007' || p === 'ai007') {
+      queryPath = '/v1/video/generations/{taskId}'
     } else if (proto === 'minimax_h3' || p === 'minimax_h3') {
       queryPath = '/v2/query/video_generation/{taskId}'
     } else if (proto === 'xai') {
@@ -1667,6 +1680,16 @@ function onProviderChange(providerId) {
     form.value.endpoint = '/v2/video_generation'
     form.value.query_endpoint = '/v2/query/video_generation/{taskId}'
   }
+  if (st === 'video' && providerId === 'ai007') {
+    form.value.api_protocol = 'ai007'
+    form.value.endpoint = '/v1/video/generations'
+    form.value.query_endpoint = '/v1/video/generations/{taskId}'
+  }
+  if ((st === 'image' || st === 'storyboard_image') && providerId === 'ai007') {
+    form.value.api_protocol = 'openai'
+    form.value.endpoint = '/v1/images/generations'
+    form.value.query_endpoint = ''
+  }
   if (st === 'video' && providerId === 'minimax') {
     form.value.api_protocol = 'openai'
     form.value.endpoint = '/video_generation'
@@ -1745,6 +1768,8 @@ function parseModelText(text) {
 
 function resetForm() {
   editingId.value = null
+  editingHasApiKey.value = false
+  editingSecretStatus.value = {}
   presetModelPick.value = ''
   form.value = {
     service_type: 'text',
@@ -1777,6 +1802,8 @@ function openAdd() {
 
 function openEdit(row) {
   editingId.value = row.id
+  editingHasApiKey.value = !!row.has_api_key
+  editingSecretStatus.value = row.secret_status || {}
   const model = Array.isArray(row.model) ? row.model : (row.model ? [row.model] : [])
   const modelList = model.map((m) => String(m).trim()).filter(Boolean)
   const defaultInList = row.default_model && modelList.includes(row.default_model)
@@ -1807,7 +1834,7 @@ function openEdit(row) {
     provider: row.provider,
     api_protocol: row.api_protocol || '',
     base_url: row.base_url,
-    api_key: row.api_key,
+    api_key: '',
     endpoint: row.endpoint || '',
     query_endpoint: row.query_endpoint || '',
     modelText: modelList.join('\n'),
@@ -1929,7 +1956,7 @@ function onJimeng2AssetsDialogClosed() {
 }
 
 async function fetchJimeng2MaterialAssets(firstPage) {
-  if (!form.value.base_url?.trim() || !form.value.api_key?.trim()) {
+  if (!form.value.base_url?.trim() || (!form.value.api_key?.trim() && !(editingId.value && editingHasApiKey.value))) {
     ElMessage.warning('请先填写网关 URL 与 Token')
     return
   }
@@ -1944,6 +1971,7 @@ async function fetchJimeng2MaterialAssets(firstPage) {
     const data = await aiAPI.listJimeng2MaterialAssets({
       base_url: form.value.base_url.trim(),
       api_key: form.value.api_key,
+      config_id: editingId.value || undefined,
       limit: 20,
       cursor: firstPage ? undefined : jimeng2AssetsNextCursor.value || undefined,
     })
@@ -1985,19 +2013,21 @@ async function openTest(row) {
   testError.value = ''
   testServiceType.value = row.service_type || 'text'
   try {
-    await aiAPI.testConnection({
-      base_url: row.base_url,
-      api_key: row.api_key,
-      model: Array.isArray(row.model) ? row.model[0] : row.model,
-      provider: row.provider,
-      endpoint: row.endpoint,
-      service_type: row.service_type,
-      settings: row.settings
-    })
+    await aiAPI.testSavedConnection(row.id)
     testResult.value = true
   } catch (e) {
     testResult.value = false
     testError.value = e?.message || '请求失败'
+  }
+}
+
+async function refreshModels(row) {
+  try {
+    const config = await aiAPI.refreshModels(row.id)
+    ElMessage.success(`已读取 ${config?.model?.length || 0} 个可用模型`)
+    await loadList()
+  } catch (e) {
+    ElMessage.error(e?.message || '读取模型列表失败')
   }
 }
 
@@ -2153,7 +2183,7 @@ async function exportConfigs() {
     a.download = `ai-configs-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
-    ElMessage.success(`已导出 ${exportData.length} 条配置`)
+    ElMessage.success(`已导出 ${exportData.length} 条配置（密钥已自动排除）`)
   } catch (e) {
     ElMessage.error('导出失败')
   }

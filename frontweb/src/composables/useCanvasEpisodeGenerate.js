@@ -56,12 +56,9 @@ export function useCanvasEpisodeGenerate(deps) {
     const gen = getDramaGenerationOptions(drama.value)
     const ep = getEpisode()
     const scriptLen = (ep?.script_content || '').trim().length
-    let videoDuration
-    if (meta.video_clip_duration) {
-      videoDuration = Number(meta.video_clip_duration)
-    } else if (scriptLen > 0) {
-      videoDuration = Math.max(10, Math.round(10 + (scriptLen / 600) * 60))
-    }
+    const videoDuration = scriptLen > 0
+      ? Math.min(600, Math.max(10, Math.round(10 + (scriptLen / 600) * 60)))
+      : undefined
     return {
       style: gen.style || undefined,
       aspect_ratio: gen.aspectRatio,
@@ -234,6 +231,9 @@ export function useCanvasEpisodeGenerate(deps) {
         try {
           await runVideoStep(drama.value, sb, getGenOpts())
           ok++
+          if (i < todo.length - 1) {
+            await storyboardsAPI.linkTailFrame(sb.id, { drama_id: drama.value.id })
+          }
           await refreshCanvas(true)
         } catch (e) {
           failed++

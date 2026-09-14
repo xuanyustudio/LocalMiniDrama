@@ -230,9 +230,16 @@ async function uploadLocalImageToProxy(storagePath, localPathOrUrl, log, tag) {
         filePath = path.join(storagePath, afterStatic.replace(/^\//, ''));
       }
     } else if (localPathOrUrl && storagePath) {
-      filePath = path.isAbsolute(localPathOrUrl)
-        ? localPathOrUrl
-        : path.join(storagePath, localPathOrUrl.replace(/^\//, ''));
+      // Browser/API values commonly use /static/<storage-relative-path>.
+      // That leading slash is a URL root, not a filesystem root.
+      const staticRelative = String(localPathOrUrl).startsWith('/static/')
+        ? String(localPathOrUrl).slice('/static/'.length)
+        : null;
+      filePath = staticRelative != null
+        ? path.join(storagePath, staticRelative.replace(/^\/+/, ''))
+        : (path.isAbsolute(localPathOrUrl)
+          ? localPathOrUrl
+          : path.join(storagePath, localPathOrUrl.replace(/^\//, '')));
     }
     if (!filePath || !fs.existsSync(filePath)) {
       log.warn('[图床上传] 本地文件不存在', { tag, filePath });

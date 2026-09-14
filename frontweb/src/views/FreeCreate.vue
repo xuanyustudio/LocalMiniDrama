@@ -6,7 +6,7 @@
           <el-icon><ArrowLeft /></el-icon>
           返回
         </el-button>
-        <h2 class="page-title">自由创作</h2>
+        <div class="page-brand"><strong>灵动创世</strong><span>自由创作工作台</span></div>
       </div>
       <p class="page-desc">不绑定剧集，直接输入文字生成图片或视频</p>
     </div>
@@ -31,12 +31,15 @@
         </div>
 
         <div v-if="mode === 'video'" class="form-section">
-          <div class="form-label">参考图（可选）</div>
+          <div class="form-label">参考图（可选，最多 4 张）</div>
           <div class="ref-image-zone" @click="triggerRefImageUpload" @dragover.prevent @drop.prevent="onRefImageDrop">
-            <template v-if="refImageDataUrl">
-              <img :src="refImageDataUrl" class="ref-preview" />
-              <div class="ref-actions">
-                <el-button size="small" type="danger" plain @click.stop="clearRefImage">移除</el-button>
+            <template v-if="refImages.length">
+              <div class="ref-preview-grid">
+                <div v-for="(image, index) in refImages" :key="image.localPath || index" class="ref-preview-item">
+                  <img :src="image.dataUrl" class="ref-preview" />
+                  <button type="button" class="ref-remove" aria-label="移除参考图" @click.stop="removeRefImage(index)">×</button>
+                  <span v-if="index === 0" class="ref-first-badge">首帧</span>
+                </div>
               </div>
             </template>
             <template v-else>
@@ -44,7 +47,7 @@
               <div class="upload-tip">点击或拖拽上传参考图</div>
             </template>
           </div>
-          <input ref="refImageInput" type="file" accept="image/*" style="display:none" @change="onRefImageChange" />
+          <input ref="refImageInput" type="file" accept="image/*" multiple style="display:none" @change="onRefImageChange" />
         </div>
 
         <div class="form-section form-row">
@@ -64,10 +67,10 @@
           <div v-if="mode === 'video'" class="form-item">
             <div class="form-label">时长</div>
             <el-select v-model="duration">
-              <el-option label="3秒" :value="3" />
               <el-option label="5秒" :value="5" />
-              <el-option label="8秒" :value="8" />
               <el-option label="10秒" :value="10" />
+              <el-option label="15秒" :value="15" />
+              <el-option label="30秒" :value="30" />
             </el-select>
           </div>
         </div>
@@ -161,8 +164,7 @@ const duration = ref(5)
 const generating = ref(false)
 const results = ref([])
 const previewUrl = ref(null)
-const refImageDataUrl = ref(null)
-const refImageLocalPath = ref(null)
+const refImages = ref([])
 const refImageInput = ref(null)
 /** 与后端视频异步超时一致（分钟 → 毫秒） */
 const videoPollMaxMs = ref(30 * 60 * 1000)
@@ -179,33 +181,38 @@ function triggerRefImageUpload() {
   refImageInput.value?.click()
 }
 
-function clearRefImage() {
-  refImageDataUrl.value = null
-  refImageLocalPath.value = null
+function removeRefImage(index) {
+  refImages.value.splice(index, 1)
 }
 
 async function onRefImageChange(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  processRefImageFile(file)
+  const files = Array.from(e.target.files || []).filter((file) => file.type.startsWith('image/'))
+  await processRefImageFiles(files)
   e.target.value = ''
 }
 
 function onRefImageDrop(e) {
-  const file = e.dataTransfer?.files?.[0]
-  if (file && file.type.startsWith('image/')) processRefImageFile(file)
+  const files = Array.from(e.dataTransfer?.files || []).filter((file) => file.type.startsWith('image/'))
+  processRefImageFiles(files)
 }
 
-async function processRefImageFile(file) {
-  const reader = new FileReader()
-  reader.onload = async (ev) => {
-    refImageDataUrl.value = ev.target.result
+async function processRefImageFiles(files) {
+  const room = Math.max(0, 4 - refImages.value.length)
+  const accepted = files.slice(0, room)
+  if (files.length > room) ElMessage.warning('视频最多使用 4 张参考图')
+  for (const file of accepted) {
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (ev) => resolve(ev.target.result)
+      reader.readAsDataURL(file)
+    })
     try {
       const res = await uploadAPI.uploadImage(file)
-      refImageLocalPath.value = res?.local_path || null
-    } catch (_) {}
+      if (res?.local_path) refImages.value.push({ dataUrl, localPath: res.local_path })
+    } catch (error) {
+      ElMessage.error(error?.message || '参考图上传失败')
+    }
   }
-  reader.readAsDataURL(file)
 }
 
 function clearResults() {
@@ -252,9 +259,11 @@ async function generate() {
         aspect_ratio: aspectRatio.value,
         duration: duration.value,
       }
-      if (refImageLocalPath.value) {
-        body.first_frame_url = refImageLocalPath.value
-        body.image_url = '/static/' + refImageLocalPath.value
+      const referencePaths = refImages.value.map((item) => item.localPath).filter(Boolean)
+      if (referencePaths.length) {
+        body.first_frame_url = referencePaths[0]
+        body.image_url = '/static/' + referencePaths[0]
+        body.reference_image_urls = referencePaths
       }
       const res = await videosAPI.create(body)
       if (res?.task_id) {
@@ -330,13 +339,21 @@ async function pollVideoTask(taskId, item) {
 <style scoped>
 .free-create-page {
   min-height: 100vh;
-  background: #f5f7fa;
-  padding: 20px;
+  background: var(--bg-page);
+  background-image: radial-gradient(circle at 8% -10%, rgba(109, 74, 232, .14), transparent 36%), radial-gradient(circle at 92% 18%, rgba(69, 125, 255, .1), transparent 30%);
+  padding: 28px clamp(18px, 4vw, 64px) 56px;
 }
 
 .page-header {
-  margin-bottom: 20px;
+  max-width: 1440px;
+  margin: 0 auto 28px;
+  padding: 16px 0;
 }
+
+.page-brand { display: flex; flex-direction: column; gap: 3px; }
+.page-brand strong { font-size: 20px; font-weight: 800; color: var(--text-primary); letter-spacing: -.02em; }
+.page-brand span { font-size: 11px; color: var(--text-muted); letter-spacing: .14em; text-transform: uppercase; }
+.page-desc { padding-left: 48px; }
 
 .header-left {
   display: flex;
@@ -348,7 +365,7 @@ async function pollVideoTask(taskId, item) {
 .page-title {
   font-size: 22px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -362,15 +379,18 @@ async function pollVideoTask(taskId, item) {
   display: flex;
   gap: 20px;
   align-items: flex-start;
+  max-width: 1440px;
+  margin: 0 auto;
 }
 
 .input-panel {
-  width: 380px;
+  width: min(420px, 38vw);
   flex-shrink: 0;
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--ld-panel-shadow);
 }
 
 .mode-tabs {
@@ -384,7 +404,7 @@ async function pollVideoTask(taskId, item) {
 .form-label {
   font-size: 13px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-primary);
   margin-bottom: 6px;
 }
 
@@ -439,6 +459,12 @@ async function pollVideoTask(taskId, item) {
   margin-top: 8px;
 }
 
+.ref-preview-grid { width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.ref-preview-item { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 10px; background: var(--bg-inner); }
+.ref-preview-item .ref-preview { width: 100%; height: 100%; max-height: none; object-fit: cover; }
+.ref-remove { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border: 0; border-radius: 50%; color: white; background: rgba(12, 14, 24, .72); cursor: pointer; }
+.ref-first-badge { position: absolute; left: 6px; bottom: 6px; padding: 3px 7px; border-radius: 999px; color: white; background: var(--ld-violet); font-size: 10px; }
+
 .upload-icon {
   font-size: 28px;
   color: #9ca3af;
@@ -456,10 +482,11 @@ async function pollVideoTask(taskId, item) {
 
 .result-panel {
   flex: 1;
-  background: #fff;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--ld-panel-shadow);
   min-height: 400px;
 }
 
@@ -473,7 +500,7 @@ async function pollVideoTask(taskId, item) {
 .result-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--text-primary);
 }
 
 .empty-result {
@@ -506,13 +533,13 @@ async function pollVideoTask(taskId, item) {
 }
 
 .result-item {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .result-media {
-  background: #f9fafb;
+  background: var(--bg-inner);
   aspect-ratio: 16/9;
   display: flex;
   align-items: center;
@@ -531,6 +558,12 @@ async function pollVideoTask(taskId, item) {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+@media (max-width: 820px) {
+  .create-layout { flex-direction: column; }
+  .input-panel, .result-panel { width: 100%; box-sizing: border-box; }
+  .page-desc { padding-left: 0; }
 }
 
 .media-loading,

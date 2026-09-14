@@ -1,16 +1,21 @@
 app:
-  name: LocalMiniDrama API
-  version: 1.0.0
-  debug: true
+  name: 灵动创世 API
+  version: 1.2.9
+  debug: false
   language: zh
 server:
   port: 5679
-  host: 0.0.0.0
+  # 默认仅监听本机。需要局域网访问时请显式改为 0.0.0.0，并配置具体 cors_origins。
+  host: 127.0.0.1
   cors_origins:
-    - http://localhost:3012
+    - http://localhost:3013
+    - http://127.0.0.1:3013
+    - http://localhost:5679
+    - http://127.0.0.1:5679
   read_timeout: 600
   write_timeout: 600
-  insecure_tls: true
+  # 禁止全局跳过 HTTPS 证书校验。自签名上游应安装受信 CA 或使用专用代理。
+  insecure_tls: false
 database:
   type: sqlite
   path: ./data/drama_generator.db

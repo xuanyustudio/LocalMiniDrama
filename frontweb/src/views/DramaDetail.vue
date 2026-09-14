@@ -3,8 +3,8 @@
     <header class="header">
       <div class="header-inner">
         <h1 class="logo" @click="router.push('/')">
-          <span class="logo-main">本地短剧助手</span>
-          <span class="logo-sub">LocalMiniDrama</span>
+          <span class="logo-main">灵动创世</span>
+          <span class="logo-sub">Lingdong Creation</span>
         </h1>
         <span class="breadcrumb-sep">›</span>
         <span class="page-title">{{ drama?.title || '剧集管理' }}</span>
@@ -102,6 +102,13 @@
             </div>
             <div class="episode-title">{{ ep.title || '未命名' }}</div>
             <div class="episode-preview">{{ (ep.script_content || '').slice(0, 20) || '暂无剧本' }}</div>
+            <div v-if="ep.video_url" class="episode-final" @click.stop>
+              <video :src="episodeVideoUrl(ep)" controls preload="metadata" playsinline />
+              <div class="episode-final-meta">
+                <span><el-icon><VideoPlay /></el-icon> 成片已就绪</span>
+                <a :href="episodeVideoUrl(ep)" target="_blank" rel="noopener">全屏播放</a>
+              </div>
+            </div>
             <div class="episode-stats">
               <span class="ep-stat">
                 <span class="ep-stat-num">{{ ep.storyboards?.length ?? 0 }}</span> 分镜
@@ -926,6 +933,13 @@ function goEpisode(epId) {
   router.push(`/film/${dramaId}?episode=${epId}`)
 }
 
+function episodeVideoUrl(ep) {
+  const value = String(ep?.video_url || '').trim()
+  if (!value) return ''
+  if (/^https?:\/\//i.test(value) || value.startsWith('/')) return value
+  return `/static/${value.replace(/^\/+/, '')}`
+}
+
 function epStatusLabel(status) {
   const map = { draft: '草稿', processing: '生成中', completed: '已完成', failed: '失败' }
   return map[status] || status
@@ -1378,6 +1392,11 @@ html.light .section-title { color: #18181b; }
 .episode-num { font-size: 0.8rem; color: #71717a; }
 .episode-title { font-weight: 500; color: #fafafa; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .episode-preview { font-size: 0.78rem; color: #71717a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 8px; }
+.episode-final { position: relative; z-index: 1; margin: 4px 0 10px; overflow: hidden; border: 1px solid rgba(139,92,246,.22); border-radius: 10px; background: #09090b; }
+.episode-final video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #050507; }
+.episode-final-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; font-size: 11px; color: #c4b5fd; }
+.episode-final-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.episode-final-meta a { color: #a78bfa; text-decoration: none; }
 .episode-stats { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ep-stat { font-size: 0.72rem; color: #71717a; }
 .ep-stat-num { color: #38bdf8; font-weight: 600; }
@@ -1474,6 +1493,15 @@ html.light .episode-title { color: #18181b; }
 html.light .res-tab:hover { background: rgba(0,0,0,0.04); }
 html.light .res-tab--lib.active { color: #2563eb; }
 html.light .res-tab--lib.active::after { background: #2563eb; }
+
+@media (max-width: 768px) {
+  .header-inner { flex-wrap: wrap; padding: 10px 14px; }
+  .header-actions { width: 100%; margin-left: 0; flex-wrap: wrap; }
+  .main { width: 100%; padding: 14px; box-sizing: border-box; }
+  .section-header, .library-toolbar, .res-toolbar { flex-wrap: wrap; gap: 10px; }
+  .episode-grid { grid-template-columns: 1fr; }
+  .drama-res-item { width: 100%; }
+}
 html.light .res-tab--drama.active { color: #7c3aed; }
 html.light .res-tab--drama.active::after { background: #7c3aed; }
 

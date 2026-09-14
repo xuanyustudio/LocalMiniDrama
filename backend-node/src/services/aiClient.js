@@ -337,7 +337,11 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
   body = applyDeepSeekChatOptions(config, body);
   const startMs = Date.now();
   log.info('AI generateText request', { url: url.slice(0, 60), model, max_tokens: finalMaxTokens ?? '(model default)', json_mode, stream: true });
-  const res = await postJSONStream(url, { Authorization: 'Bearer ' + (config.api_key || '') }, body, 60000, (receivedLen, event, accumulated) => {
+  // Some gateways queue long storyboard requests before emitting the first SSE token.
+  // Let callers override this; use three minutes by default instead of treating a
+  // healthy queued request as a failed generation after one minute.
+  const silenceTimeoutMs = options.silence_timeout_ms != null ? Number(options.silence_timeout_ms) : 180000;
+  const res = await postJSONStream(url, { Authorization: 'Bearer ' + (config.api_key || '') }, body, silenceTimeoutMs, (receivedLen, event, accumulated) => {
     if (event === 'first_token') {
       log.info('AI stream first token', { model, ttft_ms: Date.now() - startMs });
     } else if (receivedLen > 0 && receivedLen % 500 < 20) {

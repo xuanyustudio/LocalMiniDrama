@@ -1,94 +1,83 @@
 <template>
   <div class="film-list">
-    <header class="header">
-      <div class="header-inner">
+    <header class="home-header">
+      <div class="home-header-inner">
         <h1 class="logo">
-          <span class="logo-main">本地短剧助手</span>
-          <span class="logo-sub">LocalMiniDrama</span>
+          <span class="logo-main">灵动创世</span>
+          <span class="logo-sub">LINGDONG CREATION STUDIO</span>
         </h1>
-        <!-- 公共资源库（左侧，靛紫调） -->
-        <div class="header-library">
-          <el-button class="btn-library" @click="showCharLibrary = true">
-            <el-icon><User /></el-icon>素材角色
-          </el-button>
-          <el-button class="btn-library" @click="showSceneLibrary = true">
-            <el-icon><PictureFilled /></el-icon>素材场景
-          </el-button>
-          <el-button class="btn-library" @click="showPropLibrary = true">
-            <el-icon><Box /></el-icon>素材道具
-          </el-button>
-        </div>
-        <!-- 右侧操作区 -->
-        <div class="header-actions">
-          <!-- 暂时隐藏，功能待完善 -->
-          <!-- <el-button class="btn-library" title="自由创作" @click="$router.push('/free-create')">
-            <el-icon><MagicStick /></el-icon>自由创作
-          </el-button>
-          <el-button class="btn-library" title="媒体素材库" @click="$router.push('/media-library')">
-            <el-icon><Files /></el-icon>素材库
-          </el-button> -->
-          <el-button v-if="!vendorLockEnabled" class="btn-wechat" title="扫码联系作者" @click="showWechat = true">
-            <el-icon><ChatDotSquare /></el-icon>微信我
-          </el-button>
-          <el-button class="btn-theme" :title="isDark ? '切换到浅色模式' : '切换到暗色模式'" @click="toggleTheme">
+        <nav class="home-nav" aria-label="主导航">
+          <button class="home-nav-item is-active" type="button">项目</button>
+          <button class="home-nav-item" type="button" @click="$router.push('/free-create')">自由创作</button>
+          <button class="home-nav-item" type="button" @click="$router.push('/media-library')">素材中心</button>
+        </nav>
+        <div class="home-actions">
+          <el-button text class="home-icon-button" :title="isDark ? '切换到浅色模式' : '切换到暗色模式'" @click="toggleTheme">
             <el-icon><Sunny v-if="isDark" /><Moon v-else /></el-icon>
-            {{ isDark ? '浅色' : '暗色' }}
           </el-button>
-          <el-button class="btn-settings" @click="showAiConfigDialog = true">
-            <el-icon><Setting /></el-icon>AI配置
-          </el-button>
-          <el-button class="btn-import" :loading="importing" @click="triggerImport">
-            <el-icon><Upload /></el-icon>导入项目
-          </el-button>
+          <el-button text class="home-icon-button" title="AI 配置" @click="showAiConfigDialog = true"><el-icon><Setting /></el-icon></el-button>
           <input ref="importFileInput" type="file" accept=".zip" style="display:none" @change="onImportFile" />
-          <el-button type="primary" class="btn-new" @click="goNewProject">
-            <el-icon><Plus /></el-icon>新建项目
+          <el-button type="primary" class="home-primary" @click="goNewProject">
+            <el-icon><Plus /></el-icon>开始创作
           </el-button>
         </div>
       </div>
     </header>
 
-    <main class="main">
-      <div v-loading="loading" class="projects-wrap">
-        <div class="project-grid">
-          <!-- 操作卡片：始终作为第一个格子 -->
-          <div class="project-card action-card">
-            <div class="action-card-inner">
-              <h3 class="action-card-title">快速开始</h3>
-              <div class="action-card-buttons">
-                <el-button type="primary" size="large" class="action-btn action-btn-new" @click="goNewProject">
-                  <el-icon><Plus /></el-icon>新建短剧项目
-                </el-button>
-                <el-button size="large" class="action-btn action-btn-import" :loading="importing" @click="triggerImport">
-                  <el-icon><Upload /></el-icon>导入短剧项目
-                </el-button>
-              </div>
-              <div v-if="exampleList.length > 0" class="action-card-example">
-                <div class="example-hint">
-                  <el-icon class="example-hint-icon"><QuestionFilled /></el-icon>
-                  <span class="example-hint-text">新手？试试导入示例项目快速体验</span>
-                </div>
-                <div class="example-list">
-                  <el-button
-                    v-for="ex in exampleList"
-                    :key="ex.filename"
-                    size="small"
-                    class="example-btn"
-                    :loading="importingExample === ex.filename"
-                    @click="onImportExample(ex)"
-                  >
-                    <el-icon><FolderOpened /></el-icon>{{ ex.name }}
-                  </el-button>
-                </div>
-              </div>
-            </div>
+    <main class="home-main">
+      <section class="home-hero">
+        <div class="hero-copy">
+          <span class="hero-kicker">AI STORYTELLING WORKSPACE</span>
+          <h2>让每一帧，<em>有来处。</em></h2>
+          <p>从灵感、剧本、角色设定到可播放成片。灵动创世将复杂的多模态创作收拢为一条清晰的导演工作流。</p>
+          <div class="hero-actions">
+            <el-button type="primary" size="large" class="home-primary" @click="goNewProject"><el-icon><Plus /></el-icon>创建新项目</el-button>
+            <el-button size="large" class="hero-secondary" :loading="importing" @click="triggerImport"><el-icon><Upload /></el-icon>导入项目</el-button>
           </div>
+          <div v-if="exampleList.length" class="hero-template">从示例开始：<button v-for="ex in exampleList" :key="ex.filename" type="button" @click="onImportExample(ex)">{{ ex.name }}</button></div>
+        </div>
+        <div class="hero-modes">
+          <button v-for="mode in creationModes" :key="mode.value" type="button" class="hero-mode" @click="goNewProject(mode.value)">
+            <span class="creation-mode-icon">{{ mode.icon }}</span><span><b>{{ mode.label }}</b><small>{{ mode.desc }}</small></span><i>↗</i>
+          </button>
+        </div>
+      </section>
+      <section v-loading="loading" class="projects-wrap home-projects">
+        <div class="section-heading">
+          <div><span>WORKSPACE</span><h2>你的项目</h2></div>
+          <p>{{ filteredDramas.length === dramas.length ? `${total} 个创作项目` : `显示 ${filteredDramas.length} / ${dramas.length}` }}</p>
+        </div>
+
+        <div v-if="dramas.length" class="project-toolbar" aria-label="项目筛选与排序">
+          <el-input v-model="projectQuery" class="project-search" clearable placeholder="搜索项目标题、故事或类型">
+            <template #prefix><el-icon><Search /></el-icon></template>
+          </el-input>
+          <el-select v-model="projectTypeFilter" class="project-filter" aria-label="按创作类型筛选">
+            <el-option label="全部类型" value="all" />
+            <el-option v-for="mode in creationModes" :key="mode.value" :label="mode.label" :value="mode.value" />
+          </el-select>
+          <el-select v-model="projectStatusFilter" class="project-filter" aria-label="按项目状态筛选">
+            <el-option label="全部状态" value="all" />
+            <el-option label="草稿" value="draft" />
+            <el-option label="生成中" value="generating" />
+            <el-option label="已发布" value="published" />
+            <el-option label="已归档" value="archived" />
+          </el-select>
+          <el-select v-model="projectSort" class="project-sort" aria-label="项目排序">
+            <el-option label="最近更新" value="updated-desc" />
+            <el-option label="完成度最高" value="progress-desc" />
+            <el-option label="按名称" value="title-asc" />
+          </el-select>
+        </div>
+
+        <div v-if="filteredDramas.length" class="project-grid">
           <div
-            v-for="d in dramas"
+            v-for="d in filteredDramas"
             :key="d.id"
             class="project-card"
             @click="openProject(d.id)"
           >
+            <div class="project-cover" :class="'project-cover--' + (d.metadata?.content_type || 'short_drama')"><span>{{ projectTypeTitle(d) }}</span></div>
             <div class="project-card-actions" @click.stop>
               <el-button size="small" circle :icon="Download" title="导出项目" :loading="exportingId === d.id" @click="onExport(d)" />
               <el-button size="small" circle :icon="Edit" title="编辑" @click="openEditDialog(d)" />
@@ -105,11 +94,38 @@
                 <span v-if="d.style" class="badge badge-style">{{ formatStyle(d.style) }}</span>
                 <span v-if="d.genre" class="badge badge-genre">{{ formatGenre(d.genre) }}</span>
               </div>
-              <p class="project-meta">{{ formatDate(d.updated_at) }}</p>
+              <div class="project-progress">
+                <div class="project-progress-head">
+                  <span>{{ projectProgress(d).label }}</span>
+                  <b>{{ projectProgress(d).percent }}%</b>
+                </div>
+                <div class="project-progress-track" aria-hidden="true"><span :style="{ width: projectProgress(d).percent + '%' }" /></div>
+                <small>{{ projectProgress(d).next }}</small>
+              </div>
+              <a v-if="latestFinalVideo(d)" class="project-play" :href="latestFinalVideo(d)" target="_blank" rel="noopener" @click.stop>
+                <span class="project-play-dot">▶</span><span>播放最新成片</span>
+              </a>
+              <div class="project-footer">
+                <p class="project-meta">更新于 {{ formatDate(d.updated_at) }}</p>
+                <el-button text class="project-continue" @click.stop="continueProject(d)">继续制作 <span aria-hidden="true">→</span></el-button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+
+        <div v-else-if="dramas.length && !loading" class="project-empty-state">
+          <el-icon><Search /></el-icon>
+          <h3>没有匹配的项目</h3>
+          <p>调整关键词、类型或状态筛选，快速找到要继续的作品。</p>
+          <el-button @click="clearProjectFilters">清除筛选</el-button>
+        </div>
+        <div v-else-if="!loading" class="project-empty-state project-empty-state--first">
+          <span class="empty-orbit">✦</span>
+          <h3>开始你的第一个作品</h3>
+          <p>从故事、角色与分镜开始，逐步生成图片、视频并合成为完整成片。</p>
+          <el-button type="primary" class="home-primary" @click="goNewProject()"><el-icon><Plus /></el-icon>创建项目</el-button>
+        </div>
+      </section>
     </main>
 
     <!-- 新建项目：先填标题和描述 -->
@@ -126,6 +142,11 @@
         </el-form-item>
         <el-form-item label="描述">
           <el-input v-model="newForm.description" type="textarea" :rows="3" placeholder="输入项目描述（选填）" />
+        </el-form-item>
+        <el-form-item label="创作类型">
+          <el-select v-model="newForm.content_type" style="width: 100%">
+            <el-option v-for="mode in creationModes" :key="mode.value" :label="mode.label + ' · ' + mode.desc" :value="mode.value" />
+          </el-select>
         </el-form-item>
         <el-form-item label="画面比例">
           <el-select v-model="newForm.aspect_ratio" style="width: 100%">
@@ -353,16 +374,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, Setting, Plus, User, PictureFilled, Box, Sunny, Moon, ChatDotSquare, Download, Upload, QuestionFilled, FolderOpened, MagicStick, Files } from '@element-plus/icons-vue'
+import { Edit, Delete, Setting, Plus, User, PictureFilled, Box, Sunny, Moon, ChatDotSquare, Download, Upload, QuestionFilled, FolderOpened, MagicStick, Files, Search } from '@element-plus/icons-vue'
 import { useTheme } from '@/composables/useTheme'
 import { dramaAPI } from '@/api/drama'
 import { characterLibraryAPI } from '@/api/characterLibrary'
 import { sceneLibraryAPI } from '@/api/sceneLibrary'
 import { propLibraryAPI } from '@/api/propLibrary'
-import AIConfigContent from '@/components/AIConfigContent.vue'
 import { uploadAPI } from '@/api/upload'
 import { aiAPI } from '@/api/ai'
 import { imagesAPI } from '@/api/images'
@@ -371,6 +391,7 @@ import { getStyleLabel } from '@/constants/styleOptions'
 
 const router = useRouter()
 const { isDark, toggle: toggleTheme } = useTheme()
+const AIConfigContent = defineAsyncComponent(() => import('@/components/AIConfigContent.vue'))
 
 // 库编辑图片 – 文件输入 refs
 const charLibFileRef  = ref(null)
@@ -431,6 +452,10 @@ async function doGenerateLibImg(form, prompt, api, reloadFn) {
 const loading = ref(false)
 const dramas = ref([])
 const total = ref(0)
+const projectQuery = ref('')
+const projectTypeFilter = ref('all')
+const projectStatusFilter = ref('all')
+const projectSort = ref('updated-desc')
 
 const showAiConfigDialog = ref(false)
 const showWechat = ref(false)
@@ -592,7 +617,52 @@ async function onDeletePropLibrary(item) {
 }
 
 const showNewDialog = ref(false)
-const newForm = ref({ title: '', description: '', aspect_ratio: '16:9' })
+const creationModes = [
+  { value: 'anime_series', label: '漫剧', desc: '角色与画风连续的系列叙事', icon: '✦' },
+  { value: 'short_drama', label: '短剧', desc: '剧本驱动的剧情成片', icon: '◈' },
+  { value: 'short_video', label: '短视频', desc: '适配平台节奏的创意内容', icon: '◉' },
+  { value: 'store_promo', label: '店铺宣传', desc: '商品、门店与品牌表达', icon: '▣' },
+]
+const contentTypeDefaults = {
+  anime_series: { aspect_ratio: '9:16', target_duration: 60, video_clip_duration: 6 },
+  short_drama: { aspect_ratio: '9:16', target_duration: 90, video_clip_duration: 7 },
+  short_video: { aspect_ratio: '9:16', target_duration: 30, video_clip_duration: 5 },
+  store_promo: { aspect_ratio: '9:16', target_duration: 30, video_clip_duration: 5 },
+}
+
+const filteredDramas = computed(() => {
+  const query = projectQuery.value.trim().toLocaleLowerCase('zh-CN')
+  let list = [...dramas.value]
+
+  if (query) {
+    list = list.filter((d) => {
+      const haystack = [
+        d.title,
+        d.description,
+        d.genre,
+        formatGenre(d.genre),
+        creationModeLabel(d.metadata?.content_type),
+      ].filter(Boolean).join(' ').toLocaleLowerCase('zh-CN')
+      return haystack.includes(query)
+    })
+  }
+  if (projectTypeFilter.value !== 'all') {
+    list = list.filter((d) => (d.metadata?.content_type || 'short_drama') === projectTypeFilter.value)
+  }
+  if (projectStatusFilter.value !== 'all') {
+    list = list.filter((d) => (d.status || 'draft') === projectStatusFilter.value)
+  }
+
+  if (projectSort.value === 'progress-desc') {
+    list.sort((a, b) => projectProgress(b).percent - projectProgress(a).percent || dateValue(b.updated_at) - dateValue(a.updated_at))
+  } else if (projectSort.value === 'title-asc') {
+    list.sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'zh-CN'))
+  } else {
+    list.sort((a, b) => dateValue(b.updated_at) - dateValue(a.updated_at))
+  }
+  return list
+})
+const newForm = ref({ title: '', description: '', aspect_ratio: '16:9', content_type: 'short_drama' })
 const newSaving = ref(false)
 const exportingId = ref(null)
 const importing = ref(false)
@@ -667,12 +737,75 @@ function totalStoryboards(d) {
   return (d.episodes || []).reduce((sum, ep) => sum + (ep.storyboards?.length || 0), 0)
 }
 
-function goNewProject() {
+function dateValue(value) {
+  const time = value ? new Date(value).getTime() : 0
+  return Number.isFinite(time) ? time : 0
+}
+
+function creationModeLabel(value) {
+  return creationModes.find((mode) => mode.value === value)?.label || '短剧'
+}
+
+function projectTypeTitle(d) {
+  const type = d?.metadata?.content_type || 'short_drama'
+  const labels = {
+    anime_series: 'ANIME SERIES',
+    short_drama: 'STORY PROJECT',
+    short_video: 'SHORT FORM',
+    store_promo: 'BRAND FILM',
+  }
+  return labels[type] || 'STORY PROJECT'
+}
+
+function projectProgress(d) {
+  const episodes = Array.isArray(d?.episodes) ? d.episodes : []
+  const storyboards = episodes.flatMap((ep) => Array.isArray(ep?.storyboards) ? ep.storyboards : [])
+  const stages = [
+    episodes.some((ep) => String(ep?.script_content || '').trim()),
+    storyboards.length > 0,
+    storyboards.some((sb) => sb?.image_url || sb?.local_path || sb?.first_frame_image_id),
+    storyboards.some((sb) => sb?.video_url),
+    episodes.some((ep) => ep?.video_url),
+  ]
+  const stageLabels = ['剧本', '分镜', '画面', '视频片段', '成片']
+  const done = stages.filter(Boolean).length
+  const nextIndex = stages.findIndex((doneStage) => !doneStage)
+  const percent = Math.round((done / stages.length) * 100)
+  return {
+    percent,
+    label: done === stages.length ? '成片已就绪' : (done === 0 ? '等待开场' : `已完成 ${done}/${stages.length} 阶段`),
+    next: done === stages.length ? '可以播放、导出，或继续迭代内容' : `下一步：${stageLabels[nextIndex]}`,
+  }
+}
+
+function clearProjectFilters() {
+  projectQuery.value = ''
+  projectTypeFilter.value = 'all'
+  projectStatusFilter.value = 'all'
+  projectSort.value = 'updated-desc'
+}
+
+function continueProject(d) {
+  if (d?.id == null) return
+  router.push('/film/' + d.id)
+}
+
+function latestFinalVideo(d) {
+  const episode = [...(d.episodes || [])].reverse().find((ep) => ep.video_url)
+  const value = String(episode?.video_url || '').trim()
+  if (!value) return ''
+  if (/^https?:\/\//i.test(value) || value.startsWith('/')) return value
+  return `/static/${value.replace(/^\/+/, '')}`
+}
+
+function goNewProject(contentType = 'short_drama') {
+  newForm.value.content_type = contentType
+  newForm.value.aspect_ratio = contentTypeDefaults[contentType]?.aspect_ratio || '9:16'
   showNewDialog.value = true
 }
 
 function resetNewForm() {
-  newForm.value = { title: '', description: '', aspect_ratio: '16:9' }
+  newForm.value = { title: '', description: '', aspect_ratio: '16:9', content_type: 'short_drama' }
 }
 
 async function submitNew() {
@@ -680,7 +813,8 @@ async function submitNew() {
   if (!title) return
   newSaving.value = true
   try {
-    const drama = await dramaAPI.create({ title, description: newForm.value.description?.trim() || undefined, metadata: { aspect_ratio: newForm.value.aspect_ratio || '16:9' } })
+    const profile = contentTypeDefaults[newForm.value.content_type] || contentTypeDefaults.short_drama
+    const drama = await dramaAPI.create({ title, description: newForm.value.description?.trim() || undefined, metadata: { aspect_ratio: newForm.value.aspect_ratio || profile.aspect_ratio, content_type: newForm.value.content_type, target_duration: profile.target_duration, video_clip_duration: profile.video_clip_duration } })
     showNewDialog.value = false
     ElMessage.success('项目已创建')
     loadList()
@@ -798,6 +932,39 @@ onMounted(async () => {
 <style scoped>
 .film-list {
   min-height: 100vh;
+  color: #101828;
+  background: radial-gradient(circle at 8% -10%, #e9e3ff 0, transparent 30%), radial-gradient(circle at 88% 0, #e4f1ff 0, transparent 28%), #f5f7fb;
+}
+.home-header { position: sticky; top: 0; z-index: 100; height: 68px; border-bottom: 1px solid rgba(16,24,40,.06); background: rgba(255,255,255,.76); backdrop-filter: blur(18px) saturate(150%); }
+.home-header-inner { max-width: 1440px; height: 100%; padding: 0 32px; margin: auto; display: flex; align-items: center; gap: 38px; }
+.home-header .logo { min-width: 196px; }
+.home-header .logo-main { color: #101828; font-size: 18px; letter-spacing: -.04em; background: none; -webkit-text-fill-color: initial; filter: none; }
+.home-header .logo-sub { margin-top: 3px; color: #7b8193; font-size: 9px; letter-spacing: .12em; }
+.home-nav { display: flex; align-items: center; gap: 6px; }
+.home-nav-item { padding: 9px 13px; border: 0; border-radius: 10px; color: #667085; background: transparent; cursor: pointer; font: 600 13px var(--ld-font); }
+.home-nav-item:hover, .home-nav-item.is-active { color: #5b3dcc; background: #f0edff; }
+.home-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.home-icon-button { width: 38px; height: 38px; padding: 0; color: #667085; border-radius: 10px; }
+.home-primary { border: 0 !important; border-radius: 11px !important; background: linear-gradient(135deg,#6d4ae8,#8560f2) !important; box-shadow: 0 8px 18px rgba(109,74,232,.24) !important; }
+.home-main { max-width: 1440px; margin: auto; padding: 44px 32px 72px; }
+.home-hero { min-height: 330px; padding: 48px; display: grid; grid-template-columns: minmax(0,1.2fr) minmax(390px,.8fr); gap: 40px; border: 1px solid rgba(255,255,255,.9); border-radius: 28px; overflow: hidden; position: relative; background: linear-gradient(118deg,#16133a 0%,#2b2165 52%,#6651c7 100%); box-shadow: 0 18px 44px rgba(63,60,138,.18); }
+.home-hero::after { content:""; position:absolute; width:420px;height:420px;right:-90px;top:-180px;border-radius:50%;background:radial-gradient(circle,rgba(177,156,255,.58),transparent 66%);pointer-events:none; }
+.hero-copy { position:relative;z-index:1;color:#fff; }
+.hero-kicker,.section-heading span { display:block; color:#bcaeff; font-size:10px; font-weight:700; letter-spacing:.15em; }
+.hero-copy h2 { margin:16px 0 13px; max-width:570px; font-size:clamp(34px,4vw,54px); line-height:1.08; letter-spacing:-.065em; }
+.hero-copy h2 em { font-style:normal; color:#d5caff; }
+.hero-copy p { max-width:540px; color:#d7d2f4; font-size:15px; line-height:1.75; }
+.hero-actions { display:flex;gap:12px;margin-top:26px; }.hero-secondary { border:1px solid rgba(255,255,255,.24)!important;background:rgba(255,255,255,.11)!important;color:#fff!important;border-radius:11px!important; }
+.hero-template { margin-top:21px;color:#bfb7e8;font-size:12px; }.hero-template button { margin-left:8px;color:#fff;border:0;border-bottom:1px solid #9d8de4;background:none;cursor:pointer; }
+.hero-modes { position:relative;z-index:1;display:grid;gap:9px;align-content:center; }.hero-mode { display:flex;align-items:center;gap:12px;padding:14px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);border-radius:16px;color:#fff;text-align:left;cursor:pointer;transition:.2s; }.hero-mode:hover { transform:translateX(-4px);background:rgba(255,255,255,.17); }.hero-mode b,.hero-mode small { display:block; }.hero-mode b{font-size:14px}.hero-mode small{margin-top:3px;color:#d8d1f4;font-size:11px}.hero-mode i{margin-left:auto;font-style:normal;color:#d9cffd}.hero-mode .creation-mode-icon{width:32px;height:32px;flex:0 0 32px;background:rgba(255,255,255,.18);box-shadow:none;}
+.home-projects { margin-top:42px; }.section-heading { display:flex;align-items:end;justify-content:space-between;margin:0 0 18px; }.section-heading h2 { margin:5px 0 0;color:var(--text-bright);font-size:25px;letter-spacing:-.045em; }.section-heading p { margin:0;color:var(--text-subtle);font-size:13px; }
+.project-toolbar { display:grid;grid-template-columns:minmax(220px,1fr) repeat(3,minmax(132px,156px));gap:10px;margin-bottom:18px;padding:12px;border:1px solid var(--border-color);border-radius:16px;background:color-mix(in srgb,var(--bg-card) 82%,transparent);box-shadow:var(--shadow);backdrop-filter:blur(12px); }.project-search,.project-filter,.project-sort{min-width:0;width:100%}.project-toolbar :deep(.el-input__wrapper),.project-toolbar :deep(.el-select__wrapper){min-height:38px;border-radius:10px;}
+.home-projects .project-grid { grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:20px; }.home-projects .project-card { overflow:hidden;border:1px solid var(--border-color);border-radius:18px;background:color-mix(in srgb,var(--bg-card) 92%,transparent);box-shadow:var(--shadow); }.home-projects .project-card:hover { transform:translateY(-5px);border-color:rgba(109,74,232,.38);box-shadow:0 18px 34px rgba(64,47,143,.14); }.project-cover { height:126px;display:flex;align-items:flex-end;padding:16px;position:relative;overflow:hidden;background:linear-gradient(135deg,#45307f,#8a73e9); }.project-cover::before { content:"";position:absolute;inset:-55% 20% auto -15%;height:180px;border-radius:50%;background:rgba(255,255,255,.15); }.project-cover span { position:relative;color:rgba(255,255,255,.85);font-size:10px;font-weight:700;letter-spacing:.14em; }.project-cover--store_promo{background:linear-gradient(135deg,#c4653e,#f0a36c)}.project-cover--short_video{background:linear-gradient(135deg,#197a86,#55bbb5)}.project-cover--anime_series{background:linear-gradient(135deg,#26375f,#708bd8)}.home-projects .project-card-body{padding-top:16px}.home-projects .project-card-actions{top:138px}.home-projects .project-title{color:var(--text-bright)}.home-projects .project-desc{color:var(--text-muted)}
+.project-progress{margin:14px 0 4px;padding:11px 12px;border:1px solid var(--border-color);border-radius:12px;background:color-mix(in srgb,var(--bg-inner) 86%,transparent)}.project-progress-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--text-muted)}.project-progress-head b{color:var(--ld-violet-2);font-size:12px}.project-progress-track{height:5px;margin:8px 0 7px;overflow:hidden;border-radius:999px;background:var(--border-color)}.project-progress-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#6d4ae8,#9a82f7);transition:width .25s ease}.project-progress small{display:block;color:var(--text-subtle);font-size:10px;line-height:1.5}.project-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:13px}.project-footer .project-meta{margin:0}.project-continue{padding:5px 2px!important;color:var(--ld-violet-2)!important;font-size:12px;font-weight:700}.project-empty-state{display:grid;min-height:240px;padding:42px;place-items:center;align-content:center;text-align:center;border:1px dashed var(--border-muted);border-radius:18px;background:color-mix(in srgb,var(--bg-card) 68%,transparent)}.project-empty-state>.el-icon{font-size:30px;color:var(--text-faint)}.project-empty-state h3{margin:12px 0 6px;color:var(--text-bright);font-size:17px}.project-empty-state p{max-width:460px;margin:0 0 18px;color:var(--text-muted);font-size:13px;line-height:1.7}.empty-orbit{display:grid;width:46px;height:46px;place-items:center;border-radius:15px;color:#fff;background:linear-gradient(135deg,#6d4ae8,#8560f2);box-shadow:0 12px 24px rgba(109,74,232,.24)}
+@media (max-width: 900px){.project-toolbar{grid-template-columns:1fr 1fr}.project-search{grid-column:1/-1}}
+@media (max-width: 800px){.home-header-inner{padding:0 16px;gap:12px}.home-header .logo{min-width:auto}.home-nav{display:none}.home-main{padding:20px 16px 48px}.home-hero{padding:29px 23px;grid-template-columns:1fr;gap:26px;border-radius:22px}.hero-copy h2{font-size:38px}.hero-copy p{font-size:13px}.hero-modes{grid-template-columns:1fr 1fr}.hero-mode{padding:10px}.hero-mode small{display:none}.home-actions .home-icon-button{display:none}.home-projects{margin-top:30px}.section-heading h2{font-size:22px}.home-projects .project-grid{grid-template-columns:1fr}.hero-actions .el-button{padding:10px 13px}.project-toolbar{grid-template-columns:1fr}.project-search{grid-column:auto}.project-empty-state{min-height:210px;padding:30px 20px}}
+.film-list {
+  min-height: 100vh;
   background: #08080d;
   color: #e4e4e7;
   background-image:
@@ -805,6 +972,51 @@ onMounted(async () => {
     radial-gradient(ellipse 50% 35% at 85% 55%, rgba(139, 92, 246, 0.1) 0%, transparent 60%),
     radial-gradient(ellipse 40% 30% at 10% 80%, rgba(79, 70, 229, 0.08) 0%, transparent 60%);
 }
+.action-card-copy {
+  margin: 8px 0 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.creation-modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 16px;
+}
+.creation-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  text-align: left;
+  color: var(--text-primary);
+  background: rgba(109, 74, 232, .07);
+  border: 1px solid rgba(109, 74, 232, .13);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease;
+}
+.creation-mode:hover {
+  transform: translateY(-2px);
+  background: rgba(109, 74, 232, .13);
+  border-color: rgba(109, 74, 232, .35);
+}
+.creation-mode-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #6d4ae8, #8560f2);
+  border-radius: 9px;
+  box-shadow: 0 5px 12px rgba(109, 74, 232, .24);
+}
+.creation-mode b, .creation-mode small { display: block; }
+.creation-mode b { font-size: 12px; }
+.creation-mode small { margin-top: 2px; color: var(--text-muted); font-size: 10px; line-height: 1.35; }
 .header {
   background: rgba(12, 12, 18, 0.82);
   backdrop-filter: blur(16px);
@@ -1186,6 +1398,10 @@ html.light .btn-import {
   color: #71717a;
   margin: 0;
 }
+
+.project-play { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 8px; width: fit-content; margin-top: 13px; padding: 8px 12px; border-radius: 999px; color: #5b3fd1; background: rgba(109,74,232,.1); text-decoration: none; font-size: 12px; font-weight: 700; transition: .2s ease; }
+.project-play:hover { color: #fff; background: linear-gradient(135deg, #6d4ae8, #8560f2); transform: translateY(-1px); }
+.project-play-dot { font-size: 9px; }
 .project-card-actions {
   position: absolute;
   top: 12px;
@@ -1334,4 +1550,8 @@ html.light .badge-status--draft {
   border-radius: 8px;
   object-fit: contain;
 }
+/* 首页工作台最终主题层 */
+.film-list { color:var(--text-primary); background:radial-gradient(circle at 8% -10%,rgba(109,74,232,.16) 0,transparent 30%),radial-gradient(circle at 88% 0,rgba(74,144,245,.12) 0,transparent 28%),var(--bg-page) !important; }
+.film-list .home-header { height:68px; padding:0; background:color-mix(in srgb, var(--bg-card) 82%, transparent); border-bottom:1px solid var(--border-color); box-shadow:none; }
+.film-list .home-main { max-width:1440px; margin:auto; padding:44px 32px 72px; }
 </style>

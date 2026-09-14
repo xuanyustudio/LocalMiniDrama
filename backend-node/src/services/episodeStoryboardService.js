@@ -7,6 +7,7 @@ const safeJson = require('../utils/safeJson');
 const { safeParseAIJSON, extractJsonCandidate, repairTruncatedJsonArray, extractFirstArray } = safeJson;
 const loadConfig = require('../config').loadConfig;
 const angleService = require('./angleService');
+const { quantizeStoryboardDuration } = require('./videoModelPolicy');
 
 /**
  * 分镜专用 generateText 包装：
@@ -71,6 +72,7 @@ async function generateTextForStoryboard(db, log, userPrompt, systemPrompt, opti
       model: model || undefined,
       temperature,
       max_tokens: DEFAULT_STORYBOARD_MAX_TOKENS,
+      silence_timeout_ms: 180000,
       streamCallback,
     });
     return text;
@@ -86,6 +88,7 @@ async function generateTextForStoryboard(db, log, userPrompt, systemPrompt, opti
         scene_key: 'storyboard_extraction',
         model: model || undefined,
         temperature,
+        silence_timeout_ms: 180000,
         streamCallback,
       });
       log.info('Storyboard generateText attempt 2 succeeded');
@@ -327,50 +330,40 @@ function generateImagePrompt(sb, style) {
 }
 
 function generateVideoPrompt(sb, style, videoRatio) {
-  const parts = [];
-  // 场景与标题
-  if (sb.scene_description) {
-    parts.push('场景：' + sb.scene_description);
-  } else if (sb.location) {
-    const scene = sb.time ? sb.location + '，' + sb.time : sb.location;
-    parts.push('场景：' + scene);
-  }
-  if (sb.title) parts.push('镜头标题：' + sb.title);
-  // 动作与对白（核心叙事）
-  if (sb.action) parts.push('动作：' + sb.action);
-  if (sb.dialogue) parts.push('对话：' + sb.dialogue);
-  if (sb.narration) parts.push('解说旁白：' + sb.narration);
-  if (sb.result) parts.push('结果：' + sb.result);
-  // 镜头与运镜
+  const durationSec = quantizeStoryboardDuration(sb.duration || 5);
+  const scene = sb.scene_description || [sb.location, sb.time].filter(Boolean).join('，') || '沿用参考图场景';
+  const startState = extractInitialPose(sb.action) || '严格从输入首帧当前姿态、构图和光线开始';
+  const endState = sb.result || sb.action || '动作自然完成并保持稳定姿态';
+  const parts = [
+    `【生成目标】生成严格${durationSec}秒、${videoRatio || '沿用项目画幅'}的单场景连续电影镜头`,
+    `【主题】${sb.title || '承接剧本推进当前情节'}`,
+    '【参考图与身份锁定】输入首帧是时间起点和构图基准。严格沿用参考图中的人物身份、脸型、年龄、身材、发型、服装、配饰、色彩与材质；场景空间结构和关键道具保持一致，不新增主体，不换脸，不换装',
+    `【固定场景】${scene}。空间方位、主光方向、天气、色温和背景物位置在本镜内稳定`,
+    `【首帧状态｜00:00】${startState}`,
+    `【连续动作｜00:00—00:${String(durationSec).padStart(2, '0')}】${sb.action || '人物保持自然呼吸与细微动作'}${sb.dialogue ? `；对白：${sb.dialogue}` : ''}${sb.narration ? `；旁白：${sb.narration}` : ''}`,
+    `【尾帧状态｜00:${String(durationSec).padStart(2, '0')}】${endState}。最后一帧主体清晰、构图稳定，可直接作为下一镜首帧`,
+  ];
   const shotType = sb.shot_type || sb.camera_shot_type;
-  if (shotType) parts.push('景别：' + shotType);
+  const cameraParts = [];
+  if (shotType) cameraParts.push('景别：' + shotType);
   // 结构化视角：中文标签 + 英文描述（兼顾中英文视频模型）
   if (sb.angle_h && sb.angle_v && sb.angle_s) {
     const chLabel = angleService.toChineseLabel(sb.angle_h, sb.angle_v, sb.angle_s);
     const angleFragment = angleService.toPromptFragment(sb.angle_h, sb.angle_v, sb.angle_s);
-    parts.push(`镜头角度：${chLabel}（${angleFragment}）`);
+    cameraParts.push(`镜头角度：${chLabel}（${angleFragment}）`);
   } else {
     const angle = sb.angle ?? sb.camera_angle;
-    if (angle) parts.push('镜头角度：' + angle);
+    if (angle) cameraParts.push('镜头角度：' + angle);
   }
   const movement = sb.movement ?? sb.camera_movement;
-  if (movement) parts.push('运镜：' + movement);
-  // 氛围与情绪
-  if (sb.atmosphere) parts.push('氛围：' + sb.atmosphere);
-  if (sb.emotion) parts.push('情绪：' + sb.emotion);
-  if (sb.emotion_intensity != null && sb.emotion_intensity !== '') {
-    parts.push('情绪强度：' + String(sb.emotion_intensity));
-  }
-  // 声音
-  if (sb.bgm_prompt) parts.push('配乐：' + sb.bgm_prompt);
-  if (sb.sound_effect) parts.push('音效：' + sb.sound_effect);
-  // 时长
-  const durationSec = normalizeDuration(sb.duration) || 5;
-  parts.push('时长：' + durationSec + '秒');
-  // 风格（英文 token 保持英文以兼容视频 AI）与画面比例
-  if (style) parts.push('风格：' + style);
-  if (videoRatio) parts.push('=VideoRatio: ' + videoRatio);
-  return parts.length ? parts.join('。') : '视频场景';
+  if (movement) cameraParts.push('唯一主要运镜：' + movement);
+  parts.push(`【镜头系统】${cameraParts.join('；') || '稳定电影机位，平滑跟焦'}。保持轴线、视线方向和动作方向连续，不自动切镜，不跳转视角`);
+  parts.push(`【氛围与表演】${sb.atmosphere || '电影级空间氛围'}；${sb.emotion || '符合剧情的克制表演'}${sb.emotion_intensity != null && sb.emotion_intensity !== '' ? `；情绪强度${sb.emotion_intensity}` : ''}`);
+  if (style) parts.push(`【视觉品质】${style}；主体细节清晰，真实光影、材质、景深、运动模糊和空间层次`);
+  parts.push(`【声音设计】${[sb.sound_effect, sb.bgm_prompt].filter(Boolean).join('；') || '保留与动作同步的环境声、拟音和空间混响；对白清晰'}，声音连续承接前后镜`);
+  parts.push('【连续性要求】动作、视线、构图、光线、天气、道具位置和能量轨迹连续；本镜结果必须成为下一镜动作起点');
+  parts.push('【负向约束】禁止角色变脸、年龄身材变化、发型服装配饰漂移、人物复制、多余人物、手指肢体畸形、穿模；禁止主体瞬移、动作跳帧、场景跳变、镜头越轴、突然切镜、无依据视角变化、失焦和剧烈抖动；禁止低清、噪点、塑料质感、乱码文字、字幕、水印、平台标志和特效遮挡主体');
+  return parts.join('\n');
 }
 
 /**
@@ -394,12 +387,23 @@ function deriveStoryboardFieldsFromAi(sb, style, videoRatio, opts = {}) {
   const segmentTitle = sb.segment_title ?? null;
   const lightingStyle = sb.lighting_style ?? null;
   const depthOfField = sb.depth_of_field ?? null;
-  let durationSec = normalizeDuration(sb.duration) || 5;
+  const spokenText = [dialogue, narration].filter(Boolean).join(' ');
+  const chineseChars = (spokenText.match(/[\u3400-\u9fff]/g) || []).length;
+  const latinWords = (spokenText.match(/[A-Za-z0-9]+/g) || []).length;
+  const speechSeconds = chineseChars / 4.2 + latinWords / 2.5;
+  const actionText = [action, result, movement].filter(Boolean).join(' ');
+  const actionBeats = actionText.split(/[，。；;,.]|然后|随后|接着|同时/).filter((x) => x.trim()).length;
+  const actionSeconds = 2.6 + Math.min(8, actionBeats * 1.15 + actionText.length / 45);
+  const contentDuration = Math.max(4, Math.ceil(Math.max(speechSeconds + 1.4, actionSeconds)));
+  const aiSuggestedDuration = normalizeDuration(sb.duration);
+  // 剧本内容决定时长；模型给出的时长仅作为合理范围内的参考。
+  // 项目默认片长只在内容完全无法估算时兜底，不再作为每镜硬下限。
+  let durationSec = Math.max(contentDuration, aiSuggestedDuration || 0);
   const targetClip = opts.targetClipDuration != null ? Number(opts.targetClipDuration) : 0;
-  if (Number.isFinite(targetClip) && targetClip > 0) {
-    durationSec = Math.max(durationSec, Math.round(targetClip));
+  if ((!spokenText && !actionText) && Number.isFinite(targetClip) && targetClip > 0) {
+    durationSec = Math.round(targetClip);
   }
-  durationSec = Math.min(120, Math.max(1, Math.round(durationSec)));
+  durationSec = quantizeStoryboardDuration(durationSec);
   sb.duration = durationSec;
   if (!sb.location && sb.scene_description) {
     const sceneDesc = String(sb.scene_description).trim();
@@ -1107,6 +1111,8 @@ function generateStoryboard(db, log, episodeId, model, style, storyboardCount, v
 
   // 获取剧集风格和比例（如果未指定，则从 drama metadata / style 中获取完整提示词）
   const drama = db.prepare('SELECT style, metadata FROM dramas WHERE id = ?').get(episode.drama_id);
+  const { getContentTypeProfile } = require('./contentTypeProfile');
+  const contentProfile = getContentTypeProfile(drama?.metadata);
   const { resolvedStreamStyleFromDrama } = require('../utils/dramaStyleMerge');
   const finalStyle = resolvedStreamStyleFromDrama(style, drama);
 
@@ -1178,6 +1184,7 @@ function generateStoryboard(db, log, episodeId, model, style, storyboardCount, v
   
   // 处理分镜数量和时长约束
   let extraConstraint = '';
+  extraConstraint += `\n【内容形态：${contentProfile.label}】${contentProfile.storyboardRule}`;
   // 宽松判断：只要有值（包括字符串形式的数字），就尝试转换并添加约束
   if (storyboardCount) {
     const countVal = Number(storyboardCount);
@@ -1598,6 +1605,7 @@ function splitStoryboardByAudio(db, log, storyboardId) {
 
 module.exports = {
   normalizeStoryboardShotNumber,
+  deriveStoryboardFieldsFromAi,
   dedupeStoryboardRowsByNumber,
   getStoryboardsForEpisode,
   generateStoryboard,

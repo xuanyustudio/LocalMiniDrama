@@ -743,7 +743,7 @@ function saveCanvasLayout(db, log, dramaId, req) {
 }
 
 /**
- * 取某分镜的视频地址：优先使用用户手动选定的 storyboard.video_url，否则取最新完成的 video_generations 记录
+ * 取某分镜的视频地址：存在生成记录时使用最新创建且已完成的视频；分镜字段仅作历史兼容回退。
  */
 function getVideoUrlForStoryboard(db, storyboardId, baseUrl) {
   // 1. 获取 storyboard 表中的视频信息（代表用户选定或上次同步的结果）
@@ -768,25 +768,9 @@ function getVideoUrlForStoryboard(db, storyboardId, baseUrl) {
   const sbUrl = sb ? buildUrl(sb.video_url, sb.local_path) : null;
   const vgUrl = vg ? buildUrl(vg.video_url, vg.local_path) : null;
 
-  // 策略：比较时间，取最新的
-  // 如果只有其中一个有 URL，直接用那个
-  if (sbUrl && !vgUrl) return sbUrl;
-  if (!sbUrl && vgUrl) return vgUrl;
-  if (!sbUrl && !vgUrl) return null;
-
-  // 都有 URL，比较时间
-  // sb 使用 updated_at
-  // vg 使用 completed_at > updated_at > created_at
-  const sbTime = sb.updated_at || '1970-01-01';
-  const vgTime = vg.completed_at || vg.updated_at || vg.created_at || '1970-01-01';
-
-  // 如果生成记录的时间比分镜更新时间还晚（说明是重新生成的，且可能没回写），则优先用生成记录
-  if (vgTime > sbTime) {
-    return vgUrl;
-  }
-  
-  // 否则依然以 storyboard 为准（可能是用户手动修改过，或者已经回写过）
-  return sbUrl;
+  // 尾帧绑定、提示词保存等操作也会更新 storyboard.updated_at，不能据此覆盖
+  // 最新生成视频；否则图片路径可能被误当作视频送入 FFmpeg。
+  return vgUrl || sbUrl;
 }
 
 function finalizeEpisode(db, log, episodeId, baseUrl, body = {}) {
@@ -798,11 +782,12 @@ function finalizeEpisode(db, log, episodeId, baseUrl, body = {}) {
   ).all(episodeId);
   const videoMergeService = require('./videoMergeService');
   const scenes = [];
+  const missingStoryboards = [];
   for (let i = 0; i < storyboards.length; i++) {
     const sb = storyboards[i];
     const videoUrl = getVideoUrlForStoryboard(db, sb.id, baseUrl);
     if (!videoUrl) {
-      log.warn('Finalize skip storyboard (no video)', { storyboard_id: sb.id, storyboard_number: sb.storyboard_number });
+      missingStoryboards.push(sb.storyboard_number);
       continue;
     }
     scenes.push({
@@ -811,6 +796,14 @@ function finalizeEpisode(db, log, episodeId, baseUrl, body = {}) {
       duration: Number(sb.duration) || 5,
       order: i,
     });
+  }
+  if (missingStoryboards.length > 0) {
+    const message = `分镜 ${missingStoryboards.join('、')} 尚未生成可用视频，不能合成不完整成片`;
+    log.warn('Finalize blocked by missing storyboard videos', {
+      episode_id: episodeId,
+      missing_storyboard_numbers: missingStoryboards,
+    });
+    return { message, error: message, merge_id: null, episode_id: episodeId, scenes_count: scenes.length, task_id: null };
   }
   if (scenes.length === 0) {
     log.warn('Finalize no scenes with video', { episode_id: episodeId });
@@ -829,6 +822,12 @@ function finalizeEpisode(db, log, episodeId, baseUrl, body = {}) {
       watermark_text: (body && body.watermark_text != null)
         ? String(body.watermark_text).trim().slice(0, 200)
         : '',
+      transition_duration: (body && body.transition_duration != null)
+        ? Math.min(0.5, Math.max(0, Number(body.transition_duration) || 0))
+        // Continuity-linked clips already share the previous real tail frame.
+        // Keep the blend to roughly two frames at 24 fps: longer dissolves expose
+        // small model variations as a visible double image at every boundary.
+        : 0.08,
     },
   };
   const created = videoMergeService.create(db, log, mergeReq);
