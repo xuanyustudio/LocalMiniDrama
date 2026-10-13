@@ -1,0 +1,31 @@
+{
+  "root": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+  "app": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+  "packageManager": "npm",
+  "packageManagerField": null,
+  "packageManagerVersion": "11.11.0",
+  "corepackVersion": "0.34.6",
+  "lockfile": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop/package-lock.json",
+  "frozenLockfile": true,
+  "installCwd": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+  "command": [
+    "npm",
+    "ci"
+  ],
+  "node": "v24.14.1",
+  "status": "ready",
+  "commandAvailable": "/Applications/DevEco-Studio.app/Contents/tools/node/bin/npm",
+  "registryHints": [
+    {
+      "file": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop/.npmrc",
+      "hasRegistry": true,
+      "hasAuthTokenPlaceholder": false,
+      "warning": "Private registry/auth may be required; do not paste secrets into reports."
+    }
+  ],
+  "firstError": null,
+  "stdoutTail": "\n> localminidrama-desktop@1.2.8 postinstall\n> node scripts/copy-backend.js && electron-builder install-app-deps\n\nMerged initial-migrations -> desktop/backend-app/migrations\nCopied backend-node (src, configs, scripts, migrations) -> desktop/backend-app\n  • electron-builder  version=24.13.3\n  • loaded configuration  file=package.json (\"build\" field)\n  • rebuilding native dependencies  dependencies=better-sqlite3@11.10.0 platform=darwin arch=arm64\n  • install prebuilt binary  name=better-sqlite3 version=11.10.0 platform=darwin arch=arm64 napi=\n\nadded 457 packages in 41s\n\n70 packages are looking for funding\n  run `npm fund` for details\n",
+  "stderrTail": "npm warn Unknown project config \"better_sqlite3_binary_host_mirror\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.\nnpm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.\nnpm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported\nnpm warn deprecated multer@1.4.5-lts.2: Multer 1.x is impacted by a number of vulnerabilities, which have been patched in 2.x. You should upgrade to the latest 2.x version.\nnpm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.\n",
+  "exitCode": 0,
+  "error": null
+}

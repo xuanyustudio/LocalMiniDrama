@@ -1,0 +1,127 @@
+{
+  "latest": {
+    "timestamp": "20261009-181242",
+    "keyword": "electron-app|com.localminidrama.desktop",
+    "target": "3BT0124910000126",
+    "screenshot": "ev-20261009-181242.jpeg",
+    "hilog": "hilog-20261009-181242.log",
+    "hilogLines": 100
+  },
+  "artifacts": [
+    {
+      "file": "ev-20260928-204819.jpeg",
+      "type": "screenshot",
+      "bytes": 347776
+    },
+    {
+      "file": "ev-20260928-214154.jpeg",
+      "type": "screenshot",
+      "bytes": 307902
+    },
+    {
+      "file": "ev-20261009-142352.jpeg",
+      "type": "screenshot",
+      "bytes": 275195
+    },
+    {
+      "file": "ev-20261009-152722.jpeg",
+      "type": "screenshot",
+      "bytes": 384429
+    },
+    {
+      "file": "ev-20261009-154626.jpeg",
+      "type": "screenshot",
+      "bytes": 449761
+    },
+    {
+      "file": "ev-20261009-161407.jpeg",
+      "type": "screenshot",
+      "bytes": 402957
+    },
+    {
+      "file": "ev-20261009-162843.jpeg",
+      "type": "screenshot",
+      "bytes": 244485
+    },
+    {
+      "file": "ev-20261009-170211.jpeg",
+      "type": "screenshot",
+      "bytes": 173912
+    },
+    {
+      "file": "ev-20261009-172948.jpeg",
+      "type": "screenshot",
+      "bytes": 245939
+    },
+    {
+      "file": "ev-20261009-181242.jpeg",
+      "type": "screenshot",
+      "bytes": 171613
+    },
+    {
+      "file": "feature-cases",
+      "type": "artifact",
+      "bytes": 896
+    },
+    {
+      "file": "frame-a-20261009-172953.png",
+      "type": "screenshot",
+      "bytes": 946693
+    },
+    {
+      "file": "frame-b-20261009-172953.png",
+      "type": "screenshot",
+      "bytes": 946693
+    },
+    {
+      "file": "hilog-20260928-204819.log",
+      "type": "hilog",
+      "bytes": 17377
+    },
+    {
+      "file": "hilog-20260928-214154.log",
+      "type": "hilog",
+      "bytes": 18594
+    },
+    {
+      "file": "hilog-20261009-142352.log",
+      "type": "hilog",
+      "bytes": 25584
+    },
+    {
+      "file": "hilog-20261009-152722.log",
+      "type": "hilog",
+      "bytes": 26868
+    },
+    {
+      "file": "hilog-20261009-154626.log",
+      "type": "hilog",
+      "bytes": 15939
+    },
+    {
+      "file": "hilog-20261009-161407.log",
+      "type": "hilog",
+      "bytes": 15240
+    },
+    {
+      "file": "hilog-20261009-162843.log",
+      "type": "hilog",
+      "bytes": 21605
+    },
+    {
+      "file": "hilog-20261009-170211.log",
+      "type": "hilog",
+      "bytes": 22364
+    },
+    {
+      "file": "hilog-20261009-172948.log",
+      "type": "hilog",
+      "bytes": 21477
+    },
+    {
+      "file": "hilog-20261009-181242.log",
+      "type": "hilog",
+      "bytes": 22472
+    }
+  ]
+}

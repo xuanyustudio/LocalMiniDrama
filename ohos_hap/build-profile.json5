@@ -1,0 +1,60 @@
+{
+  "app": {
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "compatibleSdkVersion": "6.1.1(24)",
+        "compatibleSdkVersionStage": "release",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "nativeLib": {
+            "collectAllLibs": true
+          }
+        },
+        "targetSdkVersion": "6.1.1(24)"
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "release"
+      }
+    ],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "/Users/Admin/.ohos/config/default_ohos_hap_Iz3SdiPe_Evy3BQFNIEivO4t6u7jsmP16ZmD2HoYgVU=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B3D137058F6068195558CACDE763196692E5587E01FF934E3346DB6A395A7A118DE741E85D98F2D",
+          "profile": "/Users/Admin/.ohos/config/default_ohos_hap_Iz3SdiPe_Evy3BQFNIEivO4t6u7jsmP16ZmD2HoYgVU=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "/Users/Admin/.ohos/config/default_ohos_hap_Iz3SdiPe_Evy3BQFNIEivO4t6u7jsmP16ZmD2HoYgVU=.p12",
+          "storePassword": "0000001B6C06214CBB02DCEED8AF80FB170D8E91F88D874FC59CBBC5ACF990A1E46E5E909655198F759339"
+        }
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "electron",
+      "srcPath": "./electron",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "web_engine",
+      "srcPath": "./web_engine"
+    }
+  ]
+}

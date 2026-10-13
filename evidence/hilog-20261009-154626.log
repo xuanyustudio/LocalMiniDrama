@@ -1,0 +1,103 @@
+# capturedAt=20261009-154626
+# target=3BT0124910000126
+# matchingLines=100
+10-09 15:46:26.463 39856 39856 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] FeatureManager get config failed, key:multiModalInputOptions ret:1
+10-09 15:46:26.478 39856 39856 I C03900/com.localminidrama.desktop/Ace: [(100000:100000:scope)] there is no mouse event after interpolation time point. (last stamp:110123860750000, target stamp:110123861781528)
+10-09 15:46:26.513 39856 39856 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] FeatureManager get config failed, key:multiModalInputOptions ret:1
+10-09 15:46:26.528 39856 39856 I C03900/com.localminidrama.desktop/Ace: [(100000:100000:scope)] there is no mouse event after interpolation time point. (last stamp:110123909958000, target stamp:110123911792360)
+10-09 15:46:26.541 39856 39856 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] FeatureManager get config failed, key:multiModalInputOptions ret:1
+10-09 15:46:26.572 39856 39856 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] FeatureManager get config failed, key:multiModalInputOptions ret:1
+10-09 15:46:26.694 39856 39856 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] FeatureManager get config failed, key:multiModalInputOptions ret:1
+10-09 15:46:26.712 39856 39856 I C03900/com.localminidrama.desktop/Ace: [(100000:100000:scope)] there is no mouse event after interpolation time point. (last stamp:110124089546000, target stamp:110124095160391)
+10-09 15:46:26.714 39856 39856 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] FeatureManager get config failed, key:multiModalInputOptions ret:1
+10-09 15:46:26.729 39856 39856 I C03900/com.localminidrama.desktop/Ace: [(100000:100000:scope)] there is no mouse event after interpolation time point. (last stamp:110124110545000, target stamp:110124111828166)
+10-09 15:46:26.735 39856 39856 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] FeatureManager get config failed, key:multiModalInputOptions ret:1
+10-09 15:46:26.741 39856 39856 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] FeatureManager get config failed, key:multiModalInputOptions ret:1
+10-09 15:46:26.786 39856 39856 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] FeatureManager get config failed, key:multiModalInputOptions ret:1
+10-09 15:46:26.926 40068 40068 W C02C02/PARAM: Selinux check name musl.ld.debug.dlopen in u:object_r:musl_param:s0 [40068 2000 2000] failed
+10-09 15:46:26.926 40068 40068 E C02C02/PARAM: Forbid to read parameter musl.ld.debug.dlopen
+10-09 15:46:26.926 40068 40068 E C02C02/PARAM: Forbid to access parameter musl.ld.debug.dlopen
+10-09 15:46:27.497   635 37449 I C02D66/hiview/XPerf: appStartMonitor: AppStartMetrics bundle:com.localminidrama.desktop pid:39856 e2e:241
+10-09 15:46:27.497   635 37449 I C02D66/hiview/XPerf: appStartMonitor: AppStartMetrics bundle:com.localminidrama.desktop pid:39856 e2e:241
+10-09 15:46:27.741 39856 39856 I C02805/com.localminidrama.desktop/InputKeyFlow: [P:BD:76558|249]ac: move, first: 76349-(2026-10-09 15:46:25.556ms), 76533, count: 93, last: ac: button-down: 76558
+10-09 15:46:27.741 39856 39856 I C02805/com.localminidrama.desktop/InputKeyFlow: [P:BD:76558|705]id:76558 recv, BI:0, PBS:1
+10-09 15:46:27.741 39856 39856 I C04213/com.localminidrama.desktop/InputKeyFlow: HandleInputEvent: eid:2,InputId:76558,wid:262,ac:8
+10-09 15:46:27.745 39856 39856 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] FeatureManager get config failed, key:multiModalInputOptions ret:1
+10-09 15:46:27.745 39856 39856 I C03951/com.localminidrama.desktop/InputKeyFlow: [(100000:100000:scope)] InputTracking id:76558, mouseId:0, type=1, button=1, inject=0
+10-09 15:46:27.746 39856 39856 I C03951/com.localminidrama.desktop/InputKeyFlow: [(100000:100000:scope)] ITK Id:76558, fId:1001, T:0, I=0, M=0
+10-09 15:46:27.748 39856 39856 I C03951/com.localminidrama.desktop/InputKeyFlow: [(100000:100000:scope)] ITK Id:76558, TTHNI:fId: 1001{ T: AlertDialog, D: 5 };{ T: Scroll, D: 7 };{ T: Button, D: 10 };
+10-09 15:46:27.748 39856 39856 I C03951/com.localminidrama.desktop/InputKeyFlow: [(100000:100000:scope)] ITK Id:76558, TTHRTI: T ClickRecognizer info: { T: Scroll }; { T: Button }; { T: AlertDialog };T PanRecognizer info: { T: Scroll };
+10-09 15:46:27.748 39856 39856 I C03945/com.localminidrama.desktop/AceStateStyle: [(100000:100000:scope)] Handle TouchDown event node: Button
+10-09 15:46:27.749 39856 39856 I C0391E/com.localminidrama.desktop/AceGesture: [(100000:100000:scope)] Recognizer don't add cid:1001 for mouse event is not allowed.
+10-09 15:46:27.749 39856 39856 I C03919/com.localminidrama.desktop/AceInputTracking: [(100000:100000:scope)] Consumed id:76558, last id:76533
+10-09 15:46:27.751  4742  4742 I A04200/com.ohos.sceneboard/WMS: SCBSSM --> isAncoApplication bundleName: com.localminidrama.desktop, isAnco: false
+10-09 15:46:27.751  1999  6844 I C02901/selection_service/SELECTION_SERVICE: [selection_input_monitor.cpp(SaveSelectionStartInfo:286)]WindowInfo bundleName:com.localminidrama.desktop, windowtype:1, width:2090, height:1394
+10-09 15:46:27.960 39856 39856 I C02805/com.localminidrama.desktop/InputKeyFlow: [P:BU:76560|249]ac: button-up: 76560
+10-09 15:46:27.960 39856 39856 I C02805/com.localminidrama.desktop/InputKeyFlow: [P:BU:76560|705]id:76560 recv, BI:0, PBS:0
+10-09 15:46:27.960 39856 39856 I C04213/com.localminidrama.desktop/InputKeyFlow: HandleInputEvent: eid:3,InputId:76560,wid:262,ac:9
+10-09 15:46:27.962 39856 39856 E C02D66/com.localminidrama.desktop/XPERF_SERVICE: [CheckClientValid]: Failed to get SystemAbility[XPERF_SA_ID].
+10-09 15:46:27.962 39856 39856 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] FeatureManager get config failed, key:multiModalInputOptions ret:1
+10-09 15:46:27.962 39856 39856 I C03951/com.localminidrama.desktop/InputKeyFlow: [(100000:100000:scope)] InputTracking id:76560, mouseId:0, type=2, button=1, inject=0
+10-09 15:46:27.963 39856 39856 I C03951/com.localminidrama.desktop/InputKeyFlow: [(100000:100000:scope)] ITK Id:76560, fId:1001, T:1, I=0, M=0
+10-09 15:46:27.963 39856 39856 I C03945/com.localminidrama.desktop/AceStateStyle: [(100000:100000:scope)] Handle TouchUp or Cancel event node: Button
+10-09 15:46:27.963 39856 39856 I C0391E/com.localminidrama.desktop/AceGesture: [(100000:100000:scope)] Click try accept Scroll
+10-09 15:46:27.963 39856 39856 I C0390B/com.localminidrama.desktop/AceScrollable: [(100000:100000:scope)] Scrollable GestureJudge:0, 0
+10-09 15:46:27.963 39856 39856 I C0391E/com.localminidrama.desktop/AceGesture: [(100000:100000:scope)] Click gesture judge reject
+10-09 15:46:27.963 39856 39856 I C0391E/com.localminidrama.desktop/AceGesture: [(100000:100000:scope)] Click try accept Button
+10-09 15:46:27.963 39856 39856 I C03951/com.localminidrama.desktop/InputKeyFlow: [(100000:100000:scope)] CLK RACC, T: Button
+10-09 15:46:27.964 39856 39856 I C0390F/com.localminidrama.desktop/AceDialog: [(100000:100000:scope)] The current state of the dialog is DISAPPEARING.
+10-09 15:46:27.964 39856 39856 I C0390D/com.localminidrama.desktop/AceOverlay: [(100000:100000:scope)] close dialog animation
+10-09 15:46:27.964 39856 39856 W C0390D/com.localminidrama.desktop/AceOverlay: [(100000:100000:scope)] not find mask dialog 41 in maskNodeIdMap
+10-09 15:46:27.964 39856 39856 I C03952/com.localminidrama.desktop/AceAppBar: [(100000:100000:scope)] SetCloseButtonStatus isEnabled: 1
+10-09 15:46:27.964 39856 39856 I C0391E/com.localminidrama.desktop/AceGesture: [(100000:100000:scope)] Recognizer has already receive touchId: 1001 up event, node tag = Scroll, id = secure_field.
+10-09 15:46:27.965 39856 39856 I C03944/com.localminidrama.desktop/AceSelectComponent: [(100000:100000:scope)] button hover 0
+10-09 15:46:27.965 39856 39856 I C03919/com.localminidrama.desktop/AceInputTracking: [(100000:100000:scope)] Consumed id:76560, last id:76533
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command /data/storage/el1/bundle/electron/resources/resfile/electron
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --type=utility
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --utility-sub-type=network.mojom.NetworkService
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --lang=zh-CN
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --service-sandbox-type=none
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --use-gl=egl
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --enable-crash-reporter=eca513ec-a0fe-486d-a43d-8fd2ff948faf,no_channel
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --user-data-dir=/data/storage/el2/base/files
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --bundle-installation-dir=/data/storage/el1/bundle/electron/resources/resfile
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --shared-files
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --field-trial-handle=3,i,2335384895527710929,16834566243020269689,262144
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --enable-features=PdfUseShowSaveFilePicker,UseOzonePlatform
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --disable-features=EnableDrDc,ScreenAIOCREnabled,SpareRendererForSitePerProcess
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --variations-seed-version
+10-09 15:46:27.966 39856 40030 I A00001/com.localminidrama.desktop/Adapter: [ChildProcess] StartChildProcess command --enable-logging
+10-09 15:46:27.966 39856 40030 D A00001/com.localminidrama.desktop/Adapter: HandleRequest fd 79 => 2
+10-09 15:46:27.966 39856 40030 D A00001/com.localminidrama.desktop/Adapter: HandleRequest fd 80 => 3
+10-09 15:46:27.966 39856 40030 I C01357/com.localminidrama.desktop/ProcessMgr: [child_process_manager.cpp148]StartChildProcessWithArgs, childProcessType:3, startWitDebug: 0,processName:, native:0, entryParams size:662, fdsSize:2, options.isolationMode:0, options.isolationUid: 0, options.customProcessName:NetworkService
+10-09 15:46:27.967  2043 36808 I C01311/foundation/AppMS: [AMSI10786]srcEntry:<private>, args.entryParams size:662, processName:com.localminidrama.desktop:NetworkService, args.fds size:2, options.isolationMode:0,
+10-09 15:46:27.967  2043 36808 I C02C11/foundation/APPSPAWN_CLIENT: AppSpawnClientSendMsg reqId:2602 msgLen:2700 fd:211 com.localminidrama.desktop:NetworkService
+10-09 15:46:27.973 39856 39856 W C03F04/com.localminidrama.desktop/MMG: [NMM:1466] Name mismatch: security.certManager != security.certmanager
+10-09 15:46:27.973 39856 40081 I C02B01/com.localminidrama.desktop/CAMERA: {1901} Initializing camera manager for first time!
+10-09 15:46:27.973 39856 40081 I C02B01/com.localminidrama.desktop/CAMERA: {196} CameraManager::CameraManager construct enter
+10-09 15:46:27.973 39856 40081 I C02B01/com.localminidrama.desktop/CAMERA: {1277} Enter Into CameraManager::SubscribeSystemAbility
+10-09 15:46:27.974 39856 40081 I C02B01/com.localminidrama.desktop/CAMERA: {1290} SubscribeSystemAbility ret = 0
+10-09 15:46:27.974 39856 39978 I C02B01/com.localminidrama.desktop/CAMERA: {25} OnAddSystemAbility,id: 3008
+10-09 15:46:27.975 39856 40081 I C02B01/com.localminidrama.desktop/CAMERA: {1248} bundleName: [<private>]
+10-09 15:46:27.975  2124  2124 I C02B01/camera_service/AppCameraPlugin: [nodict]GetConfigure for BundleName=com.localminidrama.desktop
+10-09 15:46:27.975 39856 39856 I A00000/com.localminidrama.desktop/[WebEngine]: tag: LogMethodCall --> CertManagerAdapter#returnUserId() in 
+10-09 15:46:27.976 39856 39856 I A00000/com.localminidrama.desktop/[WebEngine]: tag: LogMethodCall --> CertManagerAdapter#returnUserId() out => {}
+10-09 15:46:27.976  1083  1371 I C01713/resource_schedule_service/SUSPEND_MANAGER: [a92ab29bd39574a 0 0]RemoveRecordByPid, 20020192_com.localminidrama.desktop_40035, processNum: 1
+10-09 15:46:27.976  1419 55330 I C02220/msdp/SocketSessionManager: in OnProcessDied, 'com.localminidrama.desktop' died, pid:40035
+10-09 15:46:27.976  1083  1363 I C01718/resource_schedule_service/StandbyService: [OnProcessStatusChanged:938] process status change, uid: 20020192, pid: 40035, name: com.localminidrama.desktop, alive: 0
+10-09 15:46:27.976 39856 39856 I A00000/com.localminidrama.desktop/[WebEngine]: tag: LogMethodCall --> CertManagerAdapter#getCertCrl("/data/certificates/user_cacerts/100",false,) in 
+10-09 15:46:27.976   935 18484 I C02699/memmgrservice/MM: OnProcessDied u=20020192,p=40035,pN=com.localminidrama.desktop:GPU,bN=com.localminidrama.desktop
+10-09 15:46:27.976 39856 39856 I A00000/com.localminidrama.desktop/[WebEngine]: tag: LogMethodCall --> CertManagerAdapter#getCertCrl("/data/certificates/user_cacerts/100",false,) out => {}
+10-09 15:46:27.976  1083 39260 I C01731/resource_schedule_service/SUSPEND_MSG: [a92abc9bd3ee739 0 0]20020192_com.localminidrama.desktop_40035 died
+10-09 15:46:27.977 39856 40016 I A00000/com.localminidrama.desktop/chromium: [39856:1009/154627.977039:INFO:net/cert/internal/trust_store_ohos.cc:167] [CertManager] get certs from /data/certificates/user_cacerts/100, certs count: 0
+10-09 15:46:27.977 39856 39856 I A00000/com.localminidrama.desktop/[WebEngine]: tag: LogMethodCall --> CertManagerAdapter#getCertCrl("/system/etc/security/certificates/",false,) in 
+10-09 15:46:27.977  4833  4833 I A00F00/com.huawei.hmos.aidataservice/170005340: AppUsageAbility: process died, bundleName: com.localminidrama.desktop
+10-09 15:46:27.978   637   637 W C02C11/appspawn/APPSPAWN: [appspawn_service.c:144]com.localminidrama.desktop with pid 40035 exit with code:0
+10-09 15:46:27.978  2124  2124 I C02B01/camera_service/AppCameraPlugin: [nodict]App com.localminidrama.desktop support 2in1 device, do not create dynamic configure
+10-09 15:46:27.978 39856 39978 I C02B01/com.localminidrama.desktop/CAMERA: {1389} CameraManager::AddServiceProxyDeathRecipient remove last deathRecipient
+10-09 15:46:27.979   635 37448 I C02DA0/hiview/FaultLeakDetectorManager: NotifyProcessDied: NotifyProcessDied process:com.localminidrama.desktop:40035
+10-09 15:46:28.000 39856 39856 I A00000/com.localminidrama.desktop/[WebEngine]: tag: LogMethodCall --> CertManagerAdapter#getCertCrl("/system/etc/security/certificates/",false,) out => {}
+10-09 15:46:28.000 39856 40016 I A00000/com.localminidrama.desktop/chromium: [39856:1009/154628.000680:INFO:net/cert/internal/trust_store_ohos.cc:167] [CertManager] get certs from /system/etc/security/certificates/, certs count: 125
+10-09 15:46:28.005 39856 39856 I A00000/com.localminidrama.desktop/[WebEngine]: tag: LogMethodCall --> CertManagerAdapter#getCertCrl("/data/certificates/user_cacerts/0/",false,) in 
+10-09 15:46:28.005 39856 39856 I A00000/com.localminidrama.desktop/[WebEngine]: tag: LogMethodCall --> CertManagerAdapter#getCertCrl("/data/certificates/user_cacerts/0/",false,) out => {}
+10-09 15:46:28.005 39856 40016 I A00000/com.localminidrama.desktop/chromium: [39856:1009/154628.005337:INFO:net/cert/internal/trust_store_ohos.cc:167] [CertManager] get certs from /data/certificates/user_cacerts/0/, certs count: 0

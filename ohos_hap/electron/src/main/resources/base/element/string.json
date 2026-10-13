@@ -1,0 +1,56 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "本地短剧助手"
+    },
+    {
+      "name": "BrowserAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "BrowserAbility_label",
+      "value": "本地短剧助手 Browser"
+    },
+    {
+      "name": "button_ok",
+      "value": "ok"
+    },
+    {
+      "name": "button_cancel",
+      "value": "cancel"
+    },
+    {
+      "name": "StatusBarEntryAbility_desc",
+      "value": "Application status bar"
+    },
+    {
+      "name": "StatusBarEntryAbility_label",
+      "value": "Application status bar"
+    },
+    {
+      "name": "StatelessAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "StatelessAbility_label",
+      "value": "StatelessAbility"
+    },
+    {
+      "name": "OpenNewWindow_label",
+      "value": "Open New Window"
+    },
+    {
+      "name": "permission_reason",
+      "value": "本地短剧助手 needs this permission to preserve desktop Electron functionality on HarmonyOS PC."
+    }
+  ]
+}

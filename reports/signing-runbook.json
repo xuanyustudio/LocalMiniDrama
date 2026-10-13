@@ -1,0 +1,36 @@
+{
+  "status": "automatic-agc-signing-supported",
+  "generatedAt": "2026-09-28T12:40:30.893Z",
+  "workspace": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+  "hapProject": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap",
+  "appName": "本地短剧助手",
+  "bundleName": "com.localminidrama.desktop",
+  "manualSigningRequired": false,
+  "provisioningRequired": true,
+  "agcConfigExample": "references/agc-provisioning-config.example.json",
+  "signingConfigExample": "references/authorized-signing-config.example.json",
+  "signingSteps": [
+    "A platform administrator provisions one AGC Service Account credential outside the repository; project users do not open DevEco Studio.",
+    "Copy references/agc-provisioning-config.example.json outside the repository and point its credentialFileEnv to the protected credential path.",
+    "Rerun with --resume --agc-config <agc-provisioning.json>; the Agent reads the PC UDID, requests Huawei-authorized certificate/Profile material, signs, verifies, installs, and captures evidence automatically.",
+    "Existing authorized keystore/certificate/Profile material remains supported through --signing-config as a compatibility path.",
+    "Keep Service Account keys, API secrets, P12 passwords, and access tokens outside reports and source control."
+  ],
+  "commandLineAfterSigning": [
+    "node scripts/migrate-electron-ohos.mjs <source> --out '/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration' --resume --agc-config <agc-provisioning.json>",
+    "hdc list targets",
+    "hdc install <signed.hap>",
+    "hdc shell aa start -a EntryAbility -b 'com.localminidrama.desktop'",
+    "node scripts/ohos-tools.mjs install-and-capture <signed.hap> '.' --bundle 'com.localminidrama.desktop' --workspace '/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration'"
+  ],
+  "verificationInputs": [
+    "reports/verification-checklist.md",
+    "reports/native-plan.md",
+    "reports/signing-diagnosis.md",
+    "reports/device-handoff.md",
+    "reports/feature-evidence.md",
+    "evidence/evidence-index.json",
+    "reports/device-evidence-verification.json"
+  ],
+  "acceptanceRule": "Do not claim installation or feature parity until a signed HAP has been installed on device and reports/device-evidence-verification.json is passed."
+}

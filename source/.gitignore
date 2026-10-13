@@ -1,0 +1,27 @@
+参考前端/
+.trae
+backend-node/scripts
+backend-node/configs/ai-configs-stary.json
+backend-node/configs/ai-configs-qudao.json
+backend-node/configs/ai-configs-2026-03-12 (5).json
+data/drama_generator.db
+data/drama_generator.db-shm
+data/drama_generator.db-wal
+.opencode
+.cursor
+desktop/dist/win-unpacked
+server
+desktop/backend-app-secure/configs/ai-configs-qudao.json
+desktop/backend-app-secure/configs/ai-configs-外发.json
+desktop/backend-app-secure/configs/config.yaml
+.DS_Store
+backend-node/deploy-pack
+desktop/backend-app-secure
+desktop/release-icon-test
+desktop/release-icon-test-7
+desktop/backend-app-secure
+build
+frontweb-edu
+.superpowers
+build_edu
+node_modules

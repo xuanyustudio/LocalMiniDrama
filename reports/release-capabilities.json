@@ -1,0 +1,107 @@
+{
+  "status": "ready",
+  "generatedAt": "2026-09-28T11:38:11.250Z",
+  "tag": "v37.2.1",
+  "notePath": "/Users/Admin/.ohos-electron-hosts/release-notes/v37.2.1.md",
+  "hints": [
+    {
+      "id": "global-shortcut",
+      "apis": [
+        "globalShortcut.register"
+      ],
+      "effect": "version-supported",
+      "strategy": "Prefer direct Electron API and keep runtime verification."
+    },
+    {
+      "id": "deeplink-open-url",
+      "apis": [
+        "app#event:open-url",
+        "protocol"
+      ],
+      "effect": "version-supported",
+      "strategy": "Use direct API when project needs deep link/open-url behavior; add fallback documentation."
+    },
+    {
+      "id": "arkts-bridge",
+      "apis": [
+        "systemPreferences.callArkTSFunction"
+      ],
+      "effect": "bridge-available",
+      "strategy": "Use ArkTS bridge for platform-specific replacements when Electron API is unavailable."
+    },
+    {
+      "id": "screen-area",
+      "apis": [
+        "screen.getDisplayNearestPoint",
+        "screen.getPrimaryDisplay"
+      ],
+      "effect": "version-improved",
+      "strategy": "Keep screen APIs in verification checklist, especially multi-display behavior."
+    },
+    {
+      "id": "notifications",
+      "apis": [
+        "new Notification",
+        "notification.show"
+      ],
+      "effect": "version-improved",
+      "strategy": "Verify permission prompt and notification delivery on device."
+    },
+    {
+      "id": "hardware-codec",
+      "apis": [
+        "webContents",
+        "BrowserWindow"
+      ],
+      "effect": "runtime-improved",
+      "strategy": "Add media playback/image rendering smoke test when app uses media."
+    },
+    {
+      "id": "native-messaging",
+      "apis": [
+        "native module",
+        "NativeMessaging"
+      ],
+      "effect": "native-runtime-improved",
+      "strategy": "Do not skip native verification; check process and addon hilog."
+    },
+    {
+      "id": "background-app-limit",
+      "apis": [
+        "Tray",
+        "app"
+      ],
+      "effect": "platform-limitation",
+      "strategy": "Tray/background persistence must be degraded or explicitly documented."
+    },
+    {
+      "id": "clipboard",
+      "apis": [
+        "clipboard"
+      ],
+      "effect": "version-improved",
+      "strategy": "Verify read/write and permission prompts."
+    },
+    {
+      "id": "printing",
+      "apis": [
+        "webContents.print",
+        "webContents.printToPDF"
+      ],
+      "effect": "version-improved",
+      "strategy": "Add print/PDF focused probe when app uses it."
+    }
+  ],
+  "limitations": [
+    {
+      "id": "background-app-limit",
+      "apis": [
+        "Tray",
+        "app"
+      ],
+      "effect": "platform-limitation",
+      "strategy": "Tray/background persistence must be degraded or explicitly documented."
+    }
+  ],
+  "note": "Hints come from release-note keyword analysis. API support remains authoritative in upstream docs/api/index.md and scan-project.mjs."
+}

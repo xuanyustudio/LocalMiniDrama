@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "dryRun": false,
+  "generatedAt": "2026-10-09T10:11:38.001Z",
+  "workspace": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+  "appDir": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/web_engine/src/main/resources/resfile/resources/app",
+  "registry": "/Users/Admin/.config/deveco/skills/ohos-electron-migrate/references/adaptation-rules.json",
+  "registrySchemaVersion": 1,
+  "typescriptCompiler": "/Applications/DevEco-Studio.app/Contents/tools/hvigor/hvigor/node_modules/typescript",
+  "summary": {
+    "scannedFiles": 109,
+    "changedFiles": 0,
+    "edits": 0,
+    "skippedFiles": 0
+  },
+  "ruleCounts": {},
+  "changedFiles": [],
+  "rollbackFiles": [],
+  "skippedFiles": [],
+  "rollback": "node scripts/apply-adaptations.mjs \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration\" --rollback --json \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/adaptation-report.json\""
+}

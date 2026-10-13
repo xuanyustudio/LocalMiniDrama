@@ -1,0 +1,20 @@
+{
+  "status": "configured",
+  "generatedAt": "2026-10-09T10:11:38.090Z",
+  "profile": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/build-profile.json5",
+  "selected": {
+    "status": "ready",
+    "api": 26,
+    "compileSdkVersion": null,
+    "sdkRoot": "/Applications/DevEco-Studio.app/Contents/sdk",
+    "sdkVersion": "26.0.0.38",
+    "hvigorPath": "/Applications/DevEco-Studio.app/Contents/tools/hvigor/bin/hvigorw",
+    "hvigorVersion": "6.26.1",
+    "bundleMatched": true,
+    "javaHome": "/Applications/DevEco-Studio.app/Contents/jbr/Contents/Home"
+  },
+  "compileSdkVersion": null,
+  "changed": false,
+  "removedInheritedSigningConfig": true,
+  "note": "Bundled DevEco toolchain: compileSdkVersion intentionally unset; hvigor uses the SDK shipped with DevEco Studio. compatibleSdkVersion is left as provided by the host template."
+}

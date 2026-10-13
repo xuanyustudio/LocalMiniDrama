@@ -1,0 +1,103 @@
+# capturedAt=20260928-204819
+# target=3BT0124910000126
+# matchingLines=100
+09-28 20:48:16.094 63622 63622 E C01400/codex.migrated.electronapp:GPU/OpenGLWrapper: EglWrapperLayer Init Failed.
+09-28 20:48:16.099 63622 63622 I A0140A/codex.migrated.electronapp:GPU/iGraphicsCore: IGraphicsCoreGameOptPrepare(478): [0020080c] pn: com.codex.migrated.electronapp:GPU, p: 63622
+09-28 20:48:16.102 63622 63622 W C057C1/codex.migrated.electronapp:GPU/BrokerRegistration: Unregister: libgame_acc_sched_client.z.so is dlclosed
+09-28 20:48:16.103  1848  1848 I C01406/render_service/RSUniRenderVisitor: [comm]OcclusionInfo [pointer window, 4007204487172, 0], [SCBGestureBack18, 19585050869864, 0], [SCBFormCenter16, 19585050869847, 0], [SCBCompanionView7, 19585050869816, 0], [SCBSmartDock6, 19585050869811, 0], [electronapp0, 270720378601473, 0], [appgallery3, 45492293662801, 1], [SCBDesktop4, 19585050869778, 1], [SCBWallpaper3, 19585050869769, 1], 
+09-28 20:48:16.106 63622 63622 I A0140A/codex.migrated.electronapp:GPU/iGraphicsCore: IGraphicsCoreGameOptPrepare(495): [0030080c] no spt app: com.codex.migrated.electronapp:GPU
+09-28 20:48:16.106 63622 63622 E C01400/codex.migrated.electronapp:GPU/OpenGLWrapper: EglWrapperHookLayer init Failed!
+09-28 20:48:16.107 63622 63622 E C01400/codex.migrated.electronapp:GPU/OpenGLWrapper: invalid display pointer.
+09-28 20:48:16.107 63622 63622 E C01400/codex.migrated.electronapp:GPU/OpenGLWrapper: EGLDislay is invalid.
+09-28 20:48:16.107 63622 63622 W C01400/codex.migrated.electronapp:GPU/OpenGLWrapper: ThreadPrivateDataCtl::SetError error = 12296.
+09-28 20:48:16.108 63622 63622 I C0470A/codex.migrated.electronapp:GPU/GameServicePerf: [(GameServicePlugin:13)]Load GameServicePlugin
+09-28 20:48:16.108 63622 63622 I C0470A/codex.migrated.electronapp:GPU/GameNearby: [(CreateReportThread:99)]GameService-graphics: begin create thread
+09-28 20:48:16.108 63622 63622 I C01409/codex.migrated.electronapp:GPU/APS_MANAGER: LoadApsPlugin
+09-28 20:48:16.108 63622 63622 W C01409/codex.migrated.electronapp:GPU/APS_MANAGER: redo Connect
+09-28 20:48:16.108 63622 63622 I C01409/codex.migrated.electronapp:GPU/APS_MANAGER: Start to ConnectService
+09-28 20:48:16.108 63622 63622 I C01409/codex.migrated.electronapp:GPU/APS_MANAGER: GetSystemAbilityManager success
+09-28 20:48:16.108 63622 63622 I C01409/codex.migrated.electronapp:GPU/APS_MANAGER: GetSystemAbility success
+09-28 20:48:16.109 63622 63622 I C01409/codex.migrated.electronapp:GPU/APS_MANAGER: ApsCallbackClient add callback success!
+09-28 20:48:16.109 63622 63622 E C057C2/codex.migrated.electronapp:GPU/IPCObjectProxy: PrintErrorDetailedInfo: failed, handle:5 error:29201 desc:(subErr:4 SubErrDesc:outer:operation not permitted) *.IApsManager proxy:3851987584 time:381561559080620
+09-28 20:48:16.109 63622 63622 E C01409/codex.migrated.electronapp:GPU/APS_MANAGER: [ApsManagerProxy::RegCommonCallback] SendRequest is failed, error code: <private>
+09-28 20:48:16.109 63622 63622 I C01409/codex.migrated.electronapp:GPU/APS_MANAGER: RemoveCallbackFunc remove callback success!
+09-28 20:48:16.109 63622 63622 W C01409/codex.migrated.electronapp:GPU/APS_MANAGER: RegCommonCallbackInner Register callback failed, delete callback
+09-28 20:48:16.109 63622 63622 W C01409/codex.migrated.electronapp:GPU/APS_MANAGER: [ApsManagerProxy::RegisterGameFpsListener] Send Request faild code = 29201
+09-28 20:48:16.109 63622 63622 E C01409/codex.migrated.electronapp:GPU/APS_MANAGER: ApsGameFpsController::RegisterGameFpsListener delete callback
+09-28 20:48:16.130 63622 63622 W C03F07/MUSL-LDSO: dlopen_impl load library header failed for libvulkan.so.1 caller namespace : moduleNs_default
+09-28 20:48:16.130 63622 63622 W C03F07/MUSL-LDSO: dlopen_impl load library header failed for libvulkan_radeon.so caller namespace : moduleNs_default
+09-28 20:48:16.130 63622 63622 W C03F07/MUSL-LDSO: dlopen_impl load library header failed for libvulkan_intel.so caller namespace : moduleNs_default
+09-28 20:48:16.130 63622 63622 W C03F07/MUSL-LDSO: dlopen_impl load library header failed for libGLX_nvidia.so.0 caller namespace : moduleNs_default
+09-28 20:48:16.130 63622 63622 W C03F07/MUSL-LDSO: dlopen_impl load library header failed for libvulkan_freedreno.so caller namespace : moduleNs_default
+09-28 20:48:16.130 63622 63622 W C03F07/MUSL-LDSO: dlopen_impl load library header failed for /vendor/lib64/chipsetsdk/libmali.so.0 caller namespace : moduleNs_default
+09-28 20:48:16.130 63622 63622 W C03F07/MUSL-LDSO: dlopen_impl load library header failed for libglapi.so.0 caller namespace : moduleNs_default
+09-28 20:48:16.144 63032 63032 I A00000/com.codex.migrated.electronapp/[WebEngine]: tag: LogMethodCall --> DialogAdapter#showErrorBox("本地短剧助手启动失败","后端服务未能启动，请查看日志：\n/data/storage/el2/base/files/localminidrama-desktop/main-startup.log\n\nError: No such binding: sqlite\n    at internalBinding (node:internal/bootstrap/realm:188:34)\n    at node:sqlite:6:17\n    at BuiltinModule.compileForInternalLoader (node:internal/bootstrap/realm:399:7)\n    at BuiltinModule.compileForPublicLoader (node:internal/bootstrap/realm:338:10)\n    at loadBuiltinModule (node:internal/modules/helpers:109:7)\n    at loadBuiltinWithHooks (node:internal/modules/cjs/loader:1180:15)\n    at Module._load (node:internal/modules/cjs/loader:1223:20)\n    at c._load (node:electron/js2c/node_init:2:18013)\n    at TracingChannel.traceSync (node:diagnostics_channel:322:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:242:24)",) in 
+09-28 20:48:16.144 63032 63032 I A00000/com.codex.migrated.electronapp/[WebEngine]: tag: LogMethodCall --> DialogAdapter#showErrorBox("本地短剧助手启动失败","后端服务未能启动，请查看日志：\n/data/storage/el2/base/files/localminidrama-desktop/main-startup.log\n\nError: No such binding: sqlite\n    at internalBinding (node:internal/bootstrap/realm:188:34)\n    at node:sqlite:6:17\n    at BuiltinModule.compileForInternalLoader (node:internal/bootstrap/realm:399:7)\n    at BuiltinModule.compileForPublicLoader (node:internal/bootstrap/realm:338:10)\n    at loadBuiltinModule (node:internal/modules/helpers:109:7)\n    at loadBuiltinWithHooks (node:internal/modules/cjs/loader:1180:15)\n    at Module._load (node:internal/modules/cjs/loader:1223:20)\n    at c._load (node:electron/js2c/node_init:2:18013)\n    at TracingChannel.traceSync (node:diagnostics_channel:322:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:242:24)",) out => undefined
+09-28 20:48:16.144 63032 63032 I C03922/com.codex.migrated.electronapp/AceNavigation: [(100000:100000:scope)] AvoidInfoManager register listener
+09-28 20:48:16.144 63032 63032 W C03952/com.codex.migrated.electronapp/AceAppBar: [(100000:100000:scope)] Get rect of buttons row failed, buttonRow are hidden
+09-28 20:48:16.144 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style 125829872 not contains dialog_pattern!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains shadow_dialog!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains alert_title_primary_height!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains alert_title_secondary_height!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains alert_title_padding_top!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains alert_title_padding_bottom!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains button_bottom_top_margin!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains title_padding_horizontal!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains title_text_font_weight!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains dialog_button_border_radius!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains dialog_content_top_padding!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains alert_button_bottom_padding_vertical!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern not contains alert_button_horizontal_space!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern get attr dialog_padding_actions_left error!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern get attr dialog_padding_actions_right error!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style dialog_pattern get attr dialog_padding_actions_bottom error!
+09-28 20:48:16.145 63032 63032 I C0390F/com.codex.migrated.electronapp/AceDialog: [(100000:100000:scope)] dialog GetContext fontScale : 1.000000
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style 125829872 not contains scrollable_pattern!
+09-28 20:48:16.145 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style scrollable_pattern not contains scroll_able_default_scrolling_distance!
+09-28 20:48:16.146 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style 125829872 not contains scroll_bar_pattern!
+09-28 20:48:16.146 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style scroll_bar_pattern get attr scroll_bar_interactive error!
+09-28 20:48:16.146 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style scroll_bar_pattern not contains arc_scroll_bar_normal_background_width!
+09-28 20:48:16.149 63032 63032 W C03955/com.codex.migrated.electronapp/AceVisualEffect: [(100000:100000:scope)] SettingDataManager::not found, key: immersive_transparency_level, userId: 100
+09-28 20:48:16.149 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style text_pattern not contains linear_split_child_min_size!
+09-28 20:48:16.149 63032 63032 W C03926/com.codex.migrated.electronapp/AceTheme: [(100000:100000:scope)] style text_pattern not contains menu_celia_ask_is_support!
+09-28 20:48:16.149 63032 63032 I C0390F/com.codex.migrated.electronapp/AceDialog: [(100000:100000:scope)] The current state of the dialog is APPEARING.
+09-28 20:48:16.149 63032 63032 I C0390D/com.codex.migrated.electronapp/AceOverlay: [(100000:100000:scope)] AlertDialog node mount to root node
+09-28 20:48:16.149 63032 63032 I C03900/com.codex.migrated.electronapp/Ace: [(100000:100000:scope)] Put node level order. nodeId: 41, levelOrder: 0.000000
+09-28 20:48:16.150 63032 63032 E C02C03/com.codex.migrated.electronapp/PARAM_WATCHER: [nodict]Read result failed, code is: 1.
+09-28 20:48:16.150 63032 63032 I C03952/com.codex.migrated.electronapp/AceAppBar: [(100000:100000:scope)] SetCloseButtonStatus isEnabled: 0
+09-28 20:48:16.150 63032 63538 I C01651/com.codex.migrated.electronapp/general_controller_service_impl: RegisterObserver: Register silent observer ret: 0, uri: ******ency_level
+09-28 20:48:16.150 63032 63538 W C03955/com.codex.migrated.electronapp/AceVisualEffect: [(100000:100000:scope)] SettingDataManager::register observer key: immersive_transparency_level, userId: 100
+09-28 20:48:16.172 63032 63032 I C04217/com.codex.migrated.electronapp/WMSAttribute: IsWaterfallModeEnabled: waterfall: 0, winId: 427
+09-28 20:48:16.172 63032 63032 I C0390F/com.codex.migrated.electronapp/AceDialog: [(100000:100000:scope)] safeAreaInsets: SafeAreaInsets left_: [start: 0, end: 0], top_: [start: 0, end: 0], right_: [start: 0, end: 0], bottom_: [start: 0, end: 0]
+09-28 20:48:16.173 63032 63032 I C01408/com.codex.migrated.electronapp/Text: InitTextBundleConfig: Adapter text height enabled 0
+09-28 20:48:16.173 63032 63032 I C01408/com.codex.migrated.electronapp/Text: InitTextBundleConfig: Disable spacing for control char 0
+09-28 20:48:16.173 63032 63032 E C02D34/com.codex.migrated.electronapp/HistogramClient: [nodict]ArkGraphics2d.Text.OH_Drawing_TextStyleAddFontVariation is not in metadata.
+09-28 20:48:16.178 63032 63032 I C0390F/com.codex.migrated.electronapp/AceDialog: [(100000:100000:scope)] dialog avoid screen, wrapperOffset_: Offset (515.00, 281.00), realTopLeftPoint: Offset (1180.00, 424.80), topLeftPoint: Offset (665.00, 143.80), stackRootDialogOffsetY_: 0.000000
+09-28 20:48:16.324 63032 63032 I C0391C/com.codex.migrated.electronapp/AceFocus: [(100000:100000:scope)] view: AlertDialog/41 show
+09-28 20:48:16.324 63032 63032 I C0391C/com.codex.migrated.electronapp/AceFocus: [(100000:100000:scope)] View: page/23 lost focus
+09-28 20:48:16.324 63032 63032 I C0391C/com.codex.migrated.electronapp/AceFocus: [(100000:100000:scope)] Scope(Row/26) has no last focusNode.
+09-28 20:48:16.324 63032 63032 I C0390F/com.codex.migrated.electronapp/AceDialog: [(100000:100000:scope)] The current state of the dialog is APPEARED.
+09-28 20:48:16.339 63032 63032 I C0391C/com.codex.migrated.electronapp/AceFocus: [(100000:100000:scope)] Request focus on focusView: AlertDialog/41.
+09-28 20:48:16.339 63032 63032 I C0391C/com.codex.migrated.electronapp/AceFocus: [(100000:100000:scope)] FocusSwitch end, Row/secure_field onBlur, Text/secure_field onFocus, start: 2, end: 1, update: 2
+09-28 20:48:16.339 63032 63032 I C03933/com.codex.migrated.electronapp/AceKeyboard: [(100000:100000:scope)] focus:Text/52
+09-28 20:48:16.339 63032 63032 I C03933/com.codex.migrated.electronapp/AceKeyboard: [(100000:100000:scope)] Text/52 notNeedKB
+09-28 20:48:16.339 63032 63032 I C0391C/com.codex.migrated.electronapp/AceFocus: [(100000:100000:scope)] view: AlertDialog/41 first show, node: Button
+09-28 20:48:16.488   634 60069 I C02D15/hiview/XPower: [task_58]#Focus Window: package = com.codex.migrated.electronapp
+09-28 20:48:16.493   634 60069 I C02DA0/hiview/FaultLeakDetectorManager: OnForegroundChanged: 1:com.codex.migrated.electronapp
+09-28 20:48:16.493   634 60069 I C02DA0/hiview/FaultLeakDetectorManager: OnForegroundChanged: 3:com.codex.migrated.electronapp
+09-28 20:48:16.494   634 54613 I C02D15/hiview/XPower: [task_102]#ThermalHandler, newApp: com.codex.migrated.electronapp, lastApp: screenOff, screenState: 1
+09-28 20:48:16.651 63032 63360 I C0420C/com.codex.migrated.electronapp/WMSEvent: SendContainerModalEvent: in
+09-28 20:48:16.651 63032 63032 I C0420C/com.codex.migrated.electronapp/WMSEvent: name: win_change_split_button, value: win_split_button_left_right
+09-28 20:48:16.742 63032 63032 I C01356/com.codex.migrated.electronapp/Recovery: [app_recovery.cpp497]fileDir: /data/storage/el2/base/files
+09-28 20:48:16.776  1951  1951 I C0140D/display_engine_service/DE N: [a92ab2620fbd2b9 0 0]D NotifySceneMsg<221>: window info: [{"oh":["-1","com.codex.migrated.electronapp"]},{"oh":["703","com.huawei.hmsapp.appgallery"]},{"oh":["-1","com.ohos.sceneboard"]}] size: 3
+09-28 20:48:17.681 63032 63369 I C03F00/com.codex.migrated.electronapp/ArkCompiler: [gc] SmartGC: app cold start just finished
+09-28 20:48:18.111 63622 63628 E C0470A/codex.migrated.electronapp:GPU/GameServicePerf: [nodict]Read result failed, code is: 7.
+09-28 20:48:18.112 63622 63628 E C0470A/codex.migrated.electronapp:GPU/GameNearby: [(HandleBufferData:68)]GameService-graphics: game opt disable
+09-28 20:48:18.673  4657 62700 I C0470A/gameservice_server/GameServicePerf: [(operator():131)][APP_TYPE_MG]query AG time out, query from cloud bundleName=com.codex.migrated.electronapp
+09-28 20:48:18.674  4657 62700 E C0470A/gameservice_server/GameServicePerf: [(QuerySingleAppType:28)][http]QuerySingleAppType fail, bundleName[com.codex.migrated.electronapp],ret[-1]
+09-28 20:48:18.674  4657 62700 W C0470A/gameservice_server/GameServicePerf: [(operator():137)][APP_TYPE_MG]query cloud failed, bundleName[com.codex.migrated.electronapp], ret[-1]
+09-28 20:48:19.039  1076  1355 I C01713/resource_schedule_service/SUSPEND_MANAGER: [a92ab262100954d 0 0]CheckForegroundStatus 20020177_com.codex.migrated.electronapp app state:2
+09-28 20:48:19.040  1076  1355 I C01713/resource_schedule_service/SUSPEND_MANAGER: [a92ab262100954d 0 0]Doze has special:ERR_IN_STATE_FOREGROUND, 20020177_com.codex.migrated.electronapp_[63032,63622]_0[], AUTO_DOZE_AFTER_BG_REASON_THAW
+09-28 20:48:19.733 63664 63664 W C02C02/PARAM: Selinux check name musl.ld.debug.dlopen in u:object_r:musl_param:s0 [63664 2000 2000] failed
+09-28 20:48:19.733 63664 63664 E C02C02/PARAM: Forbid to read parameter musl.ld.debug.dlopen
+09-28 20:48:19.733 63664 63664 E C02C02/PARAM: Forbid to access parameter musl.ld.debug.dlopen

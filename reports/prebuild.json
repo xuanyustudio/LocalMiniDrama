@@ -1,0 +1,21 @@
+{
+  "root": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+  "app": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+  "migrationMode": "source-with-prebuild",
+  "status": "ready",
+  "skippedReason": null,
+  "packageManager": "npm",
+  "commands": [
+    "npm run build:front"
+  ],
+  "command": [
+    "npm",
+    "run",
+    "build:front"
+  ],
+  "exitCode": 0,
+  "firstError": null,
+  "stdoutTail": "\n> localminidrama-desktop@1.2.8 build:front\n> cd ../frontweb && npm run build\n\n\n> LocalMiniDrama-film@1.2.8 build\n> vite build\n\nvite v5.4.21 building for production...\ntransforming...\n✓ 1626 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                                 0.47 kB │ gzip:   0.35 kB\ndist/assets/AiConfig-CF4vjC_6.css               2.22 kB │ gzip:   0.78 kB\ndist/assets/MediaLibrary-DWCYpR_M.css           2.97 kB │ gzip:   0.97 kB\ndist/assets/StylePickerButton-CfzMIWMF.css      3.30 kB │ gzip:   0.99 kB\ndist/assets/FreeCreate-CdheXdW4.css             3.50 kB │ gzip:   1.07 kB\ndist/assets/AIConfigContent-B4bo2QnU.css       12.13 kB │ gzip:   2.86 kB\ndist/assets/FilmList-DKgAOf4j.css              13.85 kB │ gzip:   3.08 kB\ndist/assets/DramaDetail-ZAZGfG8M.css           14.34 kB │ gzip:   3.30 kB\ndist/assets/DramaCanvas-ADESy9q2.css           29.56 kB │ gzip:   5.79 kB\ndist/assets/FilmCreate-B8J0FLIU.css            60.16 kB │ gzip:  10.81 kB\ndist/assets/index-BJlFBPPw.css                361.08 kB │ gzip:  49.21 kB\ndist/assets/videos-GpxvuT5m.js                  0.21 kB │ gzip:   0.17 kB\ndist/assets/images-3wGXdvx4.js                  0.24 kB │ gzip:   0.17 kB\ndist/assets/task-DUBoz1wx.js                    0.26 kB │ gzip:   0.21 kB\ndist/assets/prompts-BlwdbQVZ.js                 0.33 kB │ gzip:   0.20 kB\ndist/assets/upload-BheogAQA.js                  0.43 kB │ gzip:   0.31 kB\ndist/assets/AiConfig-PnfZtjn3.js                0.90 kB │ gzip:   0.58 kB\ndist/assets/drama-CFwkm0Xv.js                   1.48 kB │ gzip:   0.62 kB\ndist/assets/storyboards-CNq0dFe-.js             3.01 kB │ gzip:   1.24 kB\ndist/assets/props-BPjR9Lpj.js                   3.05 kB │ gzip:   0.74 kB\ndist/assets/StylePickerButton-D4Li17qc.js       5.24 kB │ gzip:   2.30 kB\ndist/assets/MediaLibrary-LjdDZbva.js            6.70 kB │ gzip:   3.03 kB\ndist/assets/FreeCreate-f-B2PqLp.js              8.53 kB │ gzip:   3.53 kB\ndist/assets/styleOptions-BhWSyTvH.js           18.09 kB │ gzip:  10.06 kB\ndist/assets/FilmList-D9B1RRDa.js               31.00 kB │ gzip:   8.88 kB\ndist/assets/request-BTQ9KjNv.js                37.62 kB │ gzip:  15.07 kB\ndist/assets/DramaDetail-CmH7p21J.js            52.22 kB │ gzip:  13.30 kB\ndist/assets/AIConfigContent-Dgy6SW2S.js       106.06 kB │ gzip:  32.19 kB\ndist/assets/FilmCreate-CGa7Q4TH.js            274.67 kB │ gzip:  80.53 kB\ndist/assets/DramaCanvas-DV5Qnoyb.js           315.47 kB │ gzip:  99.54 kB\ndist/assets/index-CanHRsHq.js               1,165.31 kB │ gzip: 375.66 kB\n✓ built in 6.69s\n",
+  "stderrTail": "npm warn Unknown project config \"better_sqlite3_binary_host_mirror\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"better-sqlite3-binary-host-mirror\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n",
+  "error": null
+}

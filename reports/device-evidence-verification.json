@@ -1,0 +1,180 @@
+{
+  "status": "passed",
+  "generatedAt": "2026-10-09T10:12:52.457Z",
+  "workspace": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+  "evidenceDir": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/evidence",
+  "verificationCases": 26,
+  "featureEvidence": {
+    "totalCases": 26,
+    "recorded": 26,
+    "acceptable": 26,
+    "failedOrBlocked": 0,
+    "coverage": 1,
+    "complete": true,
+    "acceptedCasesMissingArtifact": []
+  },
+  "checks": [
+    {
+      "id": "device-run-summary",
+      "ok": true,
+      "evidence": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/device-run-summary.json",
+      "next": "Run node scripts/ohos-tools.mjs install-and-capture after automatic signing."
+    },
+    {
+      "id": "device-run-complete",
+      "ok": true,
+      "evidence": "launched-and-evidence-captured",
+      "next": "Do not accept evidence from a failed or partial device run."
+    },
+    {
+      "id": "online-target-recorded",
+      "ok": true,
+      "evidence": "3BT0124910000126",
+      "next": "Use an online hdc target selected by install-and-capture."
+    },
+    {
+      "id": "signed-hap-recorded",
+      "ok": true,
+      "evidence": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap",
+      "next": "Pass the signed HAP path to install-and-capture."
+    },
+    {
+      "id": "signed-hap-exists",
+      "ok": true,
+      "evidence": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap",
+      "next": "Keep the signed HAP available until acceptance is complete."
+    },
+    {
+      "id": "bundle-recorded",
+      "ok": true,
+      "evidence": "com.localminidrama.desktop",
+      "next": "Use migration-metadata.json bundleName with --bundle."
+    },
+    {
+      "id": "install-command-passed",
+      "ok": true,
+      "evidence": 0,
+      "next": "Resolve the hdc install failure before collecting evidence."
+    },
+    {
+      "id": "bundle-manager-confirmed-install",
+      "ok": true,
+      "evidence": true,
+      "next": "Require bm dump to return the expected bundle after installation."
+    },
+    {
+      "id": "launch-command-passed",
+      "ok": true,
+      "evidence": 0,
+      "next": "Resolve the Ability Manager launch failure before collecting evidence."
+    },
+    {
+      "id": "application-process-alive",
+      "ok": true,
+      "evidence": true,
+      "next": "Require the target bundle process to remain alive through the observation window."
+    },
+    {
+      "id": "evidence-index",
+      "ok": true,
+      "evidence": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/evidence/evidence-index.json",
+      "next": "Run node scripts/ohos-tools.mjs capture-evidence or install-and-capture."
+    },
+    {
+      "id": "screenshot-captured",
+      "ok": true,
+      "evidence": "ev-20261009-181242.jpeg",
+      "next": "Capture at least one screenshot after app launch."
+    },
+    {
+      "id": "window-present",
+      "ok": true,
+      "evidence": "true",
+      "next": "Run node scripts/ohos-tools.mjs install-and-capture; it records window presence from the device window dump."
+    },
+    {
+      "id": "screenshot-analysed",
+      "ok": true,
+      "evidence": "true",
+      "next": "Two PNG frames at least 3s apart must decode; a non-decodable capture cannot prove a usable window."
+    },
+    {
+      "id": "screenshot-not-blank",
+      "ok": true,
+      "evidence": "false",
+      "next": "Blank/white/black frames mean the app rendered nothing; fix the app before claiming delivery."
+    },
+    {
+      "id": "parity-report-present",
+      "ok": true,
+      "evidence": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/parity-report.json",
+      "next": "Run node scripts/compute-parity.mjs --plan reports/verification-plan.json --evidence reports/feature-evidence.json."
+    },
+    {
+      "id": "parity-verdict-passed",
+      "ok": true,
+      "evidence": "passed",
+      "next": "Fix the failing hard constraints (C1-C6) listed in reports/parity-report.md."
+    },
+    {
+      "id": "parity-core-cases-passed",
+      "ok": true,
+      "evidence": "all 4 core cases passed",
+      "next": "Every core case (install/launch, main window renders, main task steps) must pass."
+    },
+    {
+      "id": "parity-score-meets-target",
+      "ok": true,
+      "evidence": "F=0.85 target=0.8",
+      "next": "Record real device evidence for every case; degraded cases score half."
+    },
+    {
+      "id": "parity-no-not-applicable-abuse",
+      "ok": true,
+      "evidence": "not-applicable weighted share 8.3% (limit 15%)",
+      "next": "not-applicable cannot exceed 15% of the weighted denominator."
+    },
+    {
+      "id": "hilog-captured",
+      "ok": true,
+      "evidence": "hilog-20261009-181242.log",
+      "next": "Capture hilog filtered by app/electron/dlopen."
+    },
+    {
+      "id": "no-obvious-native-loader-error",
+      "ok": true,
+      "evidence": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/evidence/hilog-20261009-181242.log",
+      "next": "If this fails, inspect native-build-audit and rebuild affected addon."
+    },
+    {
+      "id": "verification-plan-present",
+      "ok": true,
+      "evidence": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/verification-plan.json",
+      "next": "Generate reports/verification-plan.json during migration."
+    },
+    {
+      "id": "feature-evidence-report",
+      "ok": true,
+      "evidence": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/feature-evidence.json",
+      "next": "Run node scripts/record-feature-evidence.mjs --workspace <workspace> --init, then record each checklist case after operating the app."
+    },
+    {
+      "id": "feature-evidence-all-cases-recorded",
+      "ok": true,
+      "evidence": "26/26",
+      "next": "Record evidence for every reports/verification-plan.json case; degraded/not-applicable is allowed only with a note."
+    },
+    {
+      "id": "feature-evidence-no-failed-or-blocked",
+      "ok": true,
+      "evidence": "0 failed/blocked",
+      "next": "Resolve failed/blocking cases or document them as accepted degraded/not-applicable before claiming parity."
+    },
+    {
+      "id": "feature-evidence-artifacts-present",
+      "ok": true,
+      "evidence": "0 accepted cases lack screenshot/hilog files",
+      "next": "Every accepted feature case must point to a non-empty screenshot or hilog artifact."
+    }
+  ]
+}

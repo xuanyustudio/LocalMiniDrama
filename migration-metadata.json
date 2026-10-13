@@ -1,0 +1,675 @@
+{
+  "invocation": {
+    "originalArgs": [
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama",
+      "--app",
+      "desktop",
+      "--out",
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+      "--resume",
+      "--bundle-name",
+      "com.localminidrama.desktop",
+      "--signing-config",
+      "/Users/Admin/.ohos/config/localminidrama-authorized-signing.json"
+    ],
+    "effectiveArgs": [
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama",
+      "--app",
+      "desktop",
+      "--out",
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+      "--resume",
+      "--bundle-name",
+      "com.localminidrama.desktop",
+      "--signing-config",
+      "/Users/Admin/.ohos/config/localminidrama-authorized-signing.json"
+    ],
+    "naturalLanguageRequest": null,
+    "parsedCommand": null,
+    "hostOS": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "node": "v24.14.1"
+    }
+  },
+  "appName": "本地短剧助手",
+  "sourceApp": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+  "workspace": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+  "hostDir": "/Users/Admin/.ohos-electron-hosts/hosts/v37.2.1",
+  "bundleName": "com.localminidrama.desktop",
+  "permissions": [],
+  "sourceAcquisition": {
+    "source": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama",
+    "sourceType": "local-copy",
+    "provider": "local",
+    "checkoutPath": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+    "branch": null,
+    "tag": null,
+    "requestedCommit": null,
+    "resolvedCommit": null,
+    "archiveSha256": null,
+    "archiveUrl": null,
+    "cloneUrl": null,
+    "acquisitionMethod": null,
+    "pageHints": null,
+    "status": "ready",
+    "warnings": [],
+    "commandLog": [
+      {
+        "command": "rsync -a --exclude .git /Users/Admin/Desktop/eng/tmp/LocalMiniDrama/ /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/",
+        "cwd": "/Users/Admin/.config/deveco/skills/ohos-electron-migrate",
+        "status": 0,
+        "error": null,
+        "stdout": "",
+        "stderr": ""
+      }
+    ]
+  },
+  "electronDetection": {
+    "status": "electron",
+    "isElectron": true,
+    "root": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+    "selected": {
+      "path": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+      "relativePath": "desktop",
+      "packageName": "localminidrama-desktop",
+      "productName": "本地短剧助手",
+      "main": "main.js",
+      "score": 205,
+      "confidence": "high",
+      "reasons": [
+        "dependency electron=^28.0.0",
+        "uses electron-builder",
+        "electron-builder config in package.json",
+        "npm script invokes electron",
+        "npm script packages Electron app",
+        "source imports electron module",
+        "source contains Electron runtime APIs",
+        "name/path hints Electron desktop app"
+      ],
+      "packageManager": "npm",
+      "packageManagerRoot": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop"
+    },
+    "candidates": [
+      {
+        "path": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+        "relativePath": "desktop",
+        "packageName": "localminidrama-desktop",
+        "productName": "本地短剧助手",
+        "main": "main.js",
+        "score": 205,
+        "confidence": "high",
+        "reasons": [
+          "dependency electron=^28.0.0",
+          "uses electron-builder",
+          "electron-builder config in package.json",
+          "npm script invokes electron",
+          "npm script packages Electron app",
+          "source imports electron module",
+          "source contains Electron runtime APIs",
+          "name/path hints Electron desktop app"
+        ],
+        "packageManager": "npm",
+        "packageManagerRoot": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop"
+      }
+    ],
+    "summary": {
+      "packageJsonFiles": 3,
+      "electronCandidates": 1,
+      "confidence": "high"
+    },
+    "error": null,
+    "next": "Proceed with migration using the preferred Electron app root."
+  },
+  "appResolution": {
+    "root": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+    "status": "ready",
+    "selected": {
+      "path": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+      "relativePath": "desktop",
+      "packageName": "localminidrama-desktop",
+      "productName": "本地短剧助手",
+      "main": "main.js",
+      "score": 205,
+      "confidence": "high",
+      "reasons": [
+        "dependency electron=^28.0.0",
+        "uses electron-builder",
+        "electron-builder config in package.json",
+        "npm script invokes electron",
+        "npm script packages Electron app",
+        "source imports electron module",
+        "source contains Electron runtime APIs",
+        "name/path hints Electron desktop app"
+      ],
+      "packageManager": "npm",
+      "packageManagerRoot": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop"
+    },
+    "candidates": [
+      {
+        "path": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+        "relativePath": "desktop",
+        "packageName": "localminidrama-desktop",
+        "productName": "本地短剧助手",
+        "main": "main.js",
+        "score": 205,
+        "confidence": "high",
+        "reasons": [
+          "dependency electron=^28.0.0",
+          "uses electron-builder",
+          "electron-builder config in package.json",
+          "npm script invokes electron",
+          "npm script packages Electron app",
+          "source imports electron module",
+          "source contains Electron runtime APIs",
+          "name/path hints Electron desktop app"
+        ],
+        "packageManager": "npm",
+        "packageManagerRoot": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop"
+      }
+    ],
+    "detector": "detect-electron-source.mjs"
+  },
+  "sourceAudit": {
+    "root": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+    "app": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+    "packageCount": 3,
+    "nativeModules": [
+      "better-sqlite3",
+      "sharp"
+    ],
+    "postinstallScripts": [
+      "desktop/package.json: postinstall=node scripts/copy-backend.js && electron-builder install-app-deps"
+    ],
+    "platformScripts": [
+      "desktop/package.json: dist=npm run prepare-backend && npm run build:front && npm run copy-front && npm run clean:unpacked && electron-builder --win",
+      "desktop/package.json: dist:mac=bash dist-mac.sh"
+    ],
+    "gitLfsPointers": [],
+    "packageManagerConfigFiles": [
+      ".npmrc"
+    ],
+    "risks": [
+      {
+        "severity": "info",
+        "type": "private-package",
+        "message": "package.json private=true found.",
+        "items": [
+          "frontweb/package.json"
+        ]
+      },
+      {
+        "severity": "high",
+        "type": "native-module",
+        "message": "Native modules need OHOS arm64 rebuild.",
+        "items": [
+          "better-sqlite3",
+          "sharp"
+        ]
+      },
+      {
+        "severity": "medium",
+        "type": "install-script",
+        "message": "Install lifecycle scripts may run during dependency install.",
+        "items": [
+          "desktop/package.json: postinstall=node scripts/copy-backend.js && electron-builder install-app-deps"
+        ]
+      },
+      {
+        "severity": "medium",
+        "type": "platform-script",
+        "message": "Platform-specific scripts may need HarmonyOS branches.",
+        "items": [
+          "desktop/package.json: dist=npm run prepare-backend && npm run build:front && npm run copy-front && npm run clean:unpacked && electron-builder --win",
+          "desktop/package.json: dist:mac=bash dist-mac.sh"
+        ]
+      },
+      {
+        "severity": "info",
+        "type": "registry-config",
+        "message": "Package manager registry config found; private registry/auth may be needed.",
+        "items": [
+          ".npmrc"
+        ]
+      }
+    ],
+    "status": "risk-review"
+  },
+  "dependencyInstall": {
+    "root": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+    "app": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+    "packageManager": "npm",
+    "packageManagerField": null,
+    "packageManagerVersion": "11.11.0",
+    "corepackVersion": "0.34.6",
+    "lockfile": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop/package-lock.json",
+    "frozenLockfile": true,
+    "installCwd": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+    "command": [
+      "npm",
+      "ci"
+    ],
+    "node": "v24.14.1",
+    "status": "ready",
+    "commandAvailable": "/Applications/DevEco-Studio.app/Contents/tools/node/bin/npm",
+    "registryHints": [
+      {
+        "file": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop/.npmrc",
+        "hasRegistry": true,
+        "hasAuthTokenPlaceholder": false,
+        "warning": "Private registry/auth may be required; do not paste secrets into reports."
+      }
+    ],
+    "firstError": null,
+    "stdoutTail": "\n> localminidrama-desktop@1.2.8 postinstall\n> node scripts/copy-backend.js && electron-builder install-app-deps\n\nMerged initial-migrations -> desktop/backend-app/migrations\nCopied backend-node (src, configs, scripts, migrations) -> desktop/backend-app\n  • electron-builder  version=24.13.3\n  • loaded configuration  file=package.json (\"build\" field)\n  • rebuilding native dependencies  dependencies=better-sqlite3@11.10.0 platform=darwin arch=arm64\n  • install prebuilt binary  name=better-sqlite3 version=11.10.0 platform=darwin arch=arm64 napi=\n\nadded 457 packages in 41s\n\n70 packages are looking for funding\n  run `npm fund` for details\n",
+    "stderrTail": "npm warn Unknown project config \"better_sqlite3_binary_host_mirror\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.\nnpm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.\nnpm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported\nnpm warn deprecated multer@1.4.5-lts.2: Multer 1.x is impacted by a number of vulnerabilities, which have been patched in 2.x. You should upgrade to the latest 2.x version.\nnpm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.\n",
+    "exitCode": 0,
+    "error": null
+  },
+  "migrationMode": {
+    "app": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+    "packageName": "localminidrama-desktop",
+    "mode": "source-with-prebuild",
+    "confidence": "medium",
+    "reasons": [
+      "Electron dependency declared",
+      "Electron main entry: main.js",
+      "distribution directories exist: dist",
+      "renderer/build toolchain detected",
+      "Electron packaging framework detected; migrate source app, not platform-specific desktop package."
+    ],
+    "prebuildCommands": [
+      "npm run build:front"
+    ],
+    "strategy": "Run dependency install and prebuild before injection unless explicitly skipped; inject both source and generated dist artifacts.",
+    "blocking": [],
+    "artifactHints": {
+      "asarFiles": [],
+      "distDirs": [
+        "dist"
+      ]
+    },
+    "cautions": [
+      "desktop packaging scripts detected: pack, dist, dist:cn, dist:mac, postinstall. Do not run win/mac packaging as the migration target."
+    ],
+    "status": "ready"
+  },
+  "prebuild": {
+    "root": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+    "app": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+    "migrationMode": "source-with-prebuild",
+    "status": "ready",
+    "skippedReason": null,
+    "packageManager": "npm",
+    "commands": [
+      "npm run build:front"
+    ],
+    "command": [
+      "npm",
+      "run",
+      "build:front"
+    ],
+    "exitCode": 0,
+    "firstError": null,
+    "stdoutTail": "\n> localminidrama-desktop@1.2.8 build:front\n> cd ../frontweb && npm run build\n\n\n> LocalMiniDrama-film@1.2.8 build\n> vite build\n\nvite v5.4.21 building for production...\ntransforming...\n✓ 1626 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                                 0.47 kB │ gzip:   0.35 kB\ndist/assets/AiConfig-CF4vjC_6.css               2.22 kB │ gzip:   0.78 kB\ndist/assets/MediaLibrary-DWCYpR_M.css           2.97 kB │ gzip:   0.97 kB\ndist/assets/StylePickerButton-CfzMIWMF.css      3.30 kB │ gzip:   0.99 kB\ndist/assets/FreeCreate-CdheXdW4.css             3.50 kB │ gzip:   1.07 kB\ndist/assets/AIConfigContent-B4bo2QnU.css       12.13 kB │ gzip:   2.86 kB\ndist/assets/FilmList-DKgAOf4j.css              13.85 kB │ gzip:   3.08 kB\ndist/assets/DramaDetail-ZAZGfG8M.css           14.34 kB │ gzip:   3.30 kB\ndist/assets/DramaCanvas-ADESy9q2.css           29.56 kB │ gzip:   5.79 kB\ndist/assets/FilmCreate-B8J0FLIU.css            60.16 kB │ gzip:  10.81 kB\ndist/assets/index-BJlFBPPw.css                361.08 kB │ gzip:  49.21 kB\ndist/assets/videos-GpxvuT5m.js                  0.21 kB │ gzip:   0.17 kB\ndist/assets/images-3wGXdvx4.js                  0.24 kB │ gzip:   0.17 kB\ndist/assets/task-DUBoz1wx.js                    0.26 kB │ gzip:   0.21 kB\ndist/assets/prompts-BlwdbQVZ.js                 0.33 kB │ gzip:   0.20 kB\ndist/assets/upload-BheogAQA.js                  0.43 kB │ gzip:   0.31 kB\ndist/assets/AiConfig-PnfZtjn3.js                0.90 kB │ gzip:   0.58 kB\ndist/assets/drama-CFwkm0Xv.js                   1.48 kB │ gzip:   0.62 kB\ndist/assets/storyboards-CNq0dFe-.js             3.01 kB │ gzip:   1.24 kB\ndist/assets/props-BPjR9Lpj.js                   3.05 kB │ gzip:   0.74 kB\ndist/assets/StylePickerButton-D4Li17qc.js       5.24 kB │ gzip:   2.30 kB\ndist/assets/MediaLibrary-LjdDZbva.js            6.70 kB │ gzip:   3.03 kB\ndist/assets/FreeCreate-f-B2PqLp.js              8.53 kB │ gzip:   3.53 kB\ndist/assets/styleOptions-BhWSyTvH.js           18.09 kB │ gzip:  10.06 kB\ndist/assets/FilmList-D9B1RRDa.js               31.00 kB │ gzip:   8.88 kB\ndist/assets/request-BTQ9KjNv.js                37.62 kB │ gzip:  15.07 kB\ndist/assets/DramaDetail-CmH7p21J.js            52.22 kB │ gzip:  13.30 kB\ndist/assets/AIConfigContent-Dgy6SW2S.js       106.06 kB │ gzip:  32.19 kB\ndist/assets/FilmCreate-CGa7Q4TH.js            274.67 kB │ gzip:  80.53 kB\ndist/assets/DramaCanvas-DV5Qnoyb.js           315.47 kB │ gzip:  99.54 kB\ndist/assets/index-CanHRsHq.js               1,165.31 kB │ gzip: 375.66 kB\n✓ built in 6.69s\n",
+    "stderrTail": "npm warn Unknown project config \"better_sqlite3_binary_host_mirror\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\nnpm warn Unknown env config \"better-sqlite3-binary-host-mirror\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n\n(!) Some chunks are larger than 500 kB after minification. Consider:\n- Using dynamic import() to code-split the application\n- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks\n- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\n",
+    "error": null
+  },
+  "environmentCheck": {
+    "status": "ready",
+    "generatedAt": "2026-09-28T11:38:08.706Z",
+    "hostOS": {
+      "platform": "darwin",
+      "arch": "arm64"
+    },
+    "tools": {
+      "hdc": {
+        "path": "/Users/Admin/ohos/sdk/packages/ohos-sdk/darwin/toolchains/hdc",
+        "version": "Ver: 3.2.0c"
+      },
+      "ohpm": {
+        "path": "/Applications/DevEco-Studio.app/Contents/tools/ohpm/bin/ohpm",
+        "version": "26.0.0.410"
+      },
+      "hvigorw": {
+        "path": "/Applications/DevEco-Studio.app/Contents/tools/hvigor/bin/hvigorw",
+        "version": "6.26.1"
+      },
+      "hvigor": {
+        "path": null,
+        "version": null
+      },
+      "java": {
+        "path": "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home/bin/java",
+        "version": "openjdk 17.0.19 2026-04-21"
+      },
+      "node": {
+        "path": "/Applications/DevEco-Studio.app/Contents/tools/node/bin/node",
+        "version": "v24.14.1"
+      },
+      "npm": {
+        "path": "/Applications/DevEco-Studio.app/Contents/tools/node/bin/npm",
+        "version": "11.11.0"
+      },
+      "pnpm": {
+        "path": "/Applications/DevEco-Studio.app/Contents/tools/node/bin/pnpm",
+        "version": "11.13.1"
+      },
+      "yarn": {
+        "path": "/Applications/DevEco-Studio.app/Contents/tools/node/bin/yarn",
+        "version": "1.22.22"
+      },
+      "bun": {
+        "path": null,
+        "version": null
+      },
+      "git": {
+        "path": "/Library/Developer/CommandLineTools/usr/bin/git",
+        "version": "git version 2.39.5 (Apple Git-154)"
+      },
+      "curl": {
+        "path": "/usr/bin/curl",
+        "version": "curl 8.7.1 (x86_64-apple-darwin24.0) libcurl/8.7.1 (SecureTransport) LibreSSL/3.3.6 zlib/1.2.12 nghttp2/1.64.0"
+      },
+      "unzip": {
+        "path": "/usr/bin/unzip",
+        "version": "caution:  both -n and -o specified; ignoring -o"
+      },
+      "tar": {
+        "path": "/usr/bin/tar",
+        "version": "bsdtar 3.5.3 - libarchive 3.7.4 zlib/1.2.12 liblzma/5.4.3 bz2lib/1.0.8 "
+      },
+      "powershell": {
+        "path": null,
+        "version": null
+      },
+      "pwsh": {
+        "path": null,
+        "version": null
+      }
+    },
+    "hdc": {
+      "status": "device-present",
+      "targets": "3BT0124910000126\t\tUSB\tConnected\tlocalhost",
+      "selectedTarget": "3BT0124910000126",
+      "onlineTargetCount": 1
+    },
+    "nativeSdk": {
+      "status": "ready",
+      "path": "/Users/Admin/ohos/sdk/packages/ohos-sdk/darwin/native"
+    },
+    "harmonyBuild": {
+      "status": "ready",
+      "selected": {
+        "status": "ready",
+        "api": 26,
+        "compileSdkVersion": null,
+        "sdkRoot": "/Applications/DevEco-Studio.app/Contents/sdk",
+        "sdkVersion": "26.0.0.38",
+        "hvigorPath": "/Applications/DevEco-Studio.app/Contents/tools/hvigor/bin/hvigorw",
+        "hvigorVersion": "6.26.1",
+        "bundleMatched": true,
+        "javaHome": "/Applications/DevEco-Studio.app/Contents/jbr/Contents/Home"
+      },
+      "sdkCandidates": [
+        {
+          "root": "/Applications/DevEco-Studio.app/Contents/sdk",
+          "api": 26,
+          "platformVersion": "26.0.0",
+          "version": "26.0.0.38",
+          "compileSdkVersion": "26.0.0(26)",
+          "status": "ready",
+          "missingComponents": []
+        }
+      ],
+      "hvigorCandidates": [
+        {
+          "path": "/Applications/DevEco-Studio.app/Contents/tools/hvigor/bin/hvigorw",
+          "version": "6.26.1",
+          "supportedApi": 24,
+          "supportedPlatformVersion": "6.1.1",
+          "configPath": "/Applications/DevEco-Studio.app/Contents/tools/hvigor/hvigor-ohos-plugin/node_modules/@ohos/hos-sdkmanager-common/build/res/hos-config.json"
+        }
+      ],
+      "reason": null
+    },
+    "sdkComponents": {
+      "ok": true,
+      "summary": "all 1 SDK location(s) complete: default",
+      "root": "/Applications/DevEco-Studio.app/Contents/sdk",
+      "completeLocations": [
+        "default"
+      ],
+      "incompleteLocations": [],
+      "locations": [
+        {
+          "name": "default",
+          "complete": true,
+          "missing": [],
+          "detail": null,
+          "apiVersion": "26"
+        }
+      ]
+    },
+    "nodeHeaders": {
+      "status": "not-provided",
+      "path": null
+    },
+    "signing": {
+      "materialCount": 48,
+      "note": "Only counts .p12/.cer/.p7b under ~/.ohos/config; no secret values are read or printed."
+    },
+    "notes": [
+      "ready-without-device means migration can reach signing boundary, but Phase 6 evidence still needs a HarmonyOS PC device.",
+      "Measure Electron ABI on the target device before accepting native addon compatibility.",
+      "Use DevEco Studio JBR if system java is incomplete.",
+      "harmonyBuild.selected is a validated hvigor/SDK pair and is preferred over unrelated tools found first on PATH.",
+      "This report is generated by the cross-platform Node entry scripts/ohos-tools.mjs."
+    ]
+  },
+  "buildEnvironmentConfig": {
+    "status": "configured",
+    "generatedAt": "2026-10-09T10:11:38.090Z",
+    "profile": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/build-profile.json5",
+    "selected": {
+      "status": "ready",
+      "api": 26,
+      "compileSdkVersion": null,
+      "sdkRoot": "/Applications/DevEco-Studio.app/Contents/sdk",
+      "sdkVersion": "26.0.0.38",
+      "hvigorPath": "/Applications/DevEco-Studio.app/Contents/tools/hvigor/bin/hvigorw",
+      "hvigorVersion": "6.26.1",
+      "bundleMatched": true,
+      "javaHome": "/Applications/DevEco-Studio.app/Contents/jbr/Contents/Home"
+    },
+    "compileSdkVersion": null,
+    "changed": false,
+    "removedInheritedSigningConfig": true,
+    "note": "Bundled DevEco toolchain: compileSdkVersion intentionally unset; hvigor uses the SDK shipped with DevEco Studio. compatibleSdkVersion is left as provided by the host template."
+  },
+  "releaseCapabilities": {
+    "status": "ready",
+    "generatedAt": "2026-09-28T11:38:11.250Z",
+    "tag": "v37.2.1",
+    "notePath": "/Users/Admin/.ohos-electron-hosts/release-notes/v37.2.1.md",
+    "hints": [
+      {
+        "id": "global-shortcut",
+        "apis": [
+          "globalShortcut.register"
+        ],
+        "effect": "version-supported",
+        "strategy": "Prefer direct Electron API and keep runtime verification."
+      },
+      {
+        "id": "deeplink-open-url",
+        "apis": [
+          "app#event:open-url",
+          "protocol"
+        ],
+        "effect": "version-supported",
+        "strategy": "Use direct API when project needs deep link/open-url behavior; add fallback documentation."
+      },
+      {
+        "id": "arkts-bridge",
+        "apis": [
+          "systemPreferences.callArkTSFunction"
+        ],
+        "effect": "bridge-available",
+        "strategy": "Use ArkTS bridge for platform-specific replacements when Electron API is unavailable."
+      },
+      {
+        "id": "screen-area",
+        "apis": [
+          "screen.getDisplayNearestPoint",
+          "screen.getPrimaryDisplay"
+        ],
+        "effect": "version-improved",
+        "strategy": "Keep screen APIs in verification checklist, especially multi-display behavior."
+      },
+      {
+        "id": "notifications",
+        "apis": [
+          "new Notification",
+          "notification.show"
+        ],
+        "effect": "version-improved",
+        "strategy": "Verify permission prompt and notification delivery on device."
+      },
+      {
+        "id": "hardware-codec",
+        "apis": [
+          "webContents",
+          "BrowserWindow"
+        ],
+        "effect": "runtime-improved",
+        "strategy": "Add media playback/image rendering smoke test when app uses media."
+      },
+      {
+        "id": "native-messaging",
+        "apis": [
+          "native module",
+          "NativeMessaging"
+        ],
+        "effect": "native-runtime-improved",
+        "strategy": "Do not skip native verification; check process and addon hilog."
+      },
+      {
+        "id": "background-app-limit",
+        "apis": [
+          "Tray",
+          "app"
+        ],
+        "effect": "platform-limitation",
+        "strategy": "Tray/background persistence must be degraded or explicitly documented."
+      },
+      {
+        "id": "clipboard",
+        "apis": [
+          "clipboard"
+        ],
+        "effect": "version-improved",
+        "strategy": "Verify read/write and permission prompts."
+      },
+      {
+        "id": "printing",
+        "apis": [
+          "webContents.print",
+          "webContents.printToPDF"
+        ],
+        "effect": "version-improved",
+        "strategy": "Add print/PDF focused probe when app uses it."
+      }
+    ],
+    "limitations": [
+      {
+        "id": "background-app-limit",
+        "apis": [
+          "Tray",
+          "app"
+        ],
+        "effect": "platform-limitation",
+        "strategy": "Tray/background persistence must be degraded or explicitly documented."
+      }
+    ],
+    "note": "Hints come from release-note keyword analysis. API support remains authoritative in upstream docs/api/index.md and scan-project.mjs."
+  },
+  "generatedAt": "2026-10-09T10:11:38.094Z",
+  "nativePlan": {
+    "status": "native-review-required",
+    "summary": {
+      "total": 2,
+      "blocking": 2,
+      "advisory": 0,
+      "knownRecipes": 2,
+      "unknownRecipes": 0
+    },
+    "report": "reports/native-plan.json",
+    "markdown": "reports/native-plan.md"
+  },
+  "nativeBuildAudit": {
+    "status": "passed",
+    "report": "reports/native-build-audit.json",
+    "markdown": "reports/native-build-audit.md"
+  },
+  "verificationPlan": {
+    "status": "pending-signed-device-run",
+    "summary": {
+      "totalCases": 26,
+      "coreCases": 4,
+      "byRisk": {
+        "blocking": 6,
+        "high": 3,
+        "normal": 14,
+        "medium": 3
+      },
+      "byCategory": {
+        "smoke": 2,
+        "main-task": 2,
+        "window-webcontents": 3,
+        "electron-api": 12,
+        "desktop-ui": 2,
+        "platform-branch": 3,
+        "native-module": 2
+      },
+      "staticParityScore": 82,
+      "staticParityScoreMeaning": "Static planning score only; final parity requires signed device evidence."
+    },
+    "report": "reports/verification-plan.json",
+    "checklist": "reports/verification-checklist.md"
+  },
+  "signingRunbook": {
+    "status": "automatic-agc-signing-supported",
+    "report": "reports/signing-runbook.json",
+    "markdown": "reports/signing-runbook.md"
+  },
+  "signingDiagnosis": {
+    "status": "needs-provisioning",
+    "report": "reports/signing-diagnosis.json",
+    "markdown": "reports/signing-diagnosis.md"
+  },
+  "deviceHandoff": {
+    "status": "external-signing-handoff-ready",
+    "report": "reports/device-handoff.json",
+    "markdown": "reports/device-handoff.md"
+  },
+  "externalEvidenceHandoff": {
+    "status": "handoff-ready",
+    "report": "reports/external-evidence-handoff.json",
+    "markdown": "reports/external-evidence-handoff.md",
+    "handoff": "handoff/external-evidence"
+  },
+  "runState": {
+    "status": "delivered",
+    "currentState": "delivered",
+    "terminalState": "delivered",
+    "complete": true,
+    "report": "reports/run-state.json"
+  },
+  "buildClassification": {
+    "status": "delivered",
+    "terminal": true,
+    "exitCode": 0,
+    "reason": "Automatic signed-device delivery passed."
+  }
+}

@@ -1,0 +1,6 @@
+/example_drama/三十六计之借刀杀人_古风_竖屏.zip filter=lfs diff=lfs merge=lfs -text
+/example_drama/我的姐夫他是太子.zip filter=lfs diff=lfs merge=lfs -text
+/项目截图/1.mp4 filter=lfs diff=lfs merge=lfs -text
+/项目截图/2.mp4 filter=lfs diff=lfs merge=lfs -text
+/项目截图/3.mp4 filter=lfs diff=lfs merge=lfs -text
+/example_drama/衣服设计天才302.zip filter=lfs diff=lfs merge=lfs -text

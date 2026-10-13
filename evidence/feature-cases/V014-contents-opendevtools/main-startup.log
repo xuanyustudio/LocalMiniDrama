@@ -1,0 +1,134 @@
+2026-10-09T06:23:48.790Z main.js loaded packaged=false exec=/system/bin/appspawn
+2026-10-09T06:23:48.792Z runtime mode: isPackaged=false ohosPackaged=true
+2026-10-09T06:23:48.794Z sync-addon-probe: {"steps":[],"type":"object","keys":[]}
+2026-10-09T06:40:06.749Z main.js loaded packaged=false exec=/system/bin/appspawn
+2026-10-09T06:40:06.750Z runtime mode: isPackaged=false ohosPackaged=true
+2026-10-09T06:40:06.751Z sync-addon-probe: {"steps":[],"type":"object","keys":[]}
+2026-10-09T06:42:24.589Z app.whenReady
+2026-10-09T06:42:24.690Z Failed to start backend
+TypeError: native.version is not a function
+    at Object.<anonymous> (/data/storage/el1/bundle/electron/resources/resfile/resources/app/node_modules/better-sqlite3/lib/index.js:211:43)
+    at Module._compile (node:internal/modules/cjs/loader:1738:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1904:10)
+    at Module.load (node:internal/modules/cjs/loader:1472:32)
+    at Module._load (node:internal/modules/cjs/loader:1289:12)
+    at c._load (node:electron/js2c/node_init:2:18013)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:242:24)
+    at Module.require (node:internal/modules/cjs/loader:1494:12)
+    at require (node:internal/modules/helpers:135:16)
+2026-10-09T07:27:19.318Z main.js loaded packaged=false exec=/system/bin/appspawn
+2026-10-09T07:27:19.319Z runtime mode: isPackaged=false ohosPackaged=true
+2026-10-09T07:27:19.319Z probe context: __dirname=/data/storage/el1/bundle/electron/resources/resfile/resources/app execArgv=[] node=22.17.0 napi=10 electron=37.2.0
+2026-10-09T07:27:19.319Z probe libs exists=true userdataDir=/data/storage/el2/base/files/localminidrama-desktop
+2026-10-09T07:27:19.320Z probe load libs: {"ok":false,"error":"Error relocating /data/storage/el1/bundle/libs/arm64/better_sqlite3_sync.node: napi_create_function: symbol not found"}
+2026-10-09T07:27:19.322Z probe load userdata: {"ok":false,"error":"Error loading shared library /data/storage/el2/base/files/localminidrama-desktop/probe-addon.node: No error information"}
+2026-10-09T07:27:19.322Z probe done
+2026-10-09T07:27:19.322Z top-level continuing (before whenReady registration)
+2026-10-09T07:27:19.339Z app.whenReady
+2026-10-09T07:27:19.470Z Failed to start backend
+Error: No such binding: sqlite
+    at internalBinding (node:internal/bootstrap/realm:188:34)
+    at node:sqlite:6:17
+    at BuiltinModule.compileForInternalLoader (node:internal/bootstrap/realm:399:7)
+    at BuiltinModule.compileForPublicLoader (node:internal/bootstrap/realm:338:10)
+    at loadBuiltinModule (node:internal/modules/helpers:109:7)
+    at loadBuiltinWithHooks (node:internal/modules/cjs/loader:1180:15)
+    at Module._load (node:internal/modules/cjs/loader:1223:20)
+    at c._load (node:electron/js2c/node_init:2:18013)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:242:24)
+2026-10-09T07:46:22.829Z main.js loaded packaged=false exec=/system/bin/appspawn
+2026-10-09T07:46:22.830Z runtime mode: isPackaged=false ohosPackaged=true
+2026-10-09T07:46:22.830Z probe context: __dirname=/data/storage/el1/bundle/electron/resources/resfile/resources/app execArgv=[] node=22.17.0 napi=10 electron=37.2.0
+2026-10-09T07:46:22.830Z probe libs exists=true userdataDir=/data/storage/el2/base/files/localminidrama-desktop
+2026-10-09T07:46:22.832Z probe load libs: {"ok":true,"type":"object","keys":[]}
+2026-10-09T07:46:22.833Z probe load userdata: {"ok":false,"error":"Error loading shared library /data/storage/el2/base/files/localminidrama-desktop/probe-addon.node: No error information"}
+2026-10-09T07:46:22.833Z probe done
+2026-10-09T07:46:22.833Z top-level continuing (before whenReady registration)
+2026-10-09T07:46:22.849Z app.whenReady
+2026-10-09T07:46:22.965Z Failed to start backend
+Error: No such binding: sqlite
+    at internalBinding (node:internal/bootstrap/realm:188:34)
+    at node:sqlite:6:17
+    at BuiltinModule.compileForInternalLoader (node:internal/bootstrap/realm:399:7)
+    at BuiltinModule.compileForPublicLoader (node:internal/bootstrap/realm:338:10)
+    at loadBuiltinModule (node:internal/modules/helpers:109:7)
+    at loadBuiltinWithHooks (node:internal/modules/cjs/loader:1180:15)
+    at Module._load (node:internal/modules/cjs/loader:1223:20)
+    at c._load (node:electron/js2c/node_init:2:18013)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:242:24)
+2026-10-09T08:14:03.931Z main.js loaded packaged=false exec=/system/bin/appspawn
+2026-10-09T08:14:03.932Z runtime mode: isPackaged=false ohosPackaged=true
+2026-10-09T08:14:03.932Z probe context: __dirname=/data/storage/el1/bundle/electron/resources/resfile/resources/app execArgv=[] node=22.17.0 napi=10 electron=37.2.0
+2026-10-09T08:14:03.932Z probe libs exists=true userdataDir=/data/storage/el2/base/files/localminidrama-desktop
+2026-10-09T08:14:03.933Z probe load libs: {"ok":true,"type":"object","keys":[]}
+2026-10-09T08:14:03.934Z probe load userdata: {"ok":false,"error":"Error loading shared library /data/storage/el2/base/files/localminidrama-desktop/probe-addon.node: No error information"}
+2026-10-09T08:14:03.934Z probe done
+2026-10-09T08:14:03.935Z top-level continuing (before whenReady registration)
+2026-10-09T08:14:03.950Z app.whenReady
+2026-10-09T08:14:04.058Z Failed to start backend
+Error: No such binding: sqlite
+    at internalBinding (node:internal/bootstrap/realm:188:34)
+    at node:sqlite:6:17
+    at BuiltinModule.compileForInternalLoader (node:internal/bootstrap/realm:399:7)
+    at BuiltinModule.compileForPublicLoader (node:internal/bootstrap/realm:338:10)
+    at loadBuiltinModule (node:internal/modules/helpers:109:7)
+    at loadBuiltinWithHooks (node:internal/modules/cjs/loader:1180:15)
+    at Module._load (node:internal/modules/cjs/loader:1223:20)
+    at c._load (node:electron/js2c/node_init:2:18013)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:242:24)
+2026-10-09T08:28:40.268Z main.js loaded packaged=false exec=/system/bin/appspawn
+2026-10-09T08:28:40.269Z runtime mode: isPackaged=false ohosPackaged=true
+2026-10-09T08:28:40.269Z probe context: __dirname=/data/storage/el1/bundle/electron/resources/resfile/resources/app execArgv=[] node=22.17.0 napi=10 electron=37.2.0
+2026-10-09T08:28:40.269Z probe libs exists=true userdataDir=/data/storage/el2/base/files/localminidrama-desktop
+2026-10-09T08:28:40.270Z probe load libs: {"ok":true,"type":"object","keys":["open","close","exec","prepare","finalize","run","get","all","version"]}
+2026-10-09T08:28:40.271Z probe load userdata: {"ok":false,"error":"Error loading shared library /data/storage/el2/base/files/localminidrama-desktop/probe-addon.node: No error information"}
+2026-10-09T08:28:40.272Z probe native API works: row={"a":1,"b":"x"} version=3.49.2
+2026-10-09T08:28:40.272Z probe done
+2026-10-09T08:28:40.272Z top-level continuing (before whenReady registration)
+2026-10-09T08:28:40.288Z app.whenReady
+2026-10-09T08:28:40.662Z startBackend ok port=5679
+2026-10-09T08:28:40.816Z createWindow loadURL http://127.0.0.1:5679
+2026-10-09T08:28:41.354Z window ready-to-show
+2026-10-09T08:57:49.854Z main.js loaded packaged=false exec=/system/bin/appspawn
+2026-10-09T08:57:49.855Z runtime mode: isPackaged=false ohosPackaged=true
+2026-10-09T08:57:49.855Z probe context: __dirname=/data/storage/el1/bundle/electron/resources/resfile/resources/app execArgv=[] node=22.17.0 napi=10 electron=37.2.0
+2026-10-09T08:57:49.855Z probe libs exists=true userdataDir=/data/storage/el2/base/files/localminidrama-desktop
+2026-10-09T08:57:49.856Z probe load libs: {"ok":true,"type":"object","keys":["open","close","exec","prepare","finalize","run","get","all","version"]}
+2026-10-09T08:57:49.857Z probe load userdata: {"ok":false,"error":"Error loading shared library /data/storage/el2/base/files/localminidrama-desktop/probe-addon.node: No error information"}
+2026-10-09T08:57:49.858Z probe native API works: row={"a":1,"b":"x"} version=3.49.2
+2026-10-09T08:57:49.858Z probe done
+2026-10-09T08:57:49.858Z top-level continuing (before whenReady registration)
+2026-10-09T08:57:49.873Z app.whenReady
+2026-10-09T08:57:50.168Z startBackend ok port=5679
+2026-10-09T08:57:50.202Z createWindow loadURL http://127.0.0.1:5679
+2026-10-09T08:57:50.816Z window ready-to-show
+2026-10-09T09:02:07.868Z main.js loaded packaged=false exec=/system/bin/appspawn
+2026-10-09T09:02:07.869Z runtime mode: isPackaged=false ohosPackaged=true
+2026-10-09T09:02:07.869Z probe context: __dirname=/data/storage/el1/bundle/electron/resources/resfile/resources/app execArgv=[] node=22.17.0 napi=10 electron=37.2.0
+2026-10-09T09:02:07.869Z probe libs exists=true userdataDir=/data/storage/el2/base/files/localminidrama-desktop
+2026-10-09T09:02:07.870Z probe load libs: {"ok":true,"type":"object","keys":["open","close","exec","prepare","finalize","run","get","all","version"]}
+2026-10-09T09:02:07.871Z probe load userdata: {"ok":false,"error":"Error loading shared library /data/storage/el2/base/files/localminidrama-desktop/probe-addon.node: No error information"}
+2026-10-09T09:02:07.872Z probe native API works: row={"a":1,"b":"x"} version=3.49.2
+2026-10-09T09:02:07.872Z probe done
+2026-10-09T09:02:07.872Z top-level continuing (before whenReady registration)
+2026-10-09T09:02:07.887Z app.whenReady
+2026-10-09T09:02:08.194Z startBackend ok port=5679
+2026-10-09T09:02:08.223Z createWindow loadURL http://127.0.0.1:5679
+2026-10-09T09:02:08.835Z window ready-to-show
+2026-10-09T09:29:45.470Z main.js loaded packaged=false exec=/system/bin/appspawn
+2026-10-09T09:29:45.471Z runtime mode: isPackaged=false ohosPackaged=true
+2026-10-09T09:29:45.471Z probe context: __dirname=/data/storage/el1/bundle/electron/resources/resfile/resources/app execArgv=[] node=22.17.0 napi=10 electron=37.2.0
+2026-10-09T09:29:45.471Z probe libs exists=true userdataDir=/data/storage/el2/base/files/localminidrama-desktop
+2026-10-09T09:29:45.472Z probe load libs: {"ok":true,"type":"object","keys":["open","close","exec","prepare","finalize","run","get","all","version"]}
+2026-10-09T09:29:45.473Z probe load userdata: {"ok":false,"error":"Error loading shared library /data/storage/el2/base/files/localminidrama-desktop/probe-addon.node: No error information"}
+2026-10-09T09:29:45.474Z probe native API works: row={"a":1,"b":"x"} version=3.49.2
+2026-10-09T09:29:45.474Z probe done
+2026-10-09T09:29:45.474Z top-level continuing (before whenReady registration)
+2026-10-09T09:29:45.490Z app.whenReady
+2026-10-09T09:29:45.820Z startBackend ok port=5679
+2026-10-09T09:29:45.856Z createWindow loadURL http://127.0.0.1:5679
+2026-10-09T09:29:46.498Z window ready-to-show

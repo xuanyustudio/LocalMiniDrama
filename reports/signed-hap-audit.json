@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "generatedAt": "2026-10-09T10:12:18.955Z",
+  "hap": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap",
+  "bytes": 311625966,
+  "commandStatus": 0,
+  "stdout": "✓ Electron 运行时 so\n✓ electron 可执行文件\n✓ 应用已注入(resources/app)\n✓ icu 数据\n✓ v8 快照\n✓ 应用入口可解析: main=ohos-main-wrapper.js → resources/resfile/resources/app/ohos-main-wrapper.js\n✓ 架构: libs/arm64-v8a/better_sqlite3_sync.node — ELF 64-bit machine=183 (AArch64)\n✓ 架构: libs/arm64-v8a/libadapter.so — ELF 64-bit machine=183 (AArch64)\n✓ 架构: libs/arm64-v8a/libc++_shared.so — ELF 64-bit machine=183 (AArch64)\n✓ 架构: libs/arm64-v8a/libelectron.so — ELF 64-bit machine=183 (AArch64)\n✓ 架构: libs/arm64-v8a/libffmpeg.so — ELF 64-bit machine=183 (AArch64)\n✓ audit-hap 全绿: /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap\n",
+  "stderr": ""
+}

@@ -1,0 +1,27 @@
+{
+  "source": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama",
+  "sourceType": "local-copy",
+  "provider": "local",
+  "checkoutPath": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+  "branch": null,
+  "tag": null,
+  "requestedCommit": null,
+  "resolvedCommit": null,
+  "archiveSha256": null,
+  "archiveUrl": null,
+  "cloneUrl": null,
+  "acquisitionMethod": null,
+  "pageHints": null,
+  "status": "ready",
+  "warnings": [],
+  "commandLog": [
+    {
+      "command": "rsync -a --exclude .git /Users/Admin/Desktop/eng/tmp/LocalMiniDrama/ /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/",
+      "cwd": "/Users/Admin/.config/deveco/skills/ohos-electron-migrate",
+      "status": 0,
+      "error": null,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

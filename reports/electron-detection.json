@@ -1,0 +1,56 @@
+{
+  "status": "electron",
+  "isElectron": true,
+  "root": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+  "selected": {
+    "path": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+    "relativePath": "desktop",
+    "packageName": "localminidrama-desktop",
+    "productName": "本地短剧助手",
+    "main": "main.js",
+    "score": 205,
+    "confidence": "high",
+    "reasons": [
+      "dependency electron=^28.0.0",
+      "uses electron-builder",
+      "electron-builder config in package.json",
+      "npm script invokes electron",
+      "npm script packages Electron app",
+      "source imports electron module",
+      "source contains Electron runtime APIs",
+      "name/path hints Electron desktop app"
+    ],
+    "packageManager": "npm",
+    "packageManagerRoot": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop"
+  },
+  "candidates": [
+    {
+      "path": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+      "relativePath": "desktop",
+      "packageName": "localminidrama-desktop",
+      "productName": "本地短剧助手",
+      "main": "main.js",
+      "score": 205,
+      "confidence": "high",
+      "reasons": [
+        "dependency electron=^28.0.0",
+        "uses electron-builder",
+        "electron-builder config in package.json",
+        "npm script invokes electron",
+        "npm script packages Electron app",
+        "source imports electron module",
+        "source contains Electron runtime APIs",
+        "name/path hints Electron desktop app"
+      ],
+      "packageManager": "npm",
+      "packageManagerRoot": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop"
+    }
+  ],
+  "summary": {
+    "packageJsonFiles": 3,
+    "electronCandidates": 1,
+    "confidence": "high"
+  },
+  "error": null,
+  "next": "Proceed with migration using the preferred Electron app root."
+}

@@ -1,0 +1,103 @@
+# capturedAt=20261009-161407
+# target=3BT0124910000126
+# matchingLines=100
+10-09 16:14:06.877 51098 51098 I C03900/com.localminidrama.desktop/Ace: [(100000:100000:scope)] Declarative instance destroyed
+10-09 16:14:06.877 51098 51098 I C03900/com.localminidrama.desktop/Ace: [(100000:100000:scope)] DelegateDeclarative destroyed
+10-09 16:14:06.877 51098 51098 I C03900/com.localminidrama.desktop/Ace: [(100000:100000:scope)] DeclarativeFrontend Destroy end.
+10-09 16:14:06.877 51098 51098 I C03900/com.localminidrama.desktop/Ace: [(100000:100000:scope)] Destroy Frontend on JS thread.
+10-09 16:14:06.877 51098 51098 I C03900/com.localminidrama.desktop/Ace: [(100000:100000:scope)] DeclarativeFrontend destroyed
+10-09 16:14:06.877 51098 51098 I C03900/com.localminidrama.desktop/Ace: [(100000:100000:scope)] Frontend destroyed
+10-09 16:14:06.878 51098 51098 I C03922/com.localminidrama.desktop/AceNavigation: [(100000:100000:scope)] unregiste plugin change callback
+10-09 16:14:06.878  4833 50958 I A00F00/com.huawei.hmos.aidataservice/CA170005340: [ForegroundAppAbility:413]: triggerBundleName:com.localminidrama.desktop, whiteList:["com.luna.hm.music","com.huawei.hmsapp.music","com.hiby.music.hm"]
+10-09 16:14:06.878 51098 51098 W C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] Unregister from watch dog failed with instanceID 100000
+10-09 16:14:06.878 51098 51098 I C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] Wait UI thread...
+10-09 16:14:06.878 51098 51098 I C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] Wait JS thread...
+10-09 16:14:06.878 51098 51098 I C03900/com.localminidrama.desktop/Ace: [(-2:100000:singleton)] Remove on Platform thread...
+10-09 16:14:06.879 51098 51098 I C04217/com.localminidrama.desktop/WMSAttribute: UnregisterWaterfallModeChangeListener: winId: 266
+10-09 16:14:06.879 51098 51098 I C03900/com.localminidrama.desktop/Ace: [(-2:-1:undefined)] Destroy AceContainer on PLATFORM thread.
+10-09 16:14:06.879 51098 51098 I C03900/com.localminidrama.desktop/Ace: [(-2:-1:undefined)] Container Destroyed
+10-09 16:14:06.879 51098 51098 I C0420A/com.localminidrama.desktop/WMSLife: NotifyBeforeDestroy: Release uicontent successfully, id: 266.
+10-09 16:14:06.879 51098 51098 I C0420A/com.localminidrama.desktop/WMSLife: operator(): Remove window desktop0
+10-09 16:14:06.879 51098 51098 I C0420A/com.localminidrama.desktop/WMSLife: operator(): Destroy window desktop0 in js window
+10-09 16:14:06.879 51098 51098 I C0420A/com.localminidrama.desktop/WMSLife: NotifyBeforeDestroy: successed with id: 266.
+10-09 16:14:06.879 51098 51098 I C04203/com.localminidrama.desktop/WMSSub: RemoveSubWindow: Id: 266, parentId: 0
+10-09 16:14:06.879 51098 51098 I C0420A/com.localminidrama.desktop/WMSLife: ClearListenersById: Called id: 266.
+10-09 16:14:06.879 51098 51098 I C0420A/com.localminidrama.desktop/WMSLife: ClearListenersById: Clear success, id: 266.
+10-09 16:14:06.879 51098 51098 I C04202/com.localminidrama.desktop/WMSMain: Destroy: id 219464238891009 destroyed
+10-09 16:14:06.879 51098 51098 I C01400/com.localminidrama.desktop/Vsync: RemoveAndCloseFdLocked: RemoveAndCloseFdLocked looper remove fd listener, fd=33
+10-09 16:14:06.880 51098 51098 I C01406/com.localminidrama.desktop/OHOS::RS: RSFrameRateLinker::Destroy id: 219464238891008
+10-09 16:14:06.880 51098 51098 I C0420A/com.localminidrama.desktop/WMSLife: SetUIContentComplete: already SetUIContent, persistentId=266
+10-09 16:14:06.880 51098 51098 I C01406/com.localminidrama.desktop/OHOS::RS: RSSurfaceNode::~RSSurfaceNode, Node: 219464238891009, Name: desktop0
+10-09 16:14:06.880 51098 51098 I C0420A/com.localminidrama.desktop/WMSLife: Destroy: Destroy success, id: 266
+10-09 16:14:06.880 51098 51098 E C01332/com.localminidrama.desktop/UIAbility: [JUA2516]null windowStage
+10-09 16:14:06.880 51098 51098 I C01332/com.localminidrama.desktop/UIAbility: [JUA2177]JsUIAbility call js, name: onWindowStageDestroy
+10-09 16:14:06.880 51098 51098 I A00000/com.localminidrama.desktop/[WebEngine]: tag: WebAbility --> [ohoswindow] in WebAbility onWindowStageDestroy.
+10-09 16:14:06.880 51098 51098 E C0420C/com.localminidrama.desktop/WMSEvent: oh_window_event_filter.cpp OH_NativeWindowManager_UnregisterMouseEventFilter: window is null, windowId=266
+10-09 16:14:06.880 51098 51098 I A00001/com.localminidrama.desktop/Adapter: [OhosTabDrag] UnRegisterWindowMouseEventFilterForWindow fail, window_id:266, result:1000
+10-09 16:14:06.880 51098 51098 E C0420C/com.localminidrama.desktop/WMSEvent: oh_window_event_filter.cpp OH_NativeWindowManager_UnregisterTouchEventFilter: window is null, windowId=266
+10-09 16:14:06.880 51098 51098 I A00001/com.localminidrama.desktop/Adapter: [OhosTabDrag] UnRegisterWindowTouchEventFilterForWindow, window_id:266, result:1000
+10-09 16:14:06.880 51098 51098 I A00000/com.localminidrama.desktop/[WebEngine]: tag: AbilityManager --> removeProxy success, proxyId: browser1
+10-09 16:14:06.880 51098 51098 I C01332/com.localminidrama.desktop/UIAbility: [JUA2222]end, name: onWindowStageDestroy, time: 0
+10-09 16:14:06.880 51098 51098 I C01332/com.localminidrama.desktop/UIAbility: [JUA2177]JsUIAbility call js, name: onDestroy
+10-09 16:14:06.880  2043 36807 I C01336/foundation/AMS: [ABMS8384]Done:com.localminidrama.desktop/EntryAbility, s:0, c:51098
+10-09 16:14:06.880  2043 36807 I C01336/foundation/AMS: [ABMS8390]Lifecycle: ability:/com.localminidrama.desktop-app_instance_0/electron/EntryAbility
+10-09 16:14:06.881 51098 51098 I C01317/com.localminidrama.desktop/AppKit: [MTHRD3154]start
+10-09 16:14:06.881 51098 51098 I C03F00/com.localminidrama.desktop/ArkCompiler: [gc] app is inBackground
+10-09 16:14:06.881  2043 50865 I C01357/foundation/ProcessMgr: [ARM1040]Terminate last:com.localminidrama.desktop.
+10-09 16:14:06.881 51098 51098 I C03F01/com.localminidrama.desktop/NAPI: [StopIdleMonitorTimerTask] Get timerMutex_
+10-09 16:14:06.881  1083 38823 I C01710/resource_schedule_service/BUNDLE_ACTIVE: [OnAbilityStateChanged:73]OnAbilityStateChanged userid is 100, bundle name is com.localminidrama.desktop, uid is 20020192, event is 4, timestamp is 176339581
+10-09 16:14:06.882   825 37753 I C02B83/audio_server/AudioServiceAppStateListener: [OnAppStateChanged]app state changed, bundleName=com.localminidrama.desktop uid=20020192 pid=51098 state=4
+10-09 16:14:06.882  2043 50862 I C01311/foundation/AppMS: [AMSI3171]app backgrounded: com.localminidrama.desktop, pState: 2
+10-09 16:14:06.882 51098 51098 I C01332/com.localminidrama.desktop/UIAbility: [JUA329]called
+10-09 16:14:06.882 51098 51098 I C04202/com.localminidrama.desktop/WMSMain: ~WindowScene: winId 266 destructor!
+10-09 16:14:06.882  1218 50996 I C015B5/netmanager/NetMgrEnhanced: uid=2******2, pid=51098, state=4, bundleName=com.localminidrama.desktop, isFocused =0.
+10-09 16:14:06.882  1649  1838 I C01560/wifi_manager_service/WifiFrameWork: [comm]OnForegroundApplicationChanged bundleName: com.localminidrama.desktop, uid: 20020192, state: 4, isFocused: 0
+10-09 16:14:06.883  1649 38479 I C01560/wifi_manager_service/WifiFrameWork: [comm]OnForegroundApplicationChanged bundleName: com.localminidrama.desktop, uid: 20020192, state: 4, isFocused: 0
+10-09 16:14:06.883  1083 48165 I C01731/resource_schedule_service/SUSPEND_MSG: [a92ab0a24ed79d2 0 0]20020192_com.localminidrama.desktop_51098, state:4
+10-09 16:14:06.883  1083 48165 I C01724/resource_schedule_service/TASK_DETECTION: [a92ab0a24ed79d2 0 0][OnAppStateChanged:754]Application State change to background, uid: 20020192, pid: 51098,bundleName: com.localminidrama.desktop
+10-09 16:14:06.883   935 23772 I C02699/memmgrservice/MM: HandleProcessFgOrBg BG:p=51098,u=20020192,pName=com.localminidrama.desktop,00
+10-09 16:14:06.883  1218  8117 I C015B5/netmanager/NetMgrEnhanced: uid:20020192, pid:51098, state:4, isFocused:0, com.localminidrama.desktop
+10-09 16:14:06.884  4833  4833 I A00F00/com.huawei.hmos.aidataservice/170005340: AppUsageAbility: publishAppUsage appUsage {"timestamp":1791533646884,"dataName":"AppUsage","bundleName":"com.localminidrama.desktop","appUid":20020192,"state":"OUT","installationFree":false,"hasIcon":true,"isSplitScreenMode":false,"isFloatingWindowMode":false,"isSplit":false,"startTime":1791533646875,"duration":9}
+10-09 16:14:06.885   935  1660 I C02699/memmgrservice/MM: HandleAppbackground bN=com.localminidrama.desktop,u=20020192
+10-09 16:14:06.885  1083  1371 I C01713/resource_schedule_service/SUSPEND_MANAGER: [a92ab6a24e8c5a0 0 0]RemoveRecordByPid, 20020192_com.localminidrama.desktop_51346, processNum: 1
+10-09 16:14:06.885  1419 19274 I C02220/msdp/SocketSessionManager: in OnProcessDied, 'com.localminidrama.desktop' died, pid:51346
+10-09 16:14:06.885  1083  1363 I C01718/resource_schedule_service/StandbyService: [OnProcessStatusChanged:938] process status change, uid: 20020192, pid: 51346, name: com.localminidrama.desktop, alive: 0
+10-09 16:14:06.885   935 23772 I C02699/memmgrservice/MM: OnProcessDied u=20020192,p=51346,pN=com.localminidrama.desktop:NetworkService,bN=com.localminidrama.desktop
+10-09 16:14:06.885  1083 49444 I C01731/resource_schedule_service/SUSPEND_MSG: [a92ab7a24ed837a 0 0]20020192_com.localminidrama.desktop_51346 died
+10-09 16:14:06.885  2043 50865 W C01311/foundation/AppMS: [AMSI4638]hisysevent write result=0, send event [FRAMEWORK,PROCESS_KILL], pid=51098, processName=com.localminidrama.desktop, msg=Kill Reason:app exit, reason=Kill Reason:app exit, FOREGROUND=0, appRunningUniqueId=15638982563256578860, killId=4
+10-09 16:14:06.886  1083  1371 I C01713/resource_schedule_service/SUSPEND_MANAGER: [a92ab4a24ed8201 0 0]RemoveRecordByPid, 20020192_com.localminidrama.desktop_51098, processNum: 0
+10-09 16:14:06.886  1083  1363 I C01718/resource_schedule_service/StandbyService: [OnProcessStatusChanged:938] process status change, uid: 20020192, pid: 51098, name: com.localminidrama.desktop, alive: 0
+10-09 16:14:06.886   935 18484 I C02699/memmgrservice/MM: OnProcessDied u=20020192,p=51098,pN=com.localminidrama.desktop,bN=com.localminidrama.desktop
+10-09 16:14:06.886  1083 50967 I C01731/resource_schedule_service/SUSPEND_MSG: [a92abca24ed8853 0 0]20020192_com.localminidrama.desktop_51098 died
+10-09 16:14:06.887  1083 50974 I C01705/resource_schedule_service/EXACT_PREREAD: [a92abca24ed8853 0 0][(HandleResetPrereadApp):273] Preread app com.localminidrama.desktop uid:20020192 pid:51098 died
+10-09 16:14:06.887  1083 48528 I C01724/resource_schedule_service/TASK_DETECTION: [a92abda24ed8a4c 0 0][OnAppStopped:961]uid: 20020192 bundleName: com.localminidrama.desktop app stopped
+10-09 16:14:06.887  1218 50997 I C015B5/netmanager/NetMgrEnhanced: NotifyAppStopped appName:com.localminidrama.desktop uid:20020192 pid:51098 state:5
+10-09 16:14:06.887  1419 19274 I C02220/msdp/SocketSessionManager: in OnProcessDied, 'com.localminidrama.desktop' died, pid:51098
+10-09 16:14:06.888  4833  4833 I A00F00/com.huawei.hmos.aidataservice/170005340: AppUsageAbility: process died, bundleName: com.localminidrama.desktop
+10-09 16:14:06.888  4833  4833 I A00F00/com.huawei.hmos.aidataservice/170005340: AppUsageAbility: process died, bundleName: com.localminidrama.desktop
+10-09 16:14:06.889 51345 51345 W C02C11/nativespawn/APPSPAWN: [appspawn_service.c:140]com.localminidrama.desktop with pid 51346 exit with signal:9
+10-09 16:14:06.889  4833 51274 I A00F00/com.huawei.hmos.aidataservice/CA170005340: [ForegroundAppAbility:413]: triggerBundleName:com.localminidrama.desktop, whiteList:["com.luna.hm.music","com.huawei.hmsapp.music","com.hiby.music.hm"]
+10-09 16:14:06.889  2043  3397 I C01311/foundation/AppMS: [app_native_spawn_manager.cpp186]pid:51346, signal:9, uid:20020192, bundleName:com.localminidrama.desktop
+10-09 16:14:06.889   635 48160 I C02D66/hiview/XPerf: appStartMonitor: AppStartMetrics bundle:com.localminidrama.desktop pid:51098 e2e:224
+10-09 16:14:06.889   635 48839 I C02DA0/hiview/FaultLeakDetectorManager: NotifyProcessDied: NotifyProcessDied process:com.localminidrama.desktop:51346
+10-09 16:14:06.889   635 48160 I C02D66/hiview/XPerf: appStartMonitor: AppStartMetrics bundle:com.localminidrama.desktop pid:51098 e2e:224
+10-09 16:14:06.890  2073  2885 I C01610/distributeddata/KvStoreDataService: NotifyClientDie: appId: com.localminidrama.desktop uid:20020192 tokenId:537196449
+10-09 16:14:06.890  2073  2885 I C01654/distributeddata/DSched_Service: OnAppExit: ObjectServiceImpl::OnAppExit uid=20020192, pid=51098, tokenId=537196449, bundleName=com.localminidrama.desktop
+10-09 16:14:06.890  2073  2885 I C01651/distributeddata/DataShareServiceImpl: OnAppExit: AppExit uid=20020192, pid=51098, tokenId=0x2004f7a1, bundleName=com.localminidrama.desktop
+10-09 16:14:06.890  2073  2885 I C01610/distributeddata/KVDBServiceImpl: OnAppExit: pid:51098 uid:20020192 appId:com.localminidrama.desktop
+10-09 16:14:06.891   956  3570 W C02801/multimodalinput/MMIService: [|811]Enter, session desc:fd = 52, programName = com.localminidrama.desktop, moduleType = 0, opened, uid = 20020192, pid = 51098, tokenType = -1
+10-09 16:14:06.891   635 48839 I C02DA0/hiview/FaultLeakDetectorManager: NotifyProcessDied: NotifyProcessDied process:com.localminidrama.desktop:51098
+10-09 16:14:06.892   637   637 W C02C11/appspawn/APPSPAWN: [appspawn_service.c:144]com.localminidrama.desktop with pid 51098 exit with code:0
+10-09 16:14:07.321  4742  4742 W A01C06/com.ohos.sceneboard/ICON: AppIconCommonEvent --> destroy, bundleName: com.localminidrama.desktop
+10-09 16:14:07.321  4742  4742 I A01C06/com.ohos.sceneboard/ICON: AppIconCommonEvent --> releaseIconCanvas, bundleName: com.localminidrama.desktop, iconCanvasType: 2
+10-09 16:14:07.321  4742  4742 I A04444/com.ohos.sceneboard/WMSOTHER: SCBTM --> transitionControllerList length:100  AppId: SmartDock_AppIcon_Container_com.localminidrama.desktop_EntryAbility_0_app_instance_0
+10-09 16:14:07.321  4742  4742 W A01B01/com.ohos.sceneboard/HOME: BadgeManager --> unRegisterBadgeListener bundle:com.localminidrama.desktop 0
+10-09 16:14:07.322  4742  4742 I A01C06/com.ohos.sceneboard/ICON: AppIconCommonViewDataModelMgr --> delDataModel key: com.localminidrama.desktopEntryAbilityelectron0
+10-09 16:14:07.322  4742  4742 I A01B01/com.ohos.sceneboard/HOME: PCDock-PcDockAnimationMgr: unRegisterCompanionEffect : isSuccess: true, mapSize: 10, key: com.localminidrama.desktop_0_EntryAbility_CommonIcon__app_instance_0
+10-09 16:14:07.322  4742  4742 I A01B01/com.ohos.sceneboard/HOME: PCDock-AppItem: aboutToDisappear bunleName: com.localminidrama.desktop, abilityName: EntryAbility
+10-09 16:14:07.324  4742  4742 W A01C06/com.ohos.sceneboard/ICON: AppIconCommonView --> aboutToDisappear com.localminidrama.desktop.
+10-09 16:14:07.774 51369 51369 W C02C02/PARAM: Selinux check name musl.ld.debug.dlopen in u:object_r:musl_param:s0 [51369 2000 2000] failed
+10-09 16:14:07.774 51369 51369 E C02C02/PARAM: Forbid to read parameter musl.ld.debug.dlopen
+10-09 16:14:07.774 51369 51369 E C02C02/PARAM: Forbid to access parameter musl.ld.debug.dlopen
+10-09 16:14:07.861   635 49097 I C02D15/hiview/XPower: [task_172]#ThermalHandler, newApp: com.huawei.hmsapp.appgallery, lastApp: com.localminidrama.desktop, screenState: 1
+10-09 16:14:07.887   935  1660 I C02699/memmgrservice/MM: HandleAppDied bN=com.localminidrama.desktop,u=20020192

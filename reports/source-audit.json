@@ -1,0 +1,65 @@
+{
+  "root": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+  "app": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+  "packageCount": 3,
+  "nativeModules": [
+    "better-sqlite3",
+    "sharp"
+  ],
+  "postinstallScripts": [
+    "desktop/package.json: postinstall=node scripts/copy-backend.js && electron-builder install-app-deps"
+  ],
+  "platformScripts": [
+    "desktop/package.json: dist=npm run prepare-backend && npm run build:front && npm run copy-front && npm run clean:unpacked && electron-builder --win",
+    "desktop/package.json: dist:mac=bash dist-mac.sh"
+  ],
+  "gitLfsPointers": [],
+  "packageManagerConfigFiles": [
+    ".npmrc"
+  ],
+  "risks": [
+    {
+      "severity": "info",
+      "type": "private-package",
+      "message": "package.json private=true found.",
+      "items": [
+        "frontweb/package.json"
+      ]
+    },
+    {
+      "severity": "high",
+      "type": "native-module",
+      "message": "Native modules need OHOS arm64 rebuild.",
+      "items": [
+        "better-sqlite3",
+        "sharp"
+      ]
+    },
+    {
+      "severity": "medium",
+      "type": "install-script",
+      "message": "Install lifecycle scripts may run during dependency install.",
+      "items": [
+        "desktop/package.json: postinstall=node scripts/copy-backend.js && electron-builder install-app-deps"
+      ]
+    },
+    {
+      "severity": "medium",
+      "type": "platform-script",
+      "message": "Platform-specific scripts may need HarmonyOS branches.",
+      "items": [
+        "desktop/package.json: dist=npm run prepare-backend && npm run build:front && npm run copy-front && npm run clean:unpacked && electron-builder --win",
+        "desktop/package.json: dist:mac=bash dist-mac.sh"
+      ]
+    },
+    {
+      "severity": "info",
+      "type": "registry-config",
+      "message": "Package manager registry config found; private registry/auth may be needed.",
+      "items": [
+        ".npmrc"
+      ]
+    }
+  ],
+  "status": "risk-review"
+}

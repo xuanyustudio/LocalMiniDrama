@@ -1,0 +1,28 @@
+{
+  "app": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop",
+  "packageName": "localminidrama-desktop",
+  "mode": "source-with-prebuild",
+  "confidence": "medium",
+  "reasons": [
+    "Electron dependency declared",
+    "Electron main entry: main.js",
+    "distribution directories exist: dist",
+    "renderer/build toolchain detected",
+    "Electron packaging framework detected; migrate source app, not platform-specific desktop package."
+  ],
+  "prebuildCommands": [
+    "npm run build:front"
+  ],
+  "strategy": "Run dependency install and prebuild before injection unless explicitly skipped; inject both source and generated dist artifacts.",
+  "blocking": [],
+  "artifactHints": {
+    "asarFiles": [],
+    "distDirs": [
+      "dist"
+    ]
+  },
+  "cautions": [
+    "desktop packaging scripts detected: pack, dist, dist:cn, dist:mac, postinstall. Do not run win/mac packaging as the migration target."
+  ],
+  "status": "ready"
+}

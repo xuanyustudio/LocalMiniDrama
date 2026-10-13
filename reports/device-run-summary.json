@@ -1,0 +1,45 @@
+{
+  "status": "launched-and-evidence-captured",
+  "signedHap": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap",
+  "bundleName": "com.localminidrama.desktop",
+  "ability": "EntryAbility",
+  "target": "3BT0124910000126",
+  "installStatus": 0,
+  "installCommandExitStatus": 0,
+  "installProvisioningRequired": false,
+  "bundleInstalled": true,
+  "launchStatus": 0,
+  "processAlive": true,
+  "windowPresent": true,
+  "windowPresenceSource": "window-dump",
+  "windowPresenceCommand": "shell aa dump -a",
+  "windowEvidence": [
+    "    Mission ID #284  mission name #[#com.localminidrama.desktop:electron:EntryAbility]  lockedState #0  mission affinity #[]",
+    "        app name [com.localminidrama.desktop]",
+    "        bundle name [com.localminidrama.desktop]",
+    "      process name [com.localminidrama.desktop]"
+  ],
+  "blankWindow": false,
+  "screenshotAnalyzed": true,
+  "screenshotAnalysis": {
+    "ok": true,
+    "blank": false,
+    "reason": "both frames have content: frame 1 luma variance 437.6, frame 2 luma variance 437.6",
+    "frames": [
+      "frame-a-20261009-181245.png",
+      "frame-b-20261009-181245.png"
+    ],
+    "thresholds": {
+      "varianceThreshold": 12,
+      "dominantRatioThreshold": 0.99
+    }
+  },
+  "analysisFrames": [
+    "frame-a-20261009-181245.png",
+    "frame-b-20261009-181245.png"
+  ],
+  "usability": "usable",
+  "usabilityReason": "both frames have content: frame 1 luma variance 437.6, frame 2 luma variance 437.6",
+  "evidenceDir": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/evidence",
+  "evidenceIndex": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/evidence/evidence-index.json"
+}

@@ -1,0 +1,55 @@
+napi registration invoked
+napi registration invoked napi_version=8
+open create=10 set=10
+close create=10 set=10
+exec create=10 set=10
+prepare create=10 set=10
+finalize create=10 set=10
+run create=10 set=10
+get create=10 set=10
+all create=10 set=10
+version create=10 set=10
+nd_init: source=libelectron.so:noload missing=0
+napi registration invoked napi_version=10
+open create=0 set=0
+close create=0 set=0
+exec create=0 set=0
+prepare create=0 set=0
+finalize create=0 set=0
+run create=0 set=0
+get create=0 set=0
+all create=0 set=0
+version create=0 set=0
+nd_init: source=libelectron.so:noload missing=0
+napi registration invoked napi_version=10
+open create=0 set=0
+close create=0 set=0
+exec create=0 set=0
+prepare create=0 set=0
+finalize create=0 set=0
+run create=0 set=0
+get create=0 set=0
+all create=0 set=0
+version create=0 set=0
+nd_init: source=libelectron.so:noload missing=0
+napi registration invoked napi_version=10
+open create=0 set=0
+close create=0 set=0
+exec create=0 set=0
+prepare create=0 set=0
+finalize create=0 set=0
+run create=0 set=0
+get create=0 set=0
+all create=0 set=0
+version create=0 set=0
+nd_init: source=libelectron.so:noload missing=0
+napi registration invoked napi_version=10
+open create=0 set=0
+close create=0 set=0
+exec create=0 set=0
+prepare create=0 set=0
+finalize create=0 set=0
+run create=0 set=0
+get create=0 set=0
+all create=0 set=0
+version create=0 set=0

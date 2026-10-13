@@ -1,0 +1,84 @@
+{
+  "status": "passed",
+  "generatedAt": "2026-09-28T12:40:30.823Z",
+  "workspace": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+  "targets": [
+    "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/native-build",
+    "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a"
+  ],
+  "summary": {
+    "totalArtifacts": 6,
+    "nativeBuildArtifacts": 1,
+    "hapHostLibArtifacts": 5,
+    "failedArtifacts": 0
+  },
+  "artifacts": [
+    {
+      "file": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/native-build/better_sqlite3_sync.node",
+      "origin": "native-build",
+      "size": 1139544,
+      "fileOutput": "ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, with debug_info, not stripped",
+      "ok": true,
+      "checks": {
+        "elf64Aarch64": true,
+        "notLfsPointerSized": true
+      }
+    },
+    {
+      "file": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a/better_sqlite3_sync.node",
+      "origin": "hap-host-libs",
+      "size": 1139544,
+      "fileOutput": "ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, with debug_info, not stripped",
+      "ok": true,
+      "checks": {
+        "elf64Aarch64": true,
+        "notLfsPointerSized": true
+      }
+    },
+    {
+      "file": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a/libadapter.so",
+      "origin": "hap-host-libs",
+      "size": 2619184,
+      "fileOutput": "ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[sha1]=7999441c0fe0f7be4b9a0c43fc01121b906e4553, stripped",
+      "ok": true,
+      "checks": {
+        "elf64Aarch64": true,
+        "notLfsPointerSized": true
+      }
+    },
+    {
+      "file": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a/libc++_shared.so",
+      "origin": "hap-host-libs",
+      "size": 7519624,
+      "fileOutput": "ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[sha1]=2a0cce01981803a2ec05e43787014b334b6e4471, with debug_info, not stripped",
+      "ok": true,
+      "checks": {
+        "elf64Aarch64": true,
+        "notLfsPointerSized": true
+      }
+    },
+    {
+      "file": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a/libelectron.so",
+      "origin": "hap-host-libs",
+      "size": 177551720,
+      "fileOutput": "ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[sha1]=b807dfeac9b978fda1e3da69546682d7b29ee58d, stripped",
+      "ok": true,
+      "checks": {
+        "elf64Aarch64": true,
+        "notLfsPointerSized": true
+      }
+    },
+    {
+      "file": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a/libffmpeg.so",
+      "origin": "hap-host-libs",
+      "size": 2198160,
+      "fileOutput": "ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[sha1]=e7268fb7fd63538823c7e48ae009727af5c767b3, stripped",
+      "ok": true,
+      "checks": {
+        "elf64Aarch64": true,
+        "notLfsPointerSized": true
+      }
+    }
+  ],
+  "next": "If passed, still run a feature-level signed-device test; require()-only success is not enough."
+}

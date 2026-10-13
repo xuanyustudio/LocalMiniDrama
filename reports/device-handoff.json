@@ -1,0 +1,35 @@
+{
+  "status": "external-signing-handoff-ready",
+  "generatedAt": "2026-10-09T10:12:53.169Z",
+  "workspace": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+  "outDir": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/handoff/device-evidence",
+  "appName": "本地短剧助手",
+  "bundleName": "com.localminidrama.desktop",
+  "unsignedHap": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+  "copiedUnsignedHap": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/handoff/device-evidence/electron-default-unsigned.hap",
+  "signedHapDropPath": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/handoff/device-evidence/signed.hap",
+  "signingDiagnosis": {
+    "status": "needs-provisioning",
+    "report": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/signing-diagnosis.json"
+  },
+  "signingRunbook": {
+    "status": "automatic-agc-signing-supported",
+    "report": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/signing-runbook.json"
+  },
+  "scripts": {
+    "macosLinux": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/handoff/device-evidence/run-after-signing.sh",
+    "windowsPowerShell": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/handoff/device-evidence/run-after-signing.ps1"
+  },
+  "featureEvidence": {
+    "report": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/feature-evidence.json",
+    "markdown": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/feature-evidence.md",
+    "commandTemplate": "node /Users/Admin/.config/deveco/skills/ohos-electron-migrate/scripts/record-feature-evidence.mjs --workspace /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration --case <case-id> --status passed --note \"<what was verified>\""
+  },
+  "next": [
+    "Prefer --agc-config for automatic certificate/Profile provisioning, signing, installation, and evidence capture.",
+    "If signing must occur on another authorized machine, copy its signed HAP to handoff/device-evidence/signed.hap or pass it as the first script argument.",
+    "Run run-after-signing.sh on macOS/Linux or run-after-signing.ps1 on Windows.",
+    "Operate every item in reports/verification-checklist.md and run record-feature-evidence for each case.",
+    "Accept Phase 6 only when reports/device-evidence-verification.json status is passed."
+  ]
+}

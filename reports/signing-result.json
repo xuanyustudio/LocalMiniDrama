@@ -1,0 +1,69 @@
+{
+  "status": "signed",
+  "generatedAt": "2026-10-09T10:12:02.482Z",
+  "unsignedHap": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+  "signedHap": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap",
+  "signatureVerified": true,
+  "signingConfigSource": "authorized-json",
+  "checks": [
+    {
+      "id": "unsigned-hap",
+      "ok": true,
+      "detail": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap"
+    },
+    {
+      "id": "signing-config",
+      "ok": true,
+      "detail": "valid JSON; secret values are never written to reports"
+    },
+    {
+      "id": "key-alias",
+      "ok": true,
+      "detail": "present"
+    },
+    {
+      "id": "secret-file",
+      "ok": true,
+      "detail": "present"
+    },
+    {
+      "id": "keystore",
+      "ok": true,
+      "detail": "present"
+    },
+    {
+      "id": "app-certificate",
+      "ok": true,
+      "detail": "present"
+    },
+    {
+      "id": "profile",
+      "ok": true,
+      "detail": "present"
+    },
+    {
+      "id": "compatible-version",
+      "ok": true,
+      "detail": "present"
+    },
+    {
+      "id": "sign-tool",
+      "ok": true,
+      "detail": "/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/lib/hap-sign-tool.jar"
+    },
+    {
+      "id": "java",
+      "ok": true,
+      "detail": "/Applications/DevEco-Studio.app/Contents/jbr/Contents/Home/bin/java"
+    },
+    {
+      "id": "signature-verification",
+      "ok": true,
+      "detail": "hap-sign-tool verify-app passed"
+    }
+  ],
+  "reason": "HAP signed with authorized material and verified.",
+  "signedHapBytes": 311625966,
+  "signedHapSha256": "da4dd7d0baf820b9832b696a533e65d846480cce6ac3ebb166b210c4cfaf19b9",
+  "compatibleVersion": "17"
+}

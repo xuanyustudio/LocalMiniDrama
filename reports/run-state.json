@@ -1,0 +1,986 @@
+{
+  "schemaVersion": 1,
+  "workspace": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+  "currentState": "delivered",
+  "terminalState": "delivered",
+  "complete": true,
+  "createdAt": "2026-09-28T11:36:55.615Z",
+  "updatedAt": "2026-10-09T10:12:52.488Z",
+  "invocation": {
+    "originalArgs": [
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama",
+      "--app",
+      "desktop",
+      "--out",
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration"
+    ],
+    "effectiveArgs": [
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama",
+      "--app",
+      "desktop",
+      "--out",
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration"
+    ],
+    "naturalLanguageRequest": null,
+    "hostOS": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "node": "v24.14.1"
+    }
+  },
+  "stages": {
+    "created": {
+      "status": "completed",
+      "startedAt": "2026-09-28T11:36:55.615Z",
+      "finishedAt": "2026-09-28T11:36:55.615Z",
+      "input": {
+        "source": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama"
+      },
+      "output": {
+        "workspace": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration"
+      },
+      "exitCode": 0,
+      "evidence": []
+    },
+    "source-ready": {
+      "status": "completed",
+      "startedAt": "2026-09-28T11:36:58.065Z",
+      "finishedAt": "2026-09-28T11:36:58.065Z",
+      "input": {
+        "source": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama"
+      },
+      "output": {
+        "sourceRoot": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source",
+        "sourceType": "local-copy",
+        "provider": "local"
+      },
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/source-acquisition.json"
+      ]
+    },
+    "app-resolved": {
+      "status": "completed",
+      "startedAt": "2026-09-28T11:36:58.183Z",
+      "finishedAt": "2026-09-28T11:36:58.183Z",
+      "input": {
+        "preferredApp": "desktop"
+      },
+      "output": {
+        "appDir": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop"
+      },
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/electron-detection.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/app-resolution.json"
+      ]
+    },
+    "dependencies-ready": {
+      "status": "completed",
+      "startedAt": "2026-09-28T11:38:03.995Z",
+      "finishedAt": "2026-09-28T11:38:03.995Z",
+      "input": {
+        "packageManager": "npm"
+      },
+      "output": {
+        "dependencyStatus": "failed",
+        "prebuildStatus": "skipped"
+      },
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/source-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/dependency-install.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/migration-mode.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/prebuild.json"
+      ]
+    },
+    "analyzed": {
+      "status": "completed",
+      "startedAt": "2026-09-28T11:38:11.342Z",
+      "finishedAt": "2026-09-28T11:38:11.342Z",
+      "input": null,
+      "output": {
+        "apiUsagePoints": 17,
+        "unsupported": 0,
+        "nativeModules": 2
+      },
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/release-capabilities.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/scan-report.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.md"
+      ]
+    },
+    "adapted": {
+      "status": "completed",
+      "startedAt": "2026-09-28T11:38:12.579Z",
+      "finishedAt": "2026-09-28T11:38:12.579Z",
+      "input": null,
+      "output": {
+        "hostDir": "/Users/Admin/.ohos-electron-hosts/hosts/v37.2.1",
+        "bundleName": "com.codex.migrated.electronapp"
+      },
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/adaptation-report.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/adaptation.patch",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/migration-metadata.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/web_engine/src/main/resources/resfile/resources/app/ohos-shim-report.json"
+      ]
+    },
+    "native-ready": {
+      "status": "completed",
+      "startedAt": "2026-09-28T12:40:30.826Z",
+      "finishedAt": "2026-09-28T12:40:30.826Z",
+      "input": null,
+      "output": {
+        "nativeTotal": 2,
+        "nativeArtifacts": 1,
+        "auditStatus": "passed"
+      },
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.md"
+      ]
+    },
+    "hap-built": {
+      "status": "completed",
+      "startedAt": "2026-09-28T12:40:51.151Z",
+      "finishedAt": "2026-09-28T12:40:51.151Z",
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap"
+        ],
+        "hapAuditStatus": "passed",
+        "signed": false
+      },
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/command-log.json"
+      ]
+    },
+    "signed": {
+      "status": "completed",
+      "startedAt": "2026-09-28T12:41:06.794Z",
+      "finishedAt": "2026-09-28T12:41:06.794Z",
+      "input": null,
+      "output": {
+        "signedHap": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap",
+        "signatureVerified": true
+      },
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/signing-result.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/signed-hap-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+      ]
+    },
+    "installed": {
+      "status": "completed",
+      "startedAt": "2026-10-09T09:29:59.527Z",
+      "finishedAt": "2026-10-09T09:29:59.527Z",
+      "input": null,
+      "output": {
+        "bundleName": "com.localminidrama.desktop",
+        "signedHap": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+      },
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/device-run-summary.json"
+      ]
+    },
+    "launched": {
+      "status": "completed",
+      "startedAt": "2026-10-09T09:29:59.528Z",
+      "finishedAt": "2026-10-09T09:29:59.528Z",
+      "input": null,
+      "output": {
+        "bundleName": "com.localminidrama.desktop",
+        "ability": "EntryAbility"
+      },
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/device-run-summary.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/evidence/evidence-index.json"
+      ]
+    },
+    "verified": {
+      "status": "completed",
+      "startedAt": "2026-10-09T10:12:52.485Z",
+      "finishedAt": "2026-10-09T10:12:52.485Z",
+      "input": null,
+      "output": null,
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/device-evidence-verification.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/evidence/evidence-index.json"
+      ]
+    },
+    "delivered": {
+      "status": "completed",
+      "startedAt": "2026-10-09T10:12:52.487Z",
+      "finishedAt": "2026-10-09T10:12:52.487Z",
+      "input": null,
+      "output": null,
+      "exitCode": 0,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/device-evidence-verification.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/evidence/evidence-index.json"
+      ]
+    }
+  },
+  "history": [
+    {
+      "from": "created",
+      "to": "source-ready",
+      "at": "2026-09-28T11:36:58.065Z"
+    },
+    {
+      "from": "source-ready",
+      "to": "app-resolved",
+      "at": "2026-09-28T11:36:58.183Z"
+    },
+    {
+      "from": "app-resolved",
+      "to": "failed",
+      "at": "2026-09-28T11:37:07.218Z"
+    },
+    {
+      "from": "failed",
+      "to": "app-resolved",
+      "at": "2026-09-28T11:38:03.917Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "app-resolved",
+      "to": "dependencies-ready",
+      "at": "2026-09-28T11:38:03.995Z"
+    },
+    {
+      "from": "dependencies-ready",
+      "to": "analyzed",
+      "at": "2026-09-28T11:38:11.342Z"
+    },
+    {
+      "from": "analyzed",
+      "to": "adapted",
+      "at": "2026-09-28T11:38:12.579Z"
+    },
+    {
+      "from": "adapted",
+      "to": "blocked",
+      "at": "2026-09-28T11:38:14.874Z"
+    },
+    {
+      "from": "blocked",
+      "to": "adapted",
+      "at": "2026-09-28T11:53:19.531Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "adapted",
+      "to": "blocked",
+      "at": "2026-09-28T11:53:29.061Z"
+    },
+    {
+      "from": "blocked",
+      "to": "adapted",
+      "at": "2026-09-28T12:16:32.296Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "adapted",
+      "to": "failed",
+      "at": "2026-09-28T12:16:41.783Z"
+    },
+    {
+      "from": "failed",
+      "to": "adapted",
+      "at": "2026-09-28T12:40:25.364Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "adapted",
+      "to": "native-ready",
+      "at": "2026-09-28T12:40:30.826Z"
+    },
+    {
+      "from": "native-ready",
+      "to": "hap-built",
+      "at": "2026-09-28T12:40:51.151Z"
+    },
+    {
+      "from": "hap-built",
+      "to": "signed",
+      "at": "2026-09-28T12:41:06.794Z"
+    },
+    {
+      "from": "signed",
+      "to": "needs-provisioning",
+      "at": "2026-09-28T12:41:19.529Z"
+    },
+    {
+      "from": "needs-provisioning",
+      "to": "signed",
+      "at": "2026-09-28T12:47:11.680Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "failed",
+      "at": "2026-09-28T12:48:28.501Z"
+    },
+    {
+      "from": "failed",
+      "to": "signed",
+      "at": "2026-09-28T13:04:45.730Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "failed",
+      "at": "2026-09-28T13:04:47.102Z"
+    },
+    {
+      "from": "failed",
+      "to": "signed",
+      "at": "2026-09-28T13:06:00.897Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "failed",
+      "at": "2026-09-28T13:06:44.468Z"
+    },
+    {
+      "from": "failed",
+      "to": "signed",
+      "at": "2026-09-28T13:18:34.837Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "failed",
+      "at": "2026-09-28T13:19:09.097Z"
+    },
+    {
+      "from": "failed",
+      "to": "signed",
+      "at": "2026-09-28T13:22:26.034Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "needs-provisioning",
+      "at": "2026-09-28T13:23:21.949Z"
+    },
+    {
+      "from": "needs-provisioning",
+      "to": "signed",
+      "at": "2026-09-28T13:40:47.561Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "failed",
+      "at": "2026-09-28T13:42:03.142Z"
+    },
+    {
+      "from": "failed",
+      "to": "signed",
+      "at": "2026-10-09T04:48:34.909Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "needs-provisioning",
+      "at": "2026-10-09T04:49:08.484Z"
+    },
+    {
+      "from": "needs-provisioning",
+      "to": "signed",
+      "at": "2026-10-09T06:22:11.326Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "failed",
+      "at": "2026-10-09T06:24:01.221Z"
+    },
+    {
+      "from": "failed",
+      "to": "signed",
+      "at": "2026-10-09T07:25:19.626Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "failed",
+      "at": "2026-10-09T07:27:32.937Z"
+    },
+    {
+      "from": "failed",
+      "to": "signed",
+      "at": "2026-10-09T07:40:31.771Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "failed",
+      "at": "2026-10-09T07:46:36.714Z"
+    },
+    {
+      "from": "failed",
+      "to": "signed",
+      "at": "2026-10-09T08:12:58.093Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "failed",
+      "at": "2026-10-09T08:14:11.810Z"
+    },
+    {
+      "from": "failed",
+      "to": "signed",
+      "at": "2026-10-09T08:27:35.780Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "failed",
+      "at": "2026-10-09T08:28:51.541Z"
+    },
+    {
+      "from": "failed",
+      "to": "signed",
+      "at": "2026-10-09T09:01:04.100Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "failed",
+      "at": "2026-10-09T09:02:19.077Z"
+    },
+    {
+      "from": "failed",
+      "to": "signed",
+      "at": "2026-10-09T09:28:40.145Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "signed",
+      "to": "installed",
+      "at": "2026-10-09T09:29:59.527Z"
+    },
+    {
+      "from": "installed",
+      "to": "launched",
+      "at": "2026-10-09T09:29:59.528Z"
+    },
+    {
+      "from": "launched",
+      "to": "failed",
+      "at": "2026-10-09T09:29:59.529Z"
+    },
+    {
+      "from": "failed",
+      "to": "launched",
+      "at": "2026-10-09T10:11:32.558Z",
+      "reason": "--resume requested; reevaluate the previous terminal condition."
+    },
+    {
+      "from": "launched",
+      "to": "verified",
+      "at": "2026-10-09T10:12:52.485Z"
+    },
+    {
+      "from": "verified",
+      "to": "delivered",
+      "at": "2026-10-09T10:12:52.487Z"
+    },
+    {
+      "from": "delivered",
+      "to": "delivered",
+      "at": "2026-10-09T10:12:52.488Z"
+    }
+  ],
+  "terminal": {
+    "status": "delivered",
+    "startedAt": "2026-10-09T10:12:52.488Z",
+    "finishedAt": "2026-10-09T10:12:52.488Z",
+    "reason": "Signed HAP installed, launched, and passed device evidence verification.",
+    "category": "delivery",
+    "fingerprint": null,
+    "input": null,
+    "output": {
+      "signedHap": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap",
+      "bundleName": "com.localminidrama.desktop"
+    },
+    "exitCode": 0,
+    "evidence": [
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap",
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/device-run-summary.json",
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/device-evidence-verification.json",
+      "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/evidence/evidence-index.json"
+    ]
+  },
+  "terminalHistory": [
+    {
+      "status": "failed",
+      "startedAt": "2026-09-28T11:37:07.218Z",
+      "finishedAt": "2026-09-28T11:37:07.218Z",
+      "reason": "{\n  \"root\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source\",\n  \"app\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop\",\n  \"packageManager\": \"npm\",\n  \"packageManagerField\": null,\n  \"packageManagerVersion\": \"11.11.0\",\n  \"corepackVersion\": \"0.34.6\",\n  \"lockfile\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop/package-lock.json\",\n  \"frozenLockfile\": true,\n  \"installCwd\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop\",\n  \"command\": [\n    \"npm\",\n    \"ci\"\n  ],\n  \"node\": \"v24.14.1\",\n  \"status\": \"failed\",\n  \"commandAvailable\": \"/Applications/DevEco-Studio.app/Contents/tools/node/bin/npm\",\n  \"registryHints\": [\n    {\n      \"file\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop/.npmrc\",\n      \"hasRegistry\": true,\n      \"hasAuthTokenPlaceholder\": false,\n      \"warning\": \"Private registry/auth may be required; do not paste secrets into reports.\"\n    }\n  ],\n  \"firstError\": \"npm error code 1\",\n  \"stdoutTail\": \"\",\n  \"stderrTail\": \" number of vulnerabilities, which have been patched in 2.x. You should upgrade to the latest 2.x version.\\nnpm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.\\nnpm error code 1\\nnpm error path /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop/node_modules/better-sqlite3\\nnpm error command failed\\nnpm error command sh -c prebuild-install || node-gyp rebuild --release\\nnpm error TOUCH 4292fa9a667d77b27488aa109b010a85bce8e4e7a1c7aa0370cea902395c3866.intermediate\\nnpm error   ACTION deps_sqlite3_gyp_locate_sqlite3_target_copy_builtin_sqlite3 4292fa9a667d77b27488aa109b010a85bce8e4e7a1c7aa0370cea902395c3866.intermediate\\nnpm error   TOUCH Release/obj.target/deps/locate_sqlite3.stamp\\nnpm error   CC(target) Release/obj.target/sqlite3/gen/sqlite3/sqlite3.o\\nnpm error rm 4292fa9a667d77b27488aa109b010a85bce8e4e7a1c7aa0370cea902395c3866.intermediate\\nnpm error (node:17761) [DEP0176] DeprecationWarning: fs.R_OK is deprecated, use fs.constants.R_OK instead\\nnpm error (Use `node --trace-deprecation ...` to show where the warning was created)\\nnpm error prebuild-install warn install No prebuilt binaries found (target=24.14.1 runtime=node arch=arm64 libc= platform=darwin)\\nnpm error gyp info it worked if it ends with ok\\nnpm error gyp info using node-gyp@12.2.0\\nnpm error gyp info using node@24.14.1 | darwin | arm64\\nnpm error (node:17825) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.\\nnpm error (Use `node --trace-deprecation ...` to show where the warning was created)\\nnpm error gyp info find Python using Python version 3.9.6 found at \\\"/Library/Developer/CommandLineTools/usr/bin/python3\\\"\\nnpm error gyp info spawn /Library/Developer/CommandLineTools/usr/bin/python3\\nnpm error gyp info spawn args [\\nnpm error gyp info spawn args '/Applications/DevEco-Studio.app/Contents/tools/node/lib/node_modules/npm/node_modules/node-gyp/gyp/gyp_main.py',\\nnpm error gyp info spawn args 'binding.gyp',\\nnpm error gyp info spawn args '-f',\\nnpm error gyp info spawn args 'make',\\nnpm error gyp info spawn args '-I',\\nnpm error gyp info spawn args '/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop/node_modules/better-sqlite3/build/config.gypi',\\nnpm error gyp info spawn args '-I',\\nnpm error gyp info spawn args '/Applications/DevEco-Studio.app/Contents/tools/node/lib/node_modules/npm/node_modules/node-gyp/addon.gypi',\\nnpm error gyp info spawn args '-I',\\nnpm error gyp info spawn args '/Users/Admin/Library/Caches/node-gyp/24.14.1/include/node/common.gypi',\\nnpm error gyp info spawn args '-Dlibrary=shared_library',\\nnpm error gyp info spawn args '-Dvisibility=default',\\nnpm error gyp info spawn args '-Dnode_root_dir=/Users/Admin/Library/Caches/node-gyp/24.14.1',\\nnpm error gyp info spawn args '-Dnode_gyp_dir=/Applications/DevEco-Studio.app/Contents/tools/node/lib/node_modules/npm/node_modules/node-gyp',\\nnpm error gyp info spawn args '-Dnode_lib_file=/Users/Admin/Library/Caches/node-gyp/24.14.1/<(target_arch)/node.lib',\\nnpm error gyp info spawn args '-Dmodule_root_dir=/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop/node_modules/better-sqlite3',\\nnpm error gyp info spawn args '-Dnode_engine=v8',\\nnpm error gyp info spawn args '--depth=.',\\nnpm error gyp info spawn args '--no-parallel',\\nnpm error gyp info spawn args '--generator-output',\\nnpm error gyp info spawn args 'build',\\nnpm error gyp info spawn args '-Goutput_dir=.'\\nnpm error gyp info spawn args ]\\nnpm error gyp info spawn make\\nnpm error gyp info spawn args [ 'BUILDTYPE=Release', '-C', 'build' ]\\nnpm error Release/obj/gen/sqlite3/sqlite3.c:14981:10: fatal error: 'stdio.h' file not found\\nnpm error  14981 | #include <stdio.h>\\nnpm error        |          ^~~~~~~~~\\nnpm error 1 error generated.\\nnpm error make: *** [Release/obj.target/sqlite3/gen/sqlite3/sqlite3.o] Error 1\\nnpm error gyp ERR! build error \\nnpm error gyp ERR! stack Error: `make` failed with exit code: 2\\nnpm error gyp ERR! stack at ChildProcess.<anonymous> (/Applications/DevEco-Studio.app/Contents/tools/node/lib/node_modules/npm/node_modules/node-gyp/lib/build.js:219:23)\\nnpm error gyp ERR! System Darwin 24.6.0\\nnpm error gyp ERR! command \\\"/Applications/DevEco-Studio.app/Contents/tools/node/bin/node\\\" \\\"/Applications/DevEco-Studio.app/Contents/tools/node/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js\\\" \\\"rebuild\\\" \\\"--release\\\"\\nnpm error gyp ERR! cwd /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop/node_modules/better-sqlite3\\nnpm error gyp ERR! node -v v24.14.1\\nnpm error gyp ERR! node-gyp -v v12.2.0\\nnpm error gyp ERR! $npm_package_name better-sqlite3\\nnpm error gyp ERR! $npm_package_version 11.10.0\\nnpm error gyp ERR! not ok\\nnpm error A complete log of this run can be found in: /Users/Admin/.npm/_logs/2026-09-28T11_36_58_860Z-debug-0.log\\n\",\n  \"exitCode\": 1,\n  \"error\": null\n}\n",
+      "category": "command",
+      "fingerprint": null,
+      "input": {
+        "command": "node scripts/install-source-deps.mjs /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source --app /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop --json /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/dependency-install.json",
+        "cwd": "/Users/Admin/.config/deveco/skills/ohos-electron-migrate"
+      },
+      "output": {
+        "status": 1,
+        "error": null
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/command-log.json"
+      ]
+    },
+    {
+      "status": "blocked",
+      "startedAt": "2026-09-28T11:38:14.874Z",
+      "finishedAt": "2026-09-28T11:38:14.874Z",
+      "reason": "Blocking native addons are not ready.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [],
+        "nativeReady": false,
+        "ohpmStatus": 0,
+        "buildStatus": null,
+        "hapAuditStatus": null
+      },
+      "exitCode": 20,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json"
+      ]
+    },
+    {
+      "status": "blocked",
+      "startedAt": "2026-09-28T11:53:29.061Z",
+      "finishedAt": "2026-09-28T11:53:29.061Z",
+      "reason": "Blocking native addons are not ready.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [],
+        "nativeReady": false,
+        "ohpmStatus": 0,
+        "buildStatus": null,
+        "hapAuditStatus": null
+      },
+      "exitCode": 20,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-09-28T12:16:41.783Z",
+      "finishedAt": "2026-09-28T12:16:41.783Z",
+      "reason": "{\n  \"status\": \"failed\",\n  \"generatedAt\": \"2026-09-28T12:16:41.776Z\",\n  \"workspace\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration\",\n  \"targets\": [\n    \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/native-build\",\n    \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a\"\n  ],\n  \"summary\": {\n    \"totalArtifacts\": 6,\n    \"nativeBuildArtifacts\": 1,\n    \"hapHostLibArtifacts\": 5,\n    \"failedArtifacts\": 2\n  },\n  \"artifacts\": [\n    {\n      \"file\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/native-build/better_sqlite3.node\",\n      \"origin\": \"native-build\",\n      \"size\": 1884688,\n      \"fileOutput\": \"Mach-O 64-bit bundle arm64\",\n      \"ok\": false,\n      \"checks\": {\n        \"elf64Aarch64\": false,\n        \"notLfsPointerSized\": true\n      }\n    },\n    {\n      \"file\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a/better_sqlite3.node\",\n      \"origin\": \"hap-host-libs\",\n      \"size\": 1884688,\n      \"fileOutput\": \"Mach-O 64-bit bundle arm64\",\n      \"ok\": false,\n      \"checks\": {\n        \"elf64Aarch64\": false,\n        \"notLfsPointerSized\": true\n      }\n    },\n    {\n      \"file\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a/libadapter.so\",\n      \"origin\": \"hap-host-libs\",\n      \"size\": 2619184,\n      \"fileOutput\": \"ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[sha1]=7999441c0fe0f7be4b9a0c43fc01121b906e4553, stripped\",\n      \"ok\": true,\n      \"checks\": {\n        \"elf64Aarch64\": true,\n        \"notLfsPointerSized\": true\n      }\n    },\n    {\n      \"file\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a/libc++_shared.so\",\n      \"origin\": \"hap-host-libs\",\n      \"size\": 7519624,\n      \"fileOutput\": \"ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[sha1]=2a0cce01981803a2ec05e43787014b334b6e4471, with debug_info, not stripped\",\n      \"ok\": true,\n      \"checks\": {\n        \"elf64Aarch64\": true,\n        \"notLfsPointerSized\": true\n      }\n    },\n    {\n      \"file\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a/libelectron.so\",\n      \"origin\": \"hap-host-libs\",\n      \"size\": 177551720,\n      \"fileOutput\": \"ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[sha1]=b807dfeac9b978fda1e3da69546682d7b29ee58d, stripped\",\n      \"ok\": true,\n      \"checks\": {\n        \"elf64Aarch64\": true,\n        \"notLfsPointerSized\": true\n      }\n    },\n    {\n      \"file\": \"/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/libs/arm64-v8a/libffmpeg.so\",\n      \"origin\": \"hap-host-libs\",\n      \"size\": 2198160,\n      \"fileOutput\": \"ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, BuildID[sha1]=e7268fb7fd63538823c7e48ae009727af5c767b3, stripped\",\n      \"ok\": true,\n      \"checks\": {\n        \"elf64Aarch64\": true,\n        \"notLfsPointerSized\": true\n      }\n    }\n  ],\n  \"next\": \"If passed, still run a feature-level signed-device test; require()-only success is not enough.\"\n}\n",
+      "category": "command",
+      "fingerprint": null,
+      "input": {
+        "command": "node scripts/audit-native-build.mjs --workspace /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration --json /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json --markdown /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.md",
+        "cwd": "/Users/Admin/.config/deveco/skills/ohos-electron-migrate"
+      },
+      "output": {
+        "status": 1,
+        "error": null
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/command-log.json"
+      ]
+    },
+    {
+      "status": "needs-provisioning",
+      "startedAt": "2026-09-28T12:41:19.529Z",
+      "finishedAt": "2026-09-28T12:41:19.529Z",
+      "reason": "The connected device rejected the HAP signature or provisioning profile.",
+      "category": "environment-or-signing",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 10,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-09-28T12:48:28.501Z",
+      "finishedAt": "2026-09-28T12:48:28.501Z",
+      "reason": "The application process is alive but no window belongs to the bundle.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-09-28T13:04:47.102Z",
+      "finishedAt": "2026-09-28T13:04:47.102Z",
+      "reason": "✗ inject-app: ENOTEMPTY, Directory not empty: /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap '/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap'\n",
+      "category": "command",
+      "fingerprint": null,
+      "input": {
+        "command": "node scripts/ohos-tools.mjs inject-app /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/source/desktop /Users/Admin/.ohos-electron-hosts/hosts/v37.2.1 /Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+        "cwd": "/Users/Admin/.config/deveco/skills/ohos-electron-migrate"
+      },
+      "output": {
+        "status": 1,
+        "error": null
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/command-log.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-09-28T13:06:44.468Z",
+      "finishedAt": "2026-09-28T13:06:44.468Z",
+      "reason": "HAP signing failed with status 1.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-09-28T13:19:09.097Z",
+      "finishedAt": "2026-09-28T13:19:09.097Z",
+      "reason": "HAP signing failed with status 1.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "needs-provisioning",
+      "startedAt": "2026-09-28T13:23:21.949Z",
+      "finishedAt": "2026-09-28T13:23:21.949Z",
+      "reason": "The connected device rejected the HAP signature or provisioning profile.",
+      "category": "environment-or-signing",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 10,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-09-28T13:42:03.142Z",
+      "finishedAt": "2026-09-28T13:42:03.142Z",
+      "reason": "The application process is alive but no window belongs to the bundle.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "needs-provisioning",
+      "startedAt": "2026-10-09T04:49:08.484Z",
+      "finishedAt": "2026-10-09T04:49:08.484Z",
+      "reason": "Provide authorized signing JSON or a DevEco build-profile.json5 containing a valid local signing config.",
+      "category": "environment-or-signing",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 10,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-10-09T06:24:01.221Z",
+      "finishedAt": "2026-10-09T06:24:01.221Z",
+      "reason": "The application process is alive but no window belongs to the bundle.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-10-09T07:27:32.937Z",
+      "finishedAt": "2026-10-09T07:27:32.937Z",
+      "reason": "The application process is alive but no window belongs to the bundle.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-10-09T07:46:36.714Z",
+      "finishedAt": "2026-10-09T07:46:36.714Z",
+      "reason": "The application process is alive but no window belongs to the bundle.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-10-09T08:14:11.810Z",
+      "finishedAt": "2026-10-09T08:14:11.810Z",
+      "reason": "The launch command returned, but the application process did not remain alive.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-10-09T08:28:51.541Z",
+      "finishedAt": "2026-10-09T08:28:51.541Z",
+      "reason": "The application process is alive but no window belongs to the bundle.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-10-09T09:02:19.077Z",
+      "finishedAt": "2026-10-09T09:02:19.077Z",
+      "reason": "The application process is alive but no window belongs to the bundle.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    },
+    {
+      "status": "failed",
+      "startedAt": "2026-10-09T09:29:59.529Z",
+      "finishedAt": "2026-10-09T09:29:59.529Z",
+      "reason": "The app launched on device, but automatic evidence verification is incomplete.",
+      "category": "build",
+      "fingerprint": null,
+      "input": null,
+      "output": {
+        "haps": [
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/electron/build/default/outputs/default/electron-default-unsigned.hap",
+          "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/artifacts/electron-app-signed.hap"
+        ],
+        "nativeReady": true,
+        "ohpmStatus": 0,
+        "buildStatus": 0,
+        "hapAuditStatus": 0
+      },
+      "exitCode": 1,
+      "evidence": [
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-plan.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/native-build-audit.json",
+        "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/reports/hap-audit.json"
+      ]
+    }
+  ]
+}

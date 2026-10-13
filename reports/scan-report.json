@@ -1,0 +1,320 @@
+{
+  "项目": "localminidrama-desktop",
+  "productName": "localminidrama-desktop",
+  "electron版本": "^28.0.0",
+  "原生模块": [
+    "better-sqlite3",
+    "sharp"
+  ],
+  "electron模块引用": [
+    "BrowserWindow",
+    "Menu",
+    "app",
+    "dialog"
+  ],
+  "ipc通道": {
+    "main侧": [],
+    "renderer侧": [],
+    "unknown": []
+  },
+  "platform分支": [
+    "main.js:113 const isWin = process.platform === 'win32';",
+    "scripts/clean-win-unpacked.js:14 if (process.platform !== 'win32') return;",
+    "scripts/dist-cn.js:6 const isWin = process.platform === 'win32';"
+  ],
+  "BrowserWindow配置点": [
+    "main.js:185 inspect webPreferences/preload/sandbox/nodeIntegration"
+  ],
+  "差异矩阵": [
+    {
+      "api": "contents.on",
+      "官方支持度": "未知",
+      "策略": "实测判定",
+      "动作": "run benchmark/manual probe and record result",
+      "验证点": "probe contents.on on current host tag before claiming parity",
+      "使用位置": [
+        "main.js:202"
+      ],
+      "官方条目": null
+    },
+    {
+      "api": "win.on",
+      "官方支持度": "未知",
+      "策略": "实测判定",
+      "动作": "run benchmark/manual probe and record result",
+      "验证点": "probe win.on on current host tag before claiming parity",
+      "使用位置": [
+        "main.js:207"
+      ],
+      "官方条目": null
+    },
+    {
+      "api": "win.once",
+      "官方支持度": "未知",
+      "策略": "实测判定",
+      "动作": "run benchmark/manual probe and record result",
+      "验证点": "probe win.once on current host tag before claiming parity",
+      "使用位置": [
+        "main.js:191"
+      ],
+      "官方条目": null
+    },
+    {
+      "api": "app.getPath",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise app.getPath on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:11",
+        "main.js:35",
+        "main.js:65"
+      ],
+      "官方条目": {
+        "module": "app",
+        "officialApi": "app.getPath",
+        "kind": "Method",
+        "link": "[查看](app/method-app.getPath.md)"
+      }
+    },
+    {
+      "api": "app.isPackaged",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise app.isPackaged on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:31",
+        "main.js:53",
+        "main.js:64",
+        "main.js:112",
+        "main.js:155",
+        "main.js:219"
+      ],
+      "官方条目": {
+        "module": "app",
+        "officialApi": "app.isPackaged",
+        "kind": "Property",
+        "link": "[查看](app/property-app.isPackaged.md)"
+      }
+    },
+    {
+      "api": "app.quit",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise app.quit on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:207",
+        "main.js:271"
+      ],
+      "官方条目": {
+        "module": "app",
+        "officialApi": "app.quit",
+        "kind": "Method",
+        "link": "[查看](app/method-app.quit.md)"
+      }
+    },
+    {
+      "api": "app.setPath",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise app.setPath on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:12"
+      ],
+      "官方条目": {
+        "module": "app",
+        "officialApi": "app.setPath",
+        "kind": "Method",
+        "link": "[查看](app/method-app.setPath.md)"
+      }
+    },
+    {
+      "api": "app.whenReady",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise app.whenReady on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:256",
+        "main.js:257"
+      ],
+      "官方条目": {
+        "module": "app",
+        "officialApi": "app.whenReady",
+        "kind": "Method",
+        "link": "[查看](app/method-app.whenReady.md)"
+      }
+    },
+    {
+      "api": "app#event:before-quit",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise app#event:before-quit on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:278"
+      ],
+      "官方条目": {
+        "module": "app",
+        "officialApi": "before-quit",
+        "kind": "Event",
+        "link": "[查看](app/event-before-quit.md)"
+      }
+    },
+    {
+      "api": "contents.openDevTools",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise contents.openDevTools on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:209"
+      ],
+      "官方条目": {
+        "module": "webContents",
+        "officialApi": "contents.openDevTools",
+        "kind": "Method",
+        "link": "[查看](webContents/method-contents.openDevTools.md)"
+      }
+    },
+    {
+      "api": "dialog.showErrorBox",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise dialog.showErrorBox on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:267"
+      ],
+      "官方条目": {
+        "module": "dialog",
+        "officialApi": "dialog.showErrorBox",
+        "kind": "Method",
+        "link": "[查看](dialog/method-dialog.showErrorBox.md)"
+      }
+    },
+    {
+      "api": "Menu.setApplicationMenu",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise Menu.setApplicationMenu on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:184"
+      ],
+      "官方条目": {
+        "module": "Menu",
+        "officialApi": "Menu.setApplicationMenu",
+        "kind": "Method",
+        "link": "[查看](Menu/method-Menu.setApplicationMenu.md)"
+      }
+    },
+    {
+      "api": "new BrowserWindow",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise new BrowserWindow on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:185"
+      ],
+      "官方条目": {
+        "module": "BrowserWindow",
+        "officialApi": "BrowserWindow",
+        "kind": "Method",
+        "link": "[查看](BrowserWindow/method-BrowserWindow.md)"
+      }
+    },
+    {
+      "api": "win.isDestroyed",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise win.isDestroyed on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:197"
+      ],
+      "官方条目": {
+        "module": "BrowserWindow",
+        "officialApi": "win-isDestroyed",
+        "kind": "Method",
+        "link": "[查看](BrowserWindow/method-win-isDestroyed.md)"
+      }
+    },
+    {
+      "api": "win.isVisible",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise win.isVisible on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:197"
+      ],
+      "官方条目": {
+        "module": "BrowserWindow",
+        "officialApi": "win-isVisible",
+        "kind": "Method",
+        "link": "[查看](BrowserWindow/method-win-isVisible.md)"
+      }
+    },
+    {
+      "api": "win.loadURL",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise win.loadURL on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:206"
+      ],
+      "官方条目": {
+        "module": "BrowserWindow",
+        "officialApi": "win-loadURL",
+        "kind": "Method",
+        "link": "[查看](BrowserWindow/method-win-loadURL.md)"
+      }
+    },
+    {
+      "api": "win.show",
+      "官方支持度": "支持",
+      "策略": "直通",
+      "动作": "add to runtime verification checklist",
+      "验证点": "exercise win.show on device and capture screenshot/hilog",
+      "使用位置": [
+        "main.js:192",
+        "main.js:198"
+      ],
+      "官方条目": {
+        "module": "BrowserWindow",
+        "officialApi": "win-show",
+        "kind": "Method",
+        "link": "[查看](BrowserWindow/method-win-show.md)"
+      }
+    }
+  ],
+  "阻断项": [],
+  "shim需求": {
+    "需要加载": [],
+    "手动模块": [
+      "platform-helper"
+    ],
+    "未覆盖的不支持API": [],
+    "备注": [
+      "启动相关 shim 未被选中：startup-guard（扫描未命中 app.requestSingleInstanceLock / app.releaseSingleInstanceLock / app#event:second-instance）。若应用通过动态方式获取这些 API（例如 app[名]、工具库间接调用），静态扫描会漏判；此时请用 --all-shims 重跑。"
+    ]
+  },
+  "统计": {
+    "API使用点": 17,
+    "不支持": 0,
+    "部分支持": 0,
+    "未知": 3,
+    "有shim": 0,
+    "阻断": 0
+  },
+  "迁移警告": [
+    "process.platform is openharmony on device; add/verify openharmony branches for platform-specific logic.",
+    "native modules require OHOS arm64 rebuild and audit-node; do not copy macOS/Windows prebuilds."
+  ]
+}

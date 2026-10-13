@@ -1,0 +1,33 @@
+{
+  "status": "needs-provisioning",
+  "generatedAt": "2026-09-28T11:38:14.963Z",
+  "workspace": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+  "hapProject": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap",
+  "buildProfile": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/build-profile.json5",
+  "signingRefs": [],
+  "unsignedHaps": [],
+  "haps": [],
+  "signingMaterials": {
+    "dir": "/Users/Admin/.ohos/config",
+    "count": 48,
+    "byExt": {
+      "cer": 16,
+      "p12": 16,
+      "p7b": 16
+    },
+    "note": "Counts .p12/.cer/.p7b only; certificate and password contents are never read."
+  },
+  "agcUnattendedSigning": {
+    "configured": false,
+    "configPath": null,
+    "note": "The AGC config references credentials; credential contents are never read into this diagnosis report."
+  },
+  "blockers": [],
+  "next": [
+    "Configure one AGC Service Account credential outside the repository (platform administrator action).",
+    "Run node scripts/agc-unattended-signing.mjs diagnose --config <agc-provisioning.json>.",
+    "Resume migration with --agc-config <agc-provisioning.json>; the Agent provisions, signs, verifies, installs, and captures evidence without DevEco Studio UI.",
+    "Use --signing-config <authorized-signing.json> only when authorized P12/CER/P7B material already exists."
+  ],
+  "acceptanceRule": "This diagnosis does not prove signed-device execution; Phase 6 is complete only after device-evidence-verification.json status is passed."
+}

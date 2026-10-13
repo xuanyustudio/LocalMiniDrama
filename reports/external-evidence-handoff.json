@@ -1,0 +1,30 @@
+{
+  "status": "handoff-ready",
+  "generatedAt": "2026-10-09T10:12:53.210Z",
+  "skillRoot": "/Users/Admin/.config/deveco/skills/ohos-electron-migrate",
+  "workspace": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration",
+  "appName": "本地短剧助手",
+  "bundleName": "com.localminidrama.desktop",
+  "outDir": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/handoff/external-evidence",
+  "windows": {
+    "status": "requires-real-windows-agent",
+    "script": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/handoff/external-evidence/run-windows-smoke.ps1",
+    "expectedOutDir": "C:\\temp\\ohos-electron-windows-smoke",
+    "expectedArtifacts": [
+      "cross-platform-smoke.json",
+      "cross-platform-smoke.md",
+      "completion-audit.md"
+    ]
+  },
+  "signedDevice": {
+    "status": "requires-user-signed-hap-and-device",
+    "shellScript": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/handoff/external-evidence/run-device-after-signing.sh",
+    "powerShellScript": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/handoff/external-evidence/run-device-after-signing.ps1",
+    "expectedArtifacts": [
+      "reports/device-run-summary.json",
+      "evidence/evidence-index.json",
+      "reports/feature-evidence.json",
+      "reports/device-evidence-verification.json"
+    ]
+  }
+}
