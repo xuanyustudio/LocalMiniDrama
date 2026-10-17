@@ -820,6 +820,22 @@ function isQwenImageProvider(config, model) {
   return p === 'qwen_image' || /^qwen-image/.test(m);
 }
 
+/**
+ * 通义万象 Wan 系列模型：是否支持「无参考图流式 + enable_interleave」组合。
+ *
+ * DashScope 网关行为差异（#40）：wan2.6 接受 stream=true + X-DashScope-Sse: enable + enable_interleave=true
+ * 三者并存；wan2.7+（以及未识别的型号）网关按 stream=false 处理，却仍带 X-DashScope-Sse 头，
+ * 返回 400 "x-dashscope-sse and stream parameter mismatch"。
+ *
+ * 保守策略：仅明确验证过的 wan2.6 走流式+interleave，其他一律非流式。
+ * 后续若 wan2.8/3.x 重新支持该组合，把对应前缀加进白名单即可。
+ */
+function supportsDashScopeWanInterleaveStream(model) {
+  const m = String(model || '').trim();
+  if (!m) return false;
+  return /^wan2\.6/i.test(m);
+}
+
 // qwen-image 仅支持以下 size：1664*928(16:9), 1472*1104(4:3), 1328*1328(1:1), 1104*1472(3:4), 928*1664(9:16)
 function qwenImageSize(size) {
   const allowed = ['1664*928', '1472*1104', '1328*1328', '1104*1472', '928*1664'];
@@ -979,7 +995,10 @@ async function callDashScopeImageApi(config, log, opts) {
   });
 
   const hasRefs = content.length > 1;
-  const stream = !hasRefs; // enable_interleave=false 时必须 stream=false
+  // 仅 wan2.6 支持「无参考图流式 + enable_interleave」；其他型号（wan2.7+ 等）一律走非流式
+  // 否则 DashScope 网关返回 400: x-dashscope-sse and stream parameter mismatch（#40）
+  const supportsInterleaveStream = supportsDashScopeWanInterleaveStream(model);
+  const stream = !hasRefs && supportsInterleaveStream;
   const body = {
     model: model || 'wan2.6-image',
     input: {
@@ -989,7 +1008,7 @@ async function callDashScopeImageApi(config, log, opts) {
       prompt_extend: true,
       watermark: false,
       n: 1,
-      enable_interleave: !hasRefs,
+      enable_interleave: !hasRefs && supportsInterleaveStream,
       size: dashScopeSize(size),
       stream,
       // 多张参考图时注入 negative_prompt，防止生成分割/拼贴布局
@@ -1971,6 +1990,8 @@ module.exports = {
   mapAgnesImageSizeSpec,
   isAgnesImageConfig,
   resolveDashScopeImageModel,
+  /** 通义万象 Wan 系列是否支持「无参考图流式 + enable_interleave」组合（#40） */
+  supportsDashScopeWanInterleaveStream,
   /** 图床 URL 缓存（image_proxy_cache），供 SD2 认证等复用 */
   getProxyCache,
   getProxyCacheValidated,
