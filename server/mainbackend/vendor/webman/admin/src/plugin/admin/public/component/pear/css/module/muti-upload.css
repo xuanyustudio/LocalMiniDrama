@@ -1,0 +1,33 @@
+.uploader-list .handle {
+	position: relative;
+	background-color: black;
+	color: white;
+	filter: alpha(Opacity=80);
+	-moz-opacity: 0.6;
+	opacity: 0.6;
+	text-align: right;
+	height: 20px;
+	margin-bottom: -20px;
+	display: none;
+}
+
+.uploader-list .handle i {
+	display: grid;
+	place-items: center;
+	height: 20px;
+}
+
+.uploader-list .handle i:hover {
+	cursor: pointer;
+}
+
+.uploader-list .file-iteme {
+	margin: 12px 0 0 15px;
+	padding: 1px;
+	float: left;
+}
+
+.uploader-list .file-iteme img{
+	height: 128px;
+	width: 128px;
+}

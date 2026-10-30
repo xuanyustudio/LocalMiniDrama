@@ -1,0 +1,11 @@
+.layui-iconpicker {
+	width: 295px;
+}
+
+.layui-iconpicker .layui-iconpicker-search .layui-input:focus{
+	box-shadow: none!important;
+}
+
+.layui-iconpicker-search .layui-icon  {
+	top: 8px;
+}

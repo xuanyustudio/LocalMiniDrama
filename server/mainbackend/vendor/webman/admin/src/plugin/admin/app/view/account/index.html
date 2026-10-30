@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+    <head>
+        <meta charset="UTF-8">
+        <title></title>
+        <link rel="stylesheet" href="/app/admin/component/layui/css/layui.css?v=2.8.12" />
+        <link rel="stylesheet" href="/app/admin/component/pear/css/pear.css" />
+        <link rel="stylesheet" href="/app/admin/admin/css/reset.css" />
+    </head>
+    <body class="pear-container">
+        <style>
+            .layui-input-block input {
+                width: 300px;
+            }
+        </style>
+
+        <div class="layui-card">
+            <div class="layui-card-body">
+
+                <div class="layui-tab layui-tab-brief">
+                <ul class="layui-tab-title">
+                    <li class="layui-this">基本信息</li>
+                    <li>安全设置</li>
+                </ul>
+                <div class="layui-tab-content">
+
+                    <!-- 基本信息 -->
+                    <div class="layui-tab-item layui-show">
+
+                        <form class="layui-form" lay-filter="baseInfo">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">昵称</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="nickname" required  lay-verify="required" placeholder="请输入昵称" autocomplete="off" class="layui-input">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">邮箱</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="email" placeholder="请输入邮箱" autocomplete="off" class="layui-input">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">联系电话</label>
+                                <div class="layui-input-block">
+                                    <input type="text" name="mobile" placeholder="请输入联系电话" autocomplete="off" class="layui-input">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button type="submit" class="pear-btn pear-btn-primary pear-btn-md" lay-submit="" lay-filter="saveBaseInfo">
+                                        提交
+                                    </button>
+                                    <button type="reset" class="pear-btn pear-btn-md">
+                                        重置
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+
+                    </div>
+
+                    <div class="layui-tab-item">
+
+                        <form class="layui-form" action="">
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">原始密码</label>
+                                <div class="layui-input-block">
+                                    <input type="password" name="old_password" required  lay-verify="required" placeholder="请输入原始密码" autocomplete="off" class="layui-input">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">新密码</label>
+                                <div class="layui-input-block">
+                                    <input type="password" name="password" required  lay-verify="required" placeholder="请输入新密码" autocomplete="off" class="layui-input">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <label class="layui-form-label">确认新密码</label>
+                                <div class="layui-input-block">
+                                    <input type="password" name="password_confirm" required  lay-verify="required" placeholder="请再次输入新密码" autocomplete="off" class="layui-input">
+                                </div>
+                            </div>
+                            <div class="layui-form-item">
+                                <div class="layui-input-block">
+                                    <button type="submit" class="pear-btn pear-btn-primary pear-btn-md" lay-submit="" lay-filter="savePassword">
+                                        提交
+                                    </button>
+                                    <button type="reset" class="pear-btn pear-btn-md">
+                                        重置
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+
+                    </div>
+
+                </div>
+            </div>
+
+            </div>
+        </div>
+
+
+        <script src="/app/admin/component/layui/layui.js?v=2.8.12"></script>
+        <script src="/app/admin/component/pear/pear.js"></script>
+        <script src="/app/admin/admin/js/permission.js"></script>
+        <script>
+
+            layui.use(["form", "popup"], function () {
+                let form = layui.form;
+                let $ = layui.$;
+                $.ajax({
+                    url: "/app/admin/account/info",
+                    dataType: "json",
+                    success: function (res) {
+                        form.val("baseInfo", res.data);
+                    }
+                });
+
+                form.on("submit(saveBaseInfo)", function(data){
+                    $.ajax({
+                        url: "/app/admin/account/update",
+                        dataType: "json",
+                        type: "POST",
+                        data: data.field,
+                        success: function (res) {
+                            if (res.code) {
+                                return layui.popup.failure(res.msg);
+                            }
+                            return layui.popup.success("操作成功");
+                        }
+                    });
+                    return false;
+                });
+
+                form.on("submit(savePassword)", function(data){
+                    $.ajax({
+                        url: "/app/admin/account/password",
+                        dataType: "json",
+                        type: "POST",
+                        data: data.field,
+                        success: function (res) {
+                            if (res.code) {
+                                return layui.popup.failure(res.msg);
+                            }
+                            return layui.popup.success("操作成功");
+                        }
+                    });
+                    return false;
+                });
+
+            });
+
+        </script>
+
+    </body>
+</html>

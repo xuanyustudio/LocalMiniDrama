@@ -1,0 +1,13 @@
+{
+  "name": "webman/event",
+  "type": "library",
+  "license": "MIT",
+  "description": "Webman event plugin",
+  "require": {
+  },
+  "autoload": {
+    "psr-4": {
+      "Webman\\Event\\": "src"
+    }
+  }
+}

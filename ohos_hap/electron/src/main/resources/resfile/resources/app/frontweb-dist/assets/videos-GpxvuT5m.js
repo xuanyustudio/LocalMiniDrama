@@ -1,0 +1,1 @@
+import{r}from"./request-BTQ9KjNv.js";const o={list(e){return r.get("/videos",{params:e||{}})},create(e){return r.post("/videos",e)},resumePoll(e){return r.post(`/videos/${e}/resume-poll`)}};export{o as v};

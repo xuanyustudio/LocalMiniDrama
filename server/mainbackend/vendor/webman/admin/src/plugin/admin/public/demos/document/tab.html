@@ -1,0 +1,152 @@
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+		<title>多选项卡</title>
+		<link rel="stylesheet" href="../../component/pear/css/pear.css" />
+	</head>
+	<body class="pear-container">
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">开发环境</div>
+					<div class="layui-card-body">
+						Tab.js 是一个多视图组件，你可在任何地方内嵌它，并执行常用操作，Admin 正式使用该组件进行路由切换
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<div class="layui-collapse">
+					<div class="layui-colla-item">
+						<h2 class="layui-colla-title">显示代码</h2>
+						<div class="layui-colla-content">
+							<pre class="layui-code" lay-encode="true">
+							    &lt;link rel="stylesheet" href="component/pear/css/pear.css" />
+							    并
+							    &lt;script src="component/layui/layui.js">&lt;/script>
+							    并
+							    &lt;script src="component/pear/pear.js">&lt;/script>
+							</pre>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">
+						常用操作
+					</div>
+					<div class="layui-card-body">
+						<button class="pear-btn pear-btn-primary add">新增 Demo</button>
+						<button class="pear-btn pear-btn-danger del">删除当前</button>
+						<button class="pear-btn pear-btn-warming enable">高级操作</button>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md6">
+				<div class="layui-card">
+					<div class="layui-card-header">
+						基本使用
+					</div>
+					<div class="layui-card-body">
+						<!-- 内 容 页 面 -->
+						<div id="contents"></div>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md6">
+				<div class="layui-collapse">
+					<div class="layui-colla-item">
+						<h2 class="layui-colla-title">显示代码</h2>
+						<div class="layui-colla-content layui-show">
+							<pre class="layui-code" lay-encode="true">
+								
+								tab.render({
+								    elem: 'contents',
+								    roll: false,
+								    tool: false,
+								    width: '100%',
+								    height: '480px',
+								    index: 0,
+								    tabMax: 30,
+								    closeEvent: function(id) {
+										
+								        // do something
+								    },
+								    data: [{
+								        id: "1",
+								        title: "首页",
+								        url: "http://www.baidu.com",
+								        close: false
+								    },{
+								        id: "2",
+								        title: "百度一下",
+								        url: "http://www.baidu.com",
+								        close: false
+								    }]
+								});
+								
+								
+						</pre>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script>
+			layui.use(['layer', 'form',
+				'element', 'tab', 'code','jquery'
+			], function() {
+				var layer = layui.layer,
+					tab = layui.tab,
+					$ = layui.jquery,
+					form = layui.form;
+
+				layui.code();
+
+				tab.render({
+					elem: 'contents',
+					roll: false,
+					tool: false,
+					width: '100%',
+					height: '485px',
+					index: 0,
+					session: false,
+					tabMax: 30,
+					closeEvent: function(id) {
+						layer.msg("关闭回调")
+					},
+					data: [{
+						id: "1",
+						title: "百度一下",
+						url: "../system/space.html",
+						close: false
+					}]
+				});
+				
+				$(".add").click(function(){
+					
+					// ADD 添加方法
+					tab.addTabOnlyByElem('contents',{id:'demo',title:'Demo',url:'../system/space.html',close: true})
+				})
+				
+				$(".enable").click(function(){
+					
+					// ADD 添加方法
+					tab.addTabOnlyByElem('contents',{id:'tabContent',title:'高级操作',url:'tabContent.html',close: true})
+				})
+				
+				$(".del").click(function(){
+					
+					tab.delCurrentTabByElem('contents',function(id){
+						layer.msg("已删除 '"+id+"' 标签页")
+					});
+					
+				})
+			});
+		</script>
+	</body>
+
+</html>

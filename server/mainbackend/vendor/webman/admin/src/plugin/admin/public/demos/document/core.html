@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>数据卡片</title>
+		<link rel="stylesheet" href="../../component/pear/css/pear.css" />
+	</head>
+	<body class="pear-container">
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="collapseSide" class="pear-btn">侧边切换</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="refreshThis" class="pear-btn">刷新当前</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="refresh" class="pear-btn">刷新指定</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="addTab" class="pear-btn">新增卡片</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="changeTabTitle" class="pear-btn">修改标题</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="closeTab" class="pear-btn">删除卡片</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="closeThis" class="pear-btn">删除当前</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="closeAll" class="pear-btn">删除全部</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="closeOther" class="pear-btn">删除其他</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="changeIframe" class="pear-btn">切换页面</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="jump" class="pear-btn">兼容切换</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<button id="fullScreen" class="pear-btn">有点多余</button>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<table class="layui-table">
+				  <colgroup>
+				    <col width="150">
+				    <col width="200">
+				    <col>
+				  </colgroup>
+				  <thead>
+				    <tr>
+				      <th>方法</th>
+				      <th>描述</th>
+				      <th>参数</th>
+					  <th>备注</th>
+				    </tr> 
+				  </thead>
+				  <tbody>
+				    <tr>
+				      <td>admin.collapseSide</td>
+				      <td>侧边收缩</td>
+				      <td>无</td>
+					  <td>无模式限制</td>
+				    </tr>
+				    <tr>
+				      <td>admin.refreshThis</td>
+				      <td>刷新当前</td>
+				      <td>无</td>
+					  <td>无模式限制</td>
+				    </tr>
+					<tr>
+					  <td>admin.refresh</td>
+					  <td>刷新指定</td>
+					  <td>id: 编号</td>
+					  <td>仅限 TAB 模式</td>
+					</tr>
+					<tr>
+					  <td>admin.addTab</td>
+					  <td>新增卡片</td>
+					  <td>id:编号,title:标题,url:路径</td>
+					  <td>仅限 TAB 模式</td>
+					</tr>
+					<tr>
+					  <td>admin.changeTabTitle</td>
+					  <td>修改标题</td>
+					  <td>id:编号,title:标题</td>
+					  <td>仅限 TAB 模式</td>
+					</tr>
+					<tr>
+					  <td>admin.closeTab</td>
+					  <td>关闭卡片</td>
+					  <td>id:编号</td>
+					  <td>仅限 TAB 模式</td>
+					</tr>
+					<tr>
+					  <td>admin.closeCurrentTab</td>
+					  <td>关闭当前</td>
+					  <td>无</td>
+					  <td>仅限 TAB 模式</td>
+					</tr>
+					<tr>
+					  <td>admin.closeAllTab</td>
+					  <td>关闭所有</td>
+					  <td>无</td>
+					  <td>仅限 TAB 模式</td>
+					</tr>
+					<tr>
+					  <td>admin.closeOtherTab</td>
+					  <td>关闭其他</td>
+					  <td>无</td>
+					  <td>仅限 TAB 模式</td>
+					</tr>
+					<tr>
+					  <td>admin.changeIframe</td>
+					  <td>切换页面</td>
+					  <td>id:编号,title:标题,url:路径</td>
+					  <td>仅限 IFRAME 模式</td>
+					</tr>
+					<tr>
+					  <td>admin.jump</td>
+					  <td>兼容切换</td>
+					  <td>id:编号,title:标题,url:路径</td>
+					  <td>无模式限制</td>
+					</tr>
+					<tr>
+					  <td>admin.fullScreen</td>
+					  <td>全屏模式</td>
+					  <td>无</td>
+					  <td>无模式限制</td>
+					</tr>
+				  </tbody>
+				</table>
+			</div>
+		</div>
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script>
+			layui.use(['jquery','layer'], function() {
+				var $ = layui.jquery;
+				
+				$("#collapseSide").click(function(){
+					parent.layui.admin.collapseSide()
+				})
+				
+				$("#refreshThis").click(function(){
+					parent.layui.admin.refreshThis()
+				})
+				
+				$("#refresh").click(function(){
+					parent.layui.admin.refresh(14)
+				})
+				
+				$("#addTab").click(function(){
+					parent.layui.admin.addTab(14,"百度一下","http://www.bing.com")
+				})
+				
+				$("#closeTab").click(function(){
+					parent.layui.admin.closeTab(14)
+				})
+				
+				$("#closeThis").click(function(){
+					parent.layui.admin.closeCurrentTab()
+				})
+				
+				$("#closeAll").click(function(){
+					parent.layui.admin.closeAllTab()
+				})
+				
+				$("#changeTabTitle").click(function(){
+					parent.layui.admin.changeTabTitle(16,"修改标题")
+				})
+				
+				$("#closeOther").click(function(){
+					parent.layui.admin.closeOtherTab()
+				})
+				
+				$("#changeIframe").click(function(){
+					parent.layui.admin.changeIframe(14,"百度一下","http://www.bing.com")
+				})
+				
+				$("#jump").click(function(){
+					parent.layui.admin.jump(14,"百度一下","http://www.bing.com")
+				})
+				
+				$("#fullScreen").click(function(){
+					parent.layui.admin.fullScreen()
+				})
+				
+			})
+		</script>
+	</body>
+</html>

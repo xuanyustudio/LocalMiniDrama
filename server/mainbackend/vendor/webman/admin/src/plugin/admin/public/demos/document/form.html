@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+		<title>表单页面</title>
+		<link href="../../component/pear/css/pear.css" rel="stylesheet">
+	</head>
+	<body class="pear-container">
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md6">
+				<div class="layui-card">
+					<div class="layui-card-header">开发环境</div>
+					<div class="layui-card-body">
+						Pear 基于 Form 的基础上扩展样式
+					</div>
+				</div>
+				<div class="layui-collapse">
+					<div class="layui-colla-item">
+						<h2 class="layui-colla-title">显示代码</h2>
+						<div class="layui-colla-content">
+							<pre class="layui-code" lay-encode="true">
+								&lt;link rel="stylesheet" href="component/pear/css/pear.css" />
+								 或
+								&lt;link rel="stylesheet" href="component/pear/css/pear-module/form.css" />
+							</pre>
+						</div>
+					</div>
+				</div>
+				<div class="layui-card" style="margin-top: 10px;">
+					<div class="layui-card-header">输入框</div>
+					<div class="layui-card-body layui-row layui-col-space10">
+						<div class="layui-col-md12">
+							<input type="text" name="title" placeholder="请输入标题" autocomplete="off" class="layui-input">
+						</div>
+						<div class="layui-col-md6">
+							<input type="text" name="title" hover placeholder="用户名" autocomplete="off" class="layui-input">
+						</div>
+						<div class="layui-col-md6">
+							<input type="password" name="title" hover placeholder="密码" autocomplete="off" class="layui-input">
+						</div>
+					</div>
+				</div>
+				<div class="layui-card layui-form" lay-filter="component-form-element">
+					<div class="layui-card-header">下拉选择框</div>
+					<div class="layui-card-body layui-row layui-col-space10">
+						<div class="layui-col-md6">
+							<select name="city" lay-verify="">
+								<option value="">请选择一个城市</option>
+								<option value="010">北京</option>
+								<option value="021">上海</option>
+								<option value="0571">杭州</option>
+							</select>
+						</div>
+						<div class="layui-col-md6">
+							<select name="city" lay-verify="">
+								<option value="010">北京</option>
+								<option value="021" disabled>上海（禁用效果）</option>
+								<option value="0571" selected>杭州</option>
+							</select>
+						</div>
+						<div class="layui-col-md6">
+							<select name="quiz">
+								<option value="">请选择</option>
+								<optgroup label="城市记忆">
+									<option value="你工作的第一个城市">你工作的第一个城市？</option>
+								</optgroup>
+								<optgroup label="学生时代">
+									<option value="你的工号">你的工号？</option>
+									<option value="你最喜欢的老师">你最喜欢的老师？</option>
+								</optgroup>
+							</select>
+						</div>
+						<div class="layui-col-md6">
+							<select name="city" lay-verify="required" lay-search>
+								<option value="">带搜索的选择框</option>
+								<option value="1">layer</option>
+								<option value="2">form</option>
+								<option value="3">layim</option>
+								<option value="4">element</option>
+								<option value="5">laytpl</option>
+								<option value="6">upload</option>
+								<option value="7">laydate</option>
+								<option value="8">laypage</option>
+								<option value="9">flow</option>
+								<option value="10">util</option>
+								<option value="11">code</option>
+								<option value="12">tree</option>
+								<option value="13">layedit</option>
+								<option value="14">nav</option>
+								<option value="15">tab</option>
+								<option value="16">table</option>
+								<option value="17">select</option>
+								<option value="18">checkbox</option>
+								<option value="19">switch</option>
+								<option value="20">radio</option>
+							</select>
+						</div>
+						<div class="layui-col-md12">
+							<select name="city" lay-verify="">
+								<option value="">请选择一个城市</option>
+								<option value="010">北京</option>
+								<option value="021">上海</option>
+								<option value="0571">杭州</option>
+							</select>
+						</div>
+					</div>
+				</div>	
+				<div class="layui-card layui-form" lay-filter="component-form-element">
+					<div class="layui-card-header">复选框</div>
+					<div class="layui-card-body layui-row layui-col-space10">
+						<div class="layui-col-md12">
+							<input type="checkbox" name="" title="写作" lay-skin="primary" checked>
+							<input type="checkbox" name="" title="发呆" lay-skin="primary">
+							<input type="checkbox" name="" title="禁用" lay-skin="primary" disabled>
+							<input type="checkbox" name="" lay-skin="primary">
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md6">
+				<div class="layui-card">
+					<div class="layui-card-header">扩展样式</div>
+					<div class="layui-card-body layui-row layui-col-space10">
+						<div class="layui-col-md12">
+							<input type="text" name="title" hover placeholder="密码" autocomplete="off" class="layui-input">
+						</div>
+						<div class="layui-col-md12">
+							<input type="text" name="title" success placeholder="成功" autocomplete="off" class="layui-input">
+						</div>
+						<div class="layui-col-md12">
+							<input type="text" name="title" failure placeholder="失败" autocomplete="off" class="layui-input">
+						</div>
+				
+					</div>
+				</div>
+				<div class="layui-card">
+					<div class="layui-card-header">文本域</div>
+					<div class="layui-card-body layui-row layui-col-space10">
+						<div class="layui-col-md12">
+							<textarea name="" placeholder="请输入" class="layui-textarea"></textarea>
+						</div>
+					</div>
+				</div>
+				<div class="layui-card layui-form" lay-filter="component-form-element">
+					<div class="layui-card-header">开关</div>
+					<div class="layui-card-body layui-row layui-col-space10">
+						<div class="layui-col-md12">
+							<input type="checkbox" name="xxx" lay-skin="switch">&nbsp;&nbsp;
+							<input type="checkbox" name="yyy" lay-skin="switch" lay-text="ON|OFF" checked>&nbsp;&nbsp;
+							<input type="checkbox" name="zzz" lay-skin="switch" lay-text="开启|关闭">&nbsp;&nbsp;
+							<input type="checkbox" name="aaa" lay-skin="switch" disabled>&nbsp;&nbsp;
+						</div>
+					</div>
+				</div>
+				<div class="layui-card layui-form" lay-filter="component-form-element">
+					<div class="layui-card-header">单选框</div>
+					<div class="layui-card-body layui-row layui-col-space10">
+						<div class="layui-col-md12">
+							<input type="radio" name="sex" value="nan" title="男">
+							<input type="radio" name="sex" value="nv" title="女" checked>
+							<input type="radio" name="sex" value="" title="中性" disabled>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script>
+			layui.use(['form','element','code'], function() {
+				var form = layui.form;
+				var element = layui.element;
+				
+				layui.code();
+
+			});
+		</script>
+	</body>
+</html>

@@ -1,0 +1,10 @@
+/.idea
+/.vscode
+/vendor
+*.log
+.env
+src/plugin/admin/public/upload
+src/plugin/admin/config/database.php
+src/plugin/admin/config/thinkorm.php
+src/plugin/admin.zip
+composer.lock

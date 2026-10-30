@@ -1,0 +1,1 @@
+import{r as e}from"./request-BTQ9KjNv.js";const n={list(){return e.get("/settings/prompts")},update(t,r){return e.put(`/settings/prompts/${t}`,{content:r})},reset(t){return e.delete(`/settings/prompts/${t}`)}},p={get(){return e.get("/settings/generation")},update(t){return e.put("/settings/generation",t)}};export{p as g,n as p};

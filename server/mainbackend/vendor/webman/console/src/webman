@@ -1,0 +1,71 @@
+#!/usr/bin/env php
+<?php
+
+use Webman\Config;
+use Webman\Console\Command;
+use Webman\Console\Util;
+use support\Container;
+use Dotenv\Dotenv;
+
+if (!Phar::running()) {
+    chdir(__DIR__);
+}
+require_once __DIR__ . '/vendor/autoload.php';
+
+if (!$appConfigFile = config_path('app.php')) {
+    throw new RuntimeException('Config file not found: app.php');
+}
+
+if (class_exists(Dotenv::class) && file_exists(run_path('.env'))) {
+    if (method_exists(Dotenv::class, 'createUnsafeImmutable')) {
+        Dotenv::createUnsafeImmutable(run_path())->load();
+    } else {
+        Dotenv::createMutable(run_path())->load();
+    }
+}
+
+$appConfig = require $appConfigFile;
+if ($timezone = $appConfig['default_timezone'] ?? '') {
+    date_default_timezone_set($timezone);
+}
+
+if ($errorReporting = $appConfig['error_reporting'] ?? '') {
+    error_reporting($errorReporting);
+}
+
+if (!in_array($argv[1] ?? '', ['start', 'restart', 'stop', 'status', 'reload', 'connections'])) {
+    require_once __DIR__ . '/support/bootstrap.php';
+} else {
+    if (class_exists('Support\App')) {
+        Support\App::loadAllConfig(['route']);
+    } else {
+        Config::reload(config_path(), ['route', 'container']);
+    }
+}
+
+$cli = new Command();
+$cli->setName('webman cli');
+$cli->installInternalCommands();
+if (is_dir($command_path = Util::guessPath(app_path(), '/command', true))) {
+    $cli->installCommands($command_path);
+}
+
+foreach (config('plugin', []) as $firm => $projects) {
+    if (isset($projects['app'])) {
+        foreach (['', '/app'] as $app) {
+            if ($command_str = Util::guessPath(base_path() . "/plugin/$firm{$app}", 'command')) {
+                $command_path = base_path() . "/plugin/$firm{$app}/$command_str";
+                $cli->installCommands($command_path, "plugin\\$firm" . str_replace('/', '\\', $app) . "\\$command_str");
+            }
+        }
+    }
+    foreach ($projects as $name => $project) {
+        if (!is_array($project)) {
+            continue;
+        }
+        $project['command'] ??= [];
+        array_walk($project['command'], [$cli, 'createCommandInstance']);
+    }
+}
+
+$cli->run();

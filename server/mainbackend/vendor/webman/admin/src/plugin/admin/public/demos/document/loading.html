@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>加载组件</title>
+		<link rel="stylesheet" href="../../component/pear/css/pear.css" />
+		<style>
+			.load-div {
+				width: 100%;
+				height: 300px;
+				background-color: lightgray;
+				border-radius: 10px;
+				margin-top: 10px;
+			}
+		</style>
+	</head>
+	<body class="pear-container">
+		<div class="layui-card">
+			<div class="layui-card-header">加载组件</div>
+			<div class="layui-card-body">
+				<div>
+					<span>loading.Load(1,message);</span>
+					<br>
+					<br>
+					<span>loading.Load(2,message);</span>
+					<br>
+					<br>
+					<span>loading.Load(3,message);</span>
+					<br>
+					<br>
+					<span>loading.Load(4,message);</span>
+					<br>
+					<br>
+					<span>loading.Load(5,message);</span>
+					<br>
+					<br>
+					<span>loading.remove(time);</span>
+					<br>
+					<br>
+				</div>
+				<button class="loading-1 pear-btn pear-btn-primary" plain>加载</button>
+				<button class="loading-2 pear-btn pear-btn-success" plain>加载</button>
+				<button class="loading-3 pear-btn pear-btn-danger" plain>加载</button>
+				<button class="loading-4 pear-btn pear-btn-warming" plain>加载</button>
+				<button class="loading-5 pear-btn">加载</button>
+			</div>
+		</div>
+
+		<div class="layui-card">
+			<div class="layui-card-header">加载组件</div>
+			<div class="layui-card-body">
+				<button class="block-5 pear-btn">加载</button>
+
+				<button class="block-4 pear-btn">加载</button>
+
+				<button class="block-3 pear-btn">加载</button>
+
+				<button class="block-2 pear-btn">加载</button>
+				<button class="block-1 pear-btn">加载</button>
+				<div class="load-div load-div-1"></div>
+
+			</div>
+		</div>
+
+		<div class="layer-right">
+
+		</div>
+
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script>
+			layui.use(['element', 'jquery', 'loading', 'code'], function() {
+				var element = layui.element;
+				var $ = layui.jquery;
+				var loading = layui.loading;
+
+				var msg =
+					'"Do not try to become a person of success but try to become a person of value." <br><br>- Albert Einstein'
+
+
+
+				$(".loading-1").click(function() {
+
+					loading.Load(1, "");
+
+					loading.loadRemove(1000);
+				})
+
+				$(".loading-2").click(function() {
+
+					loading.Load(2, "");
+
+					loading.loadRemove(1000);
+				})
+
+				$(".loading-3").click(function() {
+
+					loading.Load(3, "");
+
+					loading.loadRemove(1000);
+				})
+
+				$(".loading-4").click(function() {
+
+					loading.Load(4, "");
+
+					loading.loadRemove(1000);
+				})
+
+				$(".loading-5").click(function() {
+
+					loading.Load(5, "");
+
+					loading.loadRemove(1000);
+				})
+
+				$(".block-1").click(function() {
+
+					loading.block({
+						type: 1,
+						elem: '.load-div-1',
+						msg: '加载中'
+					})
+					loading.blockRemove(".load-div-1", 1000);
+				})
+
+				$(".block-2").click(function() {
+					loading.block({
+						type: 2,
+						elem: '.load-div-1',
+						msg: ''
+					})
+					loading.blockRemove(".load-div-1", 1000);
+				})
+
+				$(".block-3").click(function() {
+					loading.block({
+						type: 3,
+						elem: '.load-div-1',
+						msg: ''
+					})
+					loading.blockRemove(".load-div-1", 1000);
+				})
+
+				$(".block-4").click(function() {
+					loading.block({
+						type: 4,
+						elem: '.load-div-1',
+						msg: ''
+					})
+					loading.blockRemove(".load-div-1", 1000);
+				})
+
+				$(".block-5").click(function() {
+					loading.block({
+						type: 5,
+						elem: '.load-div-1',
+						msg: ''
+					})
+					loading.blockRemove(".load-div-1", 1000);
+				})
+
+				$(".block-6").click(function() {
+					loading.block({
+						type: 6,
+						elem: '.load-div-1',
+						msg: ''
+					})
+					loading.blockRemove(".load-div-1", 1000);
+				})
+			})
+		</script>
+	</body>
+</html>

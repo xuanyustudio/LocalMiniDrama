@@ -1,0 +1,20 @@
+{
+  "name": "webman/database",
+  "type": "library",
+  "license": "MIT",
+  "description": "Webman database",
+  "require": {
+    "workerman/webman-framework": "^2.1 || dev-master",
+    "illuminate/database": "^10.0 || ^11.0 || ^12.0",
+    "illuminate/http": "^10.0 || ^11.0 || ^12.0",
+    "laravel/serializable-closure": "^1.0 || ^2.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Webman\\Database\\": "src",
+      "support\\": "src/support"
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}

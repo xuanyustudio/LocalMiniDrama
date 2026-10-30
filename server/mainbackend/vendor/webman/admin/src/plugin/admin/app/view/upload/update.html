@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+    <head>
+        <meta charset="UTF-8">
+        <title>更新页面</title>
+        <link rel="stylesheet" href="/app/admin/component/pear/css/pear.css" />
+        <link rel="stylesheet" href="/app/admin/admin/css/reset.css" />
+    </head>
+    <body>
+
+        <form class="layui-form">
+
+            <div class="mainBox">
+                <div class="main-container mr-5">
+
+                    <div class="layui-form-item">
+                        <label class="layui-form-label" style="width:inherit">类别</label>
+                        <div class="layui-input-block" style="margin-left:60px;">
+                            <div name="category" id="category" value="" ></div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="bottom">
+                <div class="button-container">
+                    <button type="submit" class="pear-btn pear-btn-primary pear-btn-md" lay-submit="" lay-filter="save">
+                        提交
+                    </button>
+                    <button type="reset" class="pear-btn pear-btn-md">
+                        重置
+                    </button>
+                </div>
+            </div>
+            
+        </form>
+
+        <script src="/app/admin/component/layui/layui.js?v=2.8.12"></script>
+        <script src="/app/admin/component/pear/pear.js"></script>
+        <script src="/app/admin/admin/js/permission.js"></script>
+        <script>
+
+            // 相关接口
+            const PRIMARY_KEY = "id";
+            const SELECT_API = "/app/admin/upload/select" + location.search;
+            const UPDATE_API = "/app/admin/upload/update";
+
+            // 获取数据库记录
+            layui.use(["form", "util", "popup"], function () {
+                let $ = layui.$;
+                $.ajax({
+                    url: SELECT_API,
+                    dataType: "json",
+                    success: function (res) {
+                        
+                        // 给表单初始化数据
+                        layui.each(res.data[0], function (key, value) {
+                            let obj = $('*[name="'+key+'"]');
+                            if (typeof obj[0] === "undefined" || !obj[0].nodeName) return;
+                            obj.attr("value", value);
+                        });
+                        
+                        // 字段 文件 url
+                        layui.use(["upload", "layer", "popup", "util"], function() {
+                            let input = layui.$("#url").prev();
+                            input.prev().html(layui.util.escape(input.val()));
+                            layui.upload.render({
+                                elem: "#url",
+                                url: "/app/admin/upload/update",
+                                accept: "file",
+                                field: "__file__",
+                                done: function (res) {
+                                    if (res.code) return layui.popup.failure(res.msg);
+                                    this.item.prev().val(res.data.url).prev().html(layui.util.escape(res.data.url));
+                                }
+                            });
+                        });
+                        
+                        // 字段 类别 category
+                        layui.use(["jquery", "xmSelect", "popup"], function() {
+                            layui.$.ajax({
+                                url: "/app/admin/dict/get/upload",
+                                dataType: "json",
+                                success: function (res) {
+                                    let value = layui.$("#category").attr("value");
+                                    let initValue = value ? value.split(",") : [];
+                                    layui.xmSelect.render({
+                                        el: "#category",
+                                        name: "category",
+                                        initValue: initValue,
+                                        data: res.data,
+                                        model: {"icon":"hidden","label":{"type":"text"}},
+                                        clickClose: true,
+                                        radio: true,
+                                    });
+                                    if (res.code) {
+                                        layui.popup.failure(res.msg);
+                                    }
+                                }
+                            });
+                        });
+
+                        // ajax产生错误
+                        if (res.code) {
+                            layui.popup.failure(res.msg);
+                        }
+                    }
+                });
+            });
+
+            //提交事件
+            layui.use(["form", "popup"], function () {
+                layui.form.on("submit(save)", function (data) {
+                    data.field[PRIMARY_KEY] = layui.url().search[PRIMARY_KEY];
+                    layui.$.ajax({
+                        url: UPDATE_API,
+                        type: "POST",
+                        dateType: "json",
+                        data: data.field,
+                        success: function (res) {
+                            if (res.code) {
+                                return layui.popup.failure(res.msg);
+                            }
+                            return layui.popup.success("操作成功", function () {
+                                parent.refreshTable();
+                                parent.layer.close(parent.layer.getFrameIndex(window.name));
+                            });
+                        }
+                    });
+                    return false;
+                });
+            });
+
+        </script>
+
+    </body>
+
+</html>

@@ -1,0 +1,23 @@
+{
+  "name": "webman/admin",
+  "type": "project",
+  "license": "MIT",
+  "description": "Webman Admin",
+  "require": {
+    "workerman/webman-framework": ">=2.1",
+    "webman/database": ">=2.1",
+    "illuminate/pagination": ">=7.30",
+    "illuminate/events": ">=7.30",
+    "intervention/image": "^2.7",
+    "webman/event": "^1.0",
+    "webman/captcha": "^1.0.0",
+    "guzzlehttp/guzzle": "^7.5",
+    "laravel/serializable-closure": "^1.0",
+    "ext-json": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "Webman\\Admin\\": "src"
+    }
+  }
+}

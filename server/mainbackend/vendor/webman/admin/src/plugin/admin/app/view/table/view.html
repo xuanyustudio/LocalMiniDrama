@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+    <head>
+        <meta charset="utf-8">
+        <title>表详情</title>
+        <link rel="stylesheet" href="/app/admin/component/pear/css/pear.css" />
+        <link rel="stylesheet" href="/app/admin/admin/css/reset.css" />
+    </head>
+    <body class="pear-container">
+        <div class="layui-card">
+            <div class="layui-card-body">
+                <form class="layui-form top-search-from">
+
+                    <?=$form->html(5)?>
+
+                    <div class="layui-form-item layui-inline">
+                        <label class="layui-form-label"></label>
+                        <button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="table-query">
+                            <i class="layui-icon layui-icon-search"></i>查询
+                        </button>
+                        <button type="reset" class="pear-btn pear-btn-md" lay-submit lay-filter="table-reset">
+                            <i class="layui-icon layui-icon-refresh"></i>重置
+                        </button>
+                    </div>
+
+                    <div class="toggle-btn">
+                        <a class="layui-hide">展开<i class="layui-icon layui-icon-down"></i></a>
+                        <a class="layui-hide">收起<i class="layui-icon layui-icon-up"></i></a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="layui-card">
+            <div class="layui-card-body">
+                <table id="data-table" lay-filter="data-table"></table>
+            </div>
+        </div>
+
+        <script type="text/html" id="table-toolbar">
+            <button class="pear-btn pear-btn-primary pear-btn-md" lay-event="add" permission="app.admin.table.insert">
+                <i class="layui-icon layui-icon-add-1"></i>新增
+            </button>
+            <button class="pear-btn pear-btn-danger pear-btn-md" lay-event="batchRemove" permission="app.admin.table.delete">
+                <i class="layui-icon layui-icon-delete"></i>删除
+            </button>
+        </script>
+
+        <script type="text/html" id="table-bar">
+            <button class="pear-btn pear-btn-xs tool-btn" lay-event="edit" permission="app.admin.table.update">编辑</button>
+            <button class="pear-btn pear-btn-xs tool-btn" lay-event="remove" permission="app.admin.table.delete">删除</button>
+        </script>
+
+        <script src="/app/admin/component/layui/layui.js?v=2.8.12"></script>
+        <script src="/app/admin/component/pear/pear.js"></script>
+        <script src="/app/admin/admin/js/permission.js"></script>
+        <script src="/app/admin/admin/js/common.js"></script>
+
+        <script>
+
+            const TABLE_NAME = "<?=htmlspecialchars($table)?>";
+            const PRIMARY_KEY = "<?=htmlspecialchars($primary_key)?>";
+            const SELECT_API = "/app/admin/table/select?table=" + TABLE_NAME;
+            const UPDATE_API = "/app/admin/table/update";
+            const DELETE_API = "/app/admin/table/delete";
+            const SCHEMA_API = "/app/admin/table/schema?table=" + TABLE_NAME;
+            const INSERT_URL = "/app/admin/table/insert?table=" + TABLE_NAME;
+            const UPDATE_URL = "/app/admin/table/update?table=" + TABLE_NAME;
+
+            <?=$form->js(3)?>
+
+            layui.use(["table", "form","common", "popup", "util"], function() {
+                let table = layui.table;
+                let form = layui.form;
+                let $ = layui.$;
+                let common = layui.common;
+                let util = layui.util;
+
+                let apis = [];
+                let apiResults = {};
+                $.ajax({
+                    url: SCHEMA_API,
+                    dataType: "json",
+                    success: function (res) {
+                        if (res.code) {
+                            return layui.popup.failure(res.msg);
+                        }
+                        let forms = res.data.forms;
+                        let cols = [{
+                            type: "checkbox"
+                        }];
+                        for (let i in forms) {
+                            let item = forms[i];
+                            let field = item.field;
+                            let schema = {
+                                title: item.comment || item.field,
+                                field: field,
+                                hide: !item.list_show,
+                                sort: item.enable_sort
+                            }
+
+                            let control = item.control.toLowerCase();
+                            // switch 可以直接编辑
+                            if (control === "switch") {
+                                let props = getControlProps(item.control_args);
+                                let layText = props["lay-text"] || "";
+                                schema.templet = function (d) {
+                                    form.on("switch("+field+")", function (data) {
+                                        if (!PRIMARY_KEY) {
+                                            return layui.popup.warning("该表没有主键，无法完成此操作");
+                                        }
+                                        let load = layer.load();
+                                        let postData = { table: TABLE_NAME };
+                                        postData[field] = data.elem.checked ? 1 : 0;
+                                        postData[PRIMARY_KEY] = this.value;
+                                        $.post(UPDATE_API, postData, function (res) {
+                                            layer.close(load);
+                                            if (res.code) {
+                                                return layui.popup.failure(res.msg);
+                                            }
+                                            return layui.popup.success("操作成功");
+                                        })
+                                    });
+                                    let checked = d[field] === 1 ? "checked" : "";
+                                    return '<input type="checkbox" value="'+util.escape(d[PRIMARY_KEY])+'" lay-filter="'+util.escape(field)+'" lay-skin="switch" lay-text="'+util.escape(layText)+'" '+checked+'/>';
+                                }
+                            } else if (control === "iconpicker") {
+                                schema.templet = function (d) {
+                                    return '<i class="layui-icon ' + util.escape(d[field]) + '"></i>';
+                                };
+                            } else if (control === "upload") {
+                                schema.templet = function (d) {
+                                    return '<a href="' + encodeURI(d[field]) + '" target="_blank">' + util.escape(d[field]) + '</a>';
+                                };
+                            } else if (control === "uploadimage") {
+                                schema.templet = function (d) {
+                                    if (!d[field]) return "";
+                                    let images = d[field].split(",");
+                                    let imagesHtml = '';
+                                    for (let i in images) {
+                                        imagesHtml += '<img src="'+encodeURI(images[i])+'" style="max-width:32px;max-height:32px;" />';
+                                    }
+                                    return imagesHtml;
+                                };
+                            } else if (["select", "selectmulti", "treeselect", "treeselectmulti"].indexOf(control) !== -1) {
+                                let props = getControlProps(item.control_args);
+                                apiResults[field] = [];
+                                if (props.url) {
+                                    apis.push([field, props.url]);
+                                } else if (props.data) {
+                                    apiResults[field] = props.data;
+                                }
+                                schema.templet = function (d) {
+                                    if (typeof d[field] == "undefined") return "";
+                                    let items = [];
+                                    layui.each((d[field] + "").split(","), function (k , v) {
+                                        items.push(apiResults[field][v] || v);
+                                    });
+                                    return util.escape(items.join(","));
+                                }
+                            }
+                            cols.push(schema);
+                        }
+                        cols.push({
+                            title: "操作",
+                            toolbar: "#table-bar",
+                            align: "center",
+                            width: 130
+                        });
+
+                        function render()
+                        {
+                            table.render({
+                                elem: "#data-table",
+                                url: SELECT_API,
+                                page: true,
+                                cols: [cols],
+                                skin: "line",
+                                size: "lg",
+                                toolbar: "#table-toolbar",
+                                autoSort: false,
+                                defaultToolbar: [{
+                                    title: "刷新",
+                                    layEvent: "refresh",
+                                    icon: "layui-icon-refresh",
+                                }, "filter", "print", "exports"],
+                                done: function () {
+                                    layer.photos({photos: 'div[lay-id="data-table"]', anim: 5});
+                                }
+                            });
+                        }
+
+                        let count = apis.length;
+                        if (count) {
+                            layui.each(apis, function (k, item) {
+                                let [field, url] = item;
+                                $.ajax({
+                                    url: url,
+                                    dateType: "json",
+                                    success: function (res) {
+                                        if (res.code) {
+                                            return layui.popup.failure(res.msg);
+                                        }
+                                        function travel(items) {
+                                            for (let k in items) {
+                                                let item = items[k];
+                                                apiResults[field][item.value] = item.name;
+                                                if (item.children) {
+                                                    travel(item.children);
+                                                }
+                                            }
+                                        }
+                                        travel(res.data);
+                                    },
+                                    complete: function () {
+                                        if (--count === 0) {
+                                            render();
+                                        }
+                                    }
+                                });
+                            });
+                        } else {
+                            render();
+                        }
+
+                    }
+                });
+
+                table.on("tool(data-table)", function(obj) {
+                    if (obj.event === "remove") {
+                        window.remove(obj);
+                    } else if (obj.event === "edit") {
+                        window.edit(obj);
+                    }
+                });
+
+                table.on("toolbar(data-table)", function(obj) {
+                    if (obj.event === "add") {
+                        window.add();
+                    } else if (obj.event === "refresh") {
+                        window.refreshTable();
+                    } else if (obj.event === "batchRemove") {
+                        window.batchRemove(obj);
+                    }
+                });
+
+                // 字段验证允许为空
+                form.verify({
+                    phone: [/(^$)|^1\d{10}$/, "请输入正确的手机号"],
+                    email: [/(^$)|^([a-zA-Z0-9_\.\-])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,4})+$/, "邮箱格式不正确"],
+                    url: [/(^$)|(^#)|(^http(s*):\/\/[^\s]+\.[^\s]+)/, "链接格式不正确"],
+                    number: [/(^$)|^\d+$/,'只能填写数字'],
+                    date: [/(^$)|^(\d{4})[-\/](\d{1}|0\d{1}|1[0-2])([-\/](\d{1}|0\d{1}|[1-2][0-9]|3[0-1]))*$/, "日期格式不正确"],
+                    identity: [/(^$)|(^\d{15}$)|(^\d{17}(x|X|\d)$)/, "请输入正确的身份证号"]
+                });
+
+                form.on("submit(table-query)", function(data) {
+                    table.reload("data-table", {
+                        page: {
+                            curr: 1
+                        },
+                        where: data.field
+                    })
+                    return false;
+                });
+                form.on("submit(table-reset)", function(data) {
+                    table.reload("data-table", {
+                        where: []
+                    })
+                });
+
+                table.on("sort(data-table)", function(obj){
+                    table.reload("data-table", {
+                        initSort: obj,
+                        scrollPos: "fixed",
+                        where: {
+                            field: obj.field,
+                            order: obj.type
+                        }
+                    });
+                });
+
+                window.add = function() {
+                    layer.open({
+                        type: 2,
+                        title: "新增",
+                        shade: 0.1,
+                        area: [common.isModile()?"100%":"500px", common.isModile()?"100%":"450px"],
+                        content: INSERT_URL
+                    });
+                }
+
+                window.edit = function(obj) {
+                    if (!PRIMARY_KEY) {
+                        return layui.popup.warning("该表没有主键，无法完成此操作");
+                    }
+                    let value = obj.data[PRIMARY_KEY];
+                    layer.open({
+                        type: 2,
+                        title: "修改",
+                        shade: 0.1,
+                        area: [common.isModile()?"100%":"500px", common.isModile()?"100%":"450px"],
+                        content: UPDATE_URL + "&" + PRIMARY_KEY + "=" + value
+                    });
+                }
+
+                window.remove = function(obj) {
+                    return window.doRemove(obj.data[PRIMARY_KEY]);
+                }
+
+                window.batchRemove = function(obj) {
+                    var checkIds = common.checkField(obj, PRIMARY_KEY);
+                    if (checkIds === "") {
+                        layui.popup.warning("未选中数据");
+                        return false;
+                    }
+                    window.doRemove(checkIds.split(","));
+                }
+
+                window.doRemove = function (ids) {
+                    if (!PRIMARY_KEY) {
+                        return layui.popup.warning("该表没有主键，无法完成此操作");
+                    }
+                    let data = {
+                        table: TABLE_NAME
+                    };
+                    data[PRIMARY_KEY] = ids;
+                    layer.confirm("确定删除?", {
+                        icon: 3,
+                        title: "提示"
+                    }, function(index) {
+                        layer.close(index);
+                        let loading = layer.load();
+                        $.ajax({
+                            url: DELETE_API,
+                            data: data,
+                            dataType: "json",
+                            type: "post",
+                            success: function(res) {
+                                layer.close(loading);
+                                if (res.code) {
+                                    return layui.popup.failure(res.msg);
+                                }
+                                return layui.popup.success("操作成功", refreshTable);
+                            }
+                        })
+                    });
+                }
+
+                window.refreshTable = function() {
+                    table.reloadData("data-table", {
+                        scrollPos: "fixed",
+                        done: function (res, curr) {
+                            if (curr > 1 && res.data && !res.data.length) {
+                                curr = curr - 1;
+                                table.reloadData("data-table", {
+                                    page: {
+                                        curr: curr
+                                    },
+                                })
+                            }
+                        }
+                    });
+                }
+            })
+
+
+            // 获取选择组件配置项
+            function getControlProps(control_args)
+            {
+                if (!control_args) {
+                    return {};
+                }
+                let props = {};
+                let split = control_args.split(";");
+                for (let item of split) {
+                    let pos = item.indexOf(":");
+                    if (pos === -1) continue;
+                    let name = item.substring(0, pos).trim();
+                    let values = item.substring(pos + 1).trim();
+
+                    // values = a:v,c:d
+                    pos = values.indexOf(":");
+                    if (pos !== -1) {
+                        let options = values.split(",");
+                        values = {};
+                        for (const option of options) {
+                            let [value, name] = option.split(":");
+                            values[value] = name;
+                        }
+                    }
+                    props[name] = values;
+                }
+                return props;
+            }
+
+        </script>
+    </body>
+</html>

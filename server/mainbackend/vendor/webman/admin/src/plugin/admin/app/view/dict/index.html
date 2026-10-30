@@ -1,0 +1,323 @@
+
+<!DOCTYPE html>
+<html lang="zh-cn">
+    <head>
+        <meta charset="utf-8">
+        <title>浏览页面</title>
+        <link rel="stylesheet" href="/app/admin/component/pear/css/pear.css" />
+        <link rel="stylesheet" href="/app/admin/admin/css/reset.css" />
+    </head>
+    <body class="pear-container">
+    
+        <!-- 顶部查询表单 -->
+        <div class="layui-card">
+            <div class="layui-card-body">
+                <form class="layui-form top-search-from">
+                    
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">名称</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="name" value="" class="layui-input">
+                        </div>
+                    </div>
+                    
+                    <div class="layui-form-item layui-inline">
+                        <label class="layui-form-label"></label>
+                        <button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="table-query">
+                            <i class="layui-icon layui-icon-search"></i>查询
+                        </button>
+                        <button type="reset" class="pear-btn pear-btn-md" lay-submit lay-filter="table-reset">
+                            <i class="layui-icon layui-icon-refresh"></i>重置
+                        </button>
+                    </div>
+                    <div class="toggle-btn">
+                        <a class="layui-hide">展开<i class="layui-icon layui-icon-down"></i></a>
+                        <a class="layui-hide">收起<i class="layui-icon layui-icon-up"></i></a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 数据表格 -->
+        <div class="layui-card">
+            <div class="layui-card-body">
+                <table id="data-table" lay-filter="data-table"></table>
+            </div>
+        </div>
+
+        <!-- 表格顶部工具栏 -->
+        <script type="text/html" id="table-toolbar">
+            <button class="pear-btn pear-btn-primary pear-btn-md" lay-event="add" permission="app.admin.dict.insert">
+                <i class="layui-icon layui-icon-add-1"></i>新增
+            </button>
+            <button class="pear-btn pear-btn-danger pear-btn-md" lay-event="batchRemove" permission="app.admin.dict.delete">
+                <i class="layui-icon layui-icon-delete"></i>删除
+            </button>
+        </script>
+
+        <!-- 表格行工具栏 -->
+        <script type="text/html" id="table-bar">
+            <button class="pear-btn pear-btn-xs tool-btn" lay-event="edit" permission="app.admin.dict.update">编辑</button>
+            <button class="pear-btn pear-btn-xs tool-btn" lay-event="remove" permission="app.admin.dict.delete">删除</button>
+        </script>
+
+        <script src="/app/admin/component/layui/layui.js?v=2.8.12"></script>
+        <script src="/app/admin/component/pear/pear.js"></script>
+        <script src="/app/admin/admin/js/permission.js"></script>
+        <script src="/app/admin/admin/js/common.js"></script>
+        <script>
+
+            // 相关接口
+            const SELECT_API = "/app/admin/dict/select";
+            const UPDATE_API = "/app/admin/dict/update";
+            const DELETE_API = "/app/admin/dict/delete";
+            const INSERT_URL = "/app/admin/dict/insert";
+            const UPDATE_URL = "/app/admin/dict/update";
+
+            // 表格渲染
+            layui.use(["table", "form", "common", "popup", "util"], function() {
+                let table = layui.table;
+                let form = layui.form;
+                let $ = layui.$;
+                let common = layui.common;
+                let util = layui.util;
+                
+				// 表头参数
+				let cols = [
+          {
+            type: "checkbox",
+          }, {
+            title  : "名称",
+            field  : "name",
+            width  : 200,
+            templet: function (d) {
+              let field = "name";
+              if (typeof d[field] == "undefined") return "";
+              let items = [];
+              layui.each((
+                d[field] + ""
+              ).split(","), function (k, v) {
+                items.push(apiResults[field][v] || v);
+              });
+              return util.escape(items.join(","));
+            },
+          }, {
+            title  : "值",
+            field  : "value",
+            templet: function (d) {
+              const dicts = JSON.parse(d.value)
+              return dicts.map(dict => `<span class="layui-badge layui-bg-blue">${dict.name}: ${dict.value}</span>`).join(' ');
+            },
+          }, {
+            title: "创建时间",
+            field: "created_at",
+            width: 180,
+            hide : true,
+          }, {
+            title: "更新时间",
+            field: "updated_at",
+            width: 180,
+            hide : true,
+          }, {
+            title  : "操作",
+            toolbar: "#table-bar",
+            align  : "center",
+            width  : 130,
+            fixed  : "right",
+          },
+        ];
+
+        let apiResults = {};
+        const loadDictNames = () => {
+          let apis = [];
+          apis.push(["name", "/app/admin/dict/get/dict_name"]);
+          apiResults["name"] = [];
+          let count = apis.length;
+          layui.each(apis, function (k, item) {
+            let [field, url] = item;
+            $.ajax({
+              url     : url,
+              dateType: "json",
+              success : function (res) {
+                if (res.code) {
+                  return layui.popup.failure(res.msg);
+                }
+
+                function travel(items) {
+                  for (let k in items) {
+                    let item = items[k];
+                    apiResults[field][item.value] = `${item.name}: ${item.value}`;
+                    if (item.children) {
+                      travel(item.children);
+                    }
+                  }
+                }
+
+                travel(res.data);
+              },
+              complete: function () {
+                if (--count === 0) {
+                  render();
+                }
+              },
+            });
+          });
+        }
+        loadDictNames();
+				// 渲染表格
+				function render()
+				{
+				    table.render({
+				        elem: "#data-table",
+				        url: SELECT_API,
+				        page: true,
+				        cols: [cols],
+				        skin: "line",
+				        size: "lg",
+				        toolbar: "#table-toolbar",
+				        autoSort: false,
+				        defaultToolbar: [{
+				            title: "刷新",
+				            layEvent: "refresh",
+				            icon: "layui-icon-refresh",
+				        }, "filter", "print", "exports"]
+				    });
+				}
+                render();
+
+                // 编辑或删除行事件
+                table.on("tool(data-table)", function(obj) {
+                    if (obj.event === "remove") {
+                        remove(obj);
+                    } else if (obj.event === "edit") {
+                        edit(obj);
+                    }
+                });
+
+                // 表格顶部工具栏事件
+                table.on("toolbar(data-table)", function(obj) {
+                    if (obj.event === "add") {
+                        add();
+                    } else if (obj.event === "refresh") {
+                        refreshTable();
+                    } else if (obj.event === "batchRemove") {
+                        batchRemove(obj);
+                    }
+                });
+
+                // 表格顶部搜索事件
+                form.on("submit(table-query)", function(data) {
+                    table.reload("data-table", {
+                        page: {
+                            curr: 1
+                        },
+                        where: data.field
+                    })
+                    return false;
+                });
+                
+                // 表格顶部搜索重置事件
+                form.on("submit(table-reset)", function(data) {
+                    table.reload("data-table", {
+                        where: []
+                    })
+                });
+
+                // 表格排序事件
+                table.on("sort(data-table)", function(obj){
+                    table.reload("data-table", {
+                        initSort: obj,
+                        scrollPos: "fixed",
+                        where: {
+                            field: obj.field,
+                            order: obj.type
+                        }
+                    });
+                });
+
+                // 表格新增数据
+                let add = function() {
+                    layer.open({
+                        type: 2,
+                        title: "新增",
+                        shade: 0.1,
+                        area: [common.isModile()?"100%":"500px", common.isModile()?"100%":"500px"],
+                        content: INSERT_URL
+                    });
+                }
+
+                // 表格编辑数据
+                let edit = function(obj) {
+                    let value = obj.data["name"];
+                    layer.open({
+                        type: 2,
+                        title: "修改",
+                        shade: 0.1,
+                        area: [common.isModile()?"100%":"500px", common.isModile()?"100%":"500px"],
+                        content: UPDATE_URL + "?name=" + value
+                    });
+                }
+
+                // 删除一行
+                let remove = function(obj) {
+                    return doRemove(obj.data["name"]);
+                }
+
+                // 删除多行
+                let batchRemove = function(obj) {
+                    let checkIds = common.checkField(obj, "name");
+                    if (checkIds === "") {
+                        layui.popup.warning("未选中数据");
+                        return false;
+                    }
+                    doRemove(checkIds.split(","));
+                }
+
+                // 执行删除
+                let doRemove = function (ids) {
+                    let data = {};
+                    data["name"] = ids;
+                    layer.confirm("确定删除?", {
+                        icon: 3,
+                        title: "提示"
+                    }, function(index) {
+                        layer.close(index);
+                        let loading = layer.load();
+                        $.ajax({
+                            url: DELETE_API,
+                            data: data,
+                            dataType: "json",
+                            type: "post",
+                            success: function(res) {
+                                layer.close(loading);
+                                if (res.code) {
+                                    return layui.popup.failure(res.msg);
+                                }
+                                return layui.popup.success("操作成功", refreshTable);
+                            }
+                        })
+                    });
+                }
+
+                // 刷新表格数据
+                window.refreshTable = function() {
+                    table.reloadData("data-table", {
+                        scrollPos: "fixed",
+                        done: function (res, curr) {
+                            if (curr > 1 && res.data && !res.data.length) {
+                                curr = curr - 1;
+                                table.reloadData("data-table", {
+                                    page: {
+                                        curr: curr
+                                    },
+                                })
+                            }
+                            loadDictNames()
+                        }
+                    });
+                }
+            })
+
+        </script>
+    </body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+		<title>文本编辑</title>
+		<link rel="stylesheet" href="../../component/pear/css/pear.css" />
+	</head>
+	<body class="pear-container">
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">
+						开发环境
+					</div>
+					<div class="layui-card-body">
+						Tinymce 文本编辑器
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<div class="layui-collapse">
+					<div class="layui-colla-item">
+						<h2 class="layui-colla-title">显示代码</h2>
+						<div class="layui-colla-content">
+							<pre class="layui-code" lay-encode="true">
+								&lt;link href="component/pear/css/pear.css" rel="stylesheet" />
+								 并
+								&lt;script src="component/layui/layui.js">&lt;/script>
+								 并
+								&lt;script src="component/pear/pear.js">&lt;/script>
+							</pre>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">富文本编辑器</div>
+					<div class="layui-card-body">
+						<textarea name="" id="edit" cols="30" rows="10"></textarea>
+						<div class="layui-btn-group" style="margin-top: 10px">
+							<button class="pear-btn pear-btn-primary" lay-event="getContent">获取内容</button>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<div class="layui-collapse">
+					<div class="layui-colla-item">
+						<h2 class="layui-colla-title">显示代码</h2>
+						<div class="layui-colla-content">
+							<pre class="layui-code" lay-encode="true">
+								layui.use(['tinymce'], function() {
+								    var tinymce = layui.tinymce
+								
+								    var edit = tinymce.render({
+								        elem: "#edit",
+								        height: 400
+								    });
+									
+								    edit.getContent()
+								});
+							</pre>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script>
+			layui.use(['tinymce', 'util', 'layer','code','element'], function() {
+				var tinymce = layui.tinymce
+				var util = layui.util;
+				
+				layui.code();
+
+				var edit = tinymce.render({
+					elem: "#edit",
+					height: 400
+				});
+
+				util.event('lay-event', {
+					getContent: function() {
+						console.log(edit.getContent())
+						layer.msg("展开控制台查看")
+					}
+				});
+			});
+		</script>
+	</body>
+</html>

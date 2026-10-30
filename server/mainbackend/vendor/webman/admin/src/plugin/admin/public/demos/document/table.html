@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>数据表格</title>
+		<link rel="stylesheet" href="../../component/pear/css/pear.css" />
+		<style>
+			.expand.pear-btn:hover {
+				color: currentColor;
+        background: none;
+			}
+
+			.expand.pear-btn {
+				border: 1px solid rgba(255, 255, 255, 0)
+			}
+		</style>
+	</head>
+
+	<body class="pear-container">
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<form id="userForm" class="layui-form" action="">
+					<div class="layui-form-item">
+						<div class="layui-inline">
+							<label class="layui-form-label">用户名</label>
+							<div class="layui-input-inline">
+								<input type="text" name="realName" placeholder="" class="layui-input">
+							</div>
+						</div>
+						<div class="layui-inline">
+							<label class="layui-form-label">账号</label>
+							<div class="layui-input-inline">
+								<input type="text" name="username" placeholder="" class="layui-input">
+							</div>
+						</div>
+						<div class="layui-inline">
+							<label class="layui-form-label">账号</label>
+							<div class="layui-input-inline">
+								<input type="text" name="username" placeholder="" class="layui-input">
+							</div>
+						</div>
+						<div class="layui-inline">
+							<label class="layui-form-label">账号</label>
+							<div class="layui-input-inline">
+								<input type="text" name="username" placeholder="" class="layui-input">
+							</div>
+						</div>
+						<div class="layui-inline">
+							<label class="layui-form-label">账号</label>
+							<div class="layui-input-inline">
+								<input type="text" name="username" placeholder="" class="layui-input">
+							</div>
+						</div>
+						<div class="layui-inline" style="margin-left: 50px;">
+							<button class="pear-btn pear-btn-md pear-btn-primary" lay-submit lay-filter="user-query">
+								<i class="layui-icon layui-icon-search"></i>
+								查询
+							</button>
+							<button type="reset" class="pear-btn pear-btn-md">
+								<i class="layui-icon layui-icon-refresh"></i>
+								重置
+							</button>
+							<button type="button" class="pear-btn pear-btn-md expand">
+							</button>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+		<div class="layui-card">
+			<div class="layui-card-body">
+				<table id="user-table" lay-filter="user-table"></table>
+			</div>
+		</div>
+
+		<script type="text/html" id="user-toolbar">
+			<button class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
+				<i class="layui-icon layui-icon-add-1"></i>
+				新增
+			</button>
+			<button class="pear-btn pear-btn-danger pear-btn-md" lay-event="batchRemove">
+				<i class="layui-icon layui-icon-delete"></i>
+				删除
+			</button>
+		</script>
+
+		<script type="text/html" id="user-bar">
+			<button class="pear-btn pear-btn-primary pear-btn-sm" lay-event="edit"><i
+					class="layui-icon layui-icon-edit"></i></button>
+			<button class="pear-btn pear-btn-danger pear-btn-sm" lay-event="remove"><i
+					class="layui-icon layui-icon-delete"></i></button>
+			<button class="pear-btn pear-btn-sm" id="more_{{d.userId}}"><i class="layui-icon layui-icon-triangle-d"></i></button>
+		</script>
+
+		<script type="text/html" id="user-enable">
+			<input type="checkbox" name="enable" value="{{d.id}}" lay-skin="switch" lay-text="启用|禁用" lay-filter="user-enable"
+				checked="{{ d.enable == 0 ? 'true' : 'false' }}">
+		</script>
+
+		<script type="text/html" id="user-sex">
+		{{#if (d.sex == 1) { }}
+			<span>男</span>
+			{{# }else if(d.sex == 2){ }}
+				<span>女</span>
+				{{# } }}
+		</script>
+
+		<script type="text/html" id="user-login">
+		{{#if (d.login == 0) { }}
+			<span>在线</span>
+			{{# }else if(d.sex == 1){ }}
+				<span>离线</span>
+				{{# } }}
+		</script>
+
+		<script type="text/html" id="user-createTime">
+		{{layui.util.toDateString(d.createTime, 'yyyy-MM-dd')}}
+		</script>
+
+		<div style="display: none;">
+			<div class="layer-top">
+				<br />
+				<h3>上侧弹层内容...</h3>
+			</div>
+		</div>
+
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script>
+			layui.use(['table', 'form', 'jquery', 'drawer', 'dropdown'], function() {
+				let table = layui.table;
+				let form = layui.form;
+				let $ = layui.jquery;
+				let drawer = layui.drawer;
+				let dropdown = layui.dropdown;
+
+				let MODULE_PATH = "/system/user/";
+
+				formToggle({
+					elem: "#userForm",
+				});
+
+				function formToggle(options) {
+					var defaultsOpt = {
+						isExpand: false,
+						prefixIcon: "layui-icon",
+						toggleIcon: ['layui-icon-down', 'layui-icon-up'],
+						toggleText: ['展开', '折叠'],
+					}
+					var opt = $.extend({}, defaultsOpt, options);
+					var elem = opt.elem; // 绑定的表单元素,必填
+					var min = opt.min; // 最小显示数,默认显示一行
+					var isExpand = opt.isExpand; // 初始展开
+					var prefixIcon = opt.prefixIcon + " "; // 图标前缀
+					var toggleIcon = opt.toggleIcon; // 折叠和展开时的图标类[unExpandIcon, ExpandIcon]
+					var toggleText = opt.toggleText; // 折叠和展开时的文本
+
+					var eleDOM = $(elem + " .layui-inline");
+					var firstElTop = eleDOM.first().offset().top;
+					var targetEl = eleDOM.filter(function(index) {
+						var isGtMin = (index + 1) > min;
+						var isGtFirstElTop = $(this).offset().top > firstElTop;
+						var isNeqLast = (index + 1) != eleDOM.length;
+						return min ? isGtMin && isNeqLast : isGtFirstElTop && isNeqLast;
+					});
+
+					var unExpandIcon = prefixIcon + toggleIcon[0];
+					var expandIcon = prefixIcon + toggleIcon[1];
+					var unExpandText = toggleText[0];
+					var expandText = toggleText[1];
+					var btnSelector = elem + " .expand";
+					$(btnSelector).append("<i></i>")
+					if (targetEl.length > 0) {
+						if (isExpand) {
+							$(btnSelector).prepend("<span>" + expandText + "</span>");
+							$(btnSelector + ">i").addClass(expandIcon);
+						} else {
+							$(btnSelector).prepend("<span>" + unExpandText + "</span>")
+							$(btnSelector + ">i").addClass(unExpandIcon)
+							targetEl.addClass("layui-hide");
+						}
+						$(btnSelector).click(function() {
+							isExpand = !isExpand;
+							if (isExpand) {
+								$(btnSelector + ">span").html(expandText);
+								$(btnSelector + ">i").removeClass(unExpandIcon).addClass(expandIcon);
+								targetEl.removeClass("layui-hide")
+							} else {
+								$(btnSelector + ">span").html(unExpandText);
+								$(btnSelector + ">i").removeClass(expandIcon).addClass(unExpandIcon);
+								targetEl.addClass("layui-hide")
+							}
+						})
+					}
+				}
+
+				let cols = [
+					[{
+							type: 'checkbox'
+						},
+						{
+							title: '账号',
+							field: 'username',
+							align: 'center',
+							width: 100
+						},
+						{
+							title: '姓名',
+							field: 'realName',
+							align: 'center'
+						},
+						{
+							title: '性别',
+							field: 'sex',
+							align: 'center',
+							width: 80,
+							templet: '#user-sex'
+						},
+						{
+							title: '电话',
+							field: 'phone',
+							align: 'center'
+						},
+						{
+							title: '启用',
+							field: 'enable',
+							align: 'center',
+							templet: '#user-enable'
+						},
+						{
+							title: '登录',
+							field: 'login',
+							align: 'center',
+							templet: '#user-login'
+						},
+						{
+							title: '注册',
+							field: 'createTime',
+							align: 'center',
+							templet: '#user-createTime'
+						},
+						{
+							title: '操作',
+							toolbar: '#user-bar',
+							align: 'left',
+							width: 160,
+							fixed: 'right'
+						}
+					]
+				]
+
+				table.render({
+					elem: '#user-table',
+					url: '../../demos/data/table.json',
+					page: true,
+					cols: cols,
+					skin: 'line',
+					toolbar: '#user-toolbar',
+					defaultToolbar: [{
+						layEvent: 'refresh',
+						icon: 'layui-icon-refresh',
+					}, 'filter', 'print', 'exports'],
+					done: function(res, curr, count) {
+						for (var i = 0; i < res.data.length; i++) {
+							dropdown.render({
+								elem: '#more_' + res.data[i].userId,
+								data: [{
+									title: 'menu item11',
+									id: 100
+								}, {
+									title: 'menu item22',
+									id: 101
+								}, {
+									title: 'menu item33',
+									id: 102
+								}],
+								id: '#more_' + res.data[i].userId,
+								click: function(obj) {
+									layer.tips('点击了：' + obj.title, this.elem, {
+										tips: [1, '#5FB878']
+									})
+								}
+							});
+						}
+					}
+				});
+
+				table.on('tool(user-table)', function(obj) {
+					if (obj.event === 'remove') {
+						window.remove(obj);
+					} else if (obj.event === 'edit') {
+						window.edit(obj);
+					}
+				});
+
+				table.on('toolbar(user-table)', function(obj) {
+					if (obj.event === 'add') {
+						window.add();
+					} else if (obj.event === 'refresh') {
+						window.refresh();
+					} else if (obj.event === 'batchRemove') {
+						window.batchRemove(obj);
+					}
+				});
+
+				form.on('submit(user-query)', function(data) {
+					table.reload('user-table', {
+						where: data.field
+					})
+					return false;
+				});
+
+				form.on('switch(user-enable)', function(obj) {
+					layer.tips(this.value + ' ' + this.name + '：' + obj.elem.checked, obj.othis);
+				});
+
+				window.add = function() {
+					drawer.open({
+						direction: "top",
+						dom: ".layer-top",
+						distance: "30%"
+					});
+				}
+
+				window.edit = function(obj) {
+					layer.msg("修改");
+				}
+
+				window.remove = function(obj) {
+					layer.confirm('确定要删除该用户', {
+						icon: 3,
+						title: '提示'
+					}, function(index) {
+						layer.close(index);
+						let loading = layer.load();
+						$.ajax({
+							url: MODULE_PATH + "remove/" + obj.data['userId'],
+							dataType: 'json',
+							type: 'delete',
+							success: function(result) {
+								layer.close(loading);
+								if (result.success) {
+									layer.msg(result.msg, {
+										icon: 1,
+										time: 1000
+									}, function() {
+										obj.del();
+									});
+								} else {
+									layer.msg(result.msg, {
+										icon: 2,
+										time: 1000
+									});
+								}
+							}
+						})
+					});
+				}
+
+				window.batchRemove = function(obj) {
+					let data = table.checkStatus(obj.config.id).data;
+					if (data.length === 0) {
+						layer.msg("未选中数据", {
+							icon: 3,
+							time: 1000
+						});
+						return false;
+					}
+					let ids = "";
+					for (let i = 0; i < data.length; i++) {
+						ids += data[i].userId + ",";
+					}
+					ids = ids.substr(0, ids.length - 1);
+					layer.confirm('确定要删除这些用户', {
+						icon: 3,
+						title: '提示'
+					}, function(index) {
+						layer.close(index);
+						let loading = layer.load();
+						$.ajax({
+							url: MODULE_PATH + "batchRemove/" + ids,
+							dataType: 'json',
+							type: 'delete',
+							success: function(result) {
+								layer.close(loading);
+								if (result.success) {
+									layer.msg(result.msg, {
+										icon: 1,
+										time: 1000
+									}, function() {
+										table.reload('user-table');
+									});
+								} else {
+									layer.msg(result.msg, {
+										icon: 2,
+										time: 1000
+									});
+								}
+							}
+						})
+					});
+				}
+
+				window.refresh = function(param) {
+					table.reload('user-table');
+				}
+			})
+		</script>
+	</body>
+
+</html>

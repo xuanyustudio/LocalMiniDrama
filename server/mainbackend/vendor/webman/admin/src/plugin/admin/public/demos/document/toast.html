@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta http-equiv="X-UA-Compatible" content="ie=edge">
+		<title>通知组件</title>
+		<link rel="stylesheet" href="../../component/pear/css/pear.css" />
+	</head>
+	<body class="pear-container">
+		<div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-header">开发环境</div>
+						<div class="layui-card-body">
+							toast 用于 消息通知 场景
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-collapse">
+						<div class="layui-colla-item">
+							<h2 class="layui-colla-title">显示代码</h2>
+							<div class="layui-colla-content">
+								<pre class="layui-code" lay-encode="true">
+									&lt;link rel="stylesheet" href="component/pear/css/pear.css" />
+									 或
+									&lt;link rel="stylesheet" href="component/pear/css/pear-module/toast.css" />
+									 并
+									&lt;script src="component/layui/layui.js">&lt;/script>
+									 并
+									&lt;script src="component/pear/pear.js">&lt;/script>
+								</pre>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-header">消息提醒</div>
+						<div class="layui-card-body">
+							<div>
+								<span>toast.success({title:"成功消息",message:"消息描述"})</span>
+								<br>
+								<br>
+								<span>toast.error({title:"危险消息",message:"消息描述"})</span>
+								<br>
+								<br>
+								<span>toast.warning({title:"警告消息",message:"消息描述"})</span>
+								<br>
+								<br>
+								<span>toast.info({title:"通知消息",message:"消息描述"})</span>
+								<br>
+								<br>
+							</div>
+							<button class="toast-info pear-btn pear-btn-primary">通用消息</button>
+							<button class="toast-success pear-btn pear-btn-success">成功消息</button>
+							<button class="toast-failure pear-btn pear-btn-danger">错误消息</button>
+							<button class="toast-warning pear-btn pear-btn-warming">警告消息</button>
+							<button class="toast-question pear-btn">问题消息</button>
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-collapse">
+						<div class="layui-colla-item">
+							<h2 class="layui-colla-title">显示代码</h2>
+							<div class="layui-colla-content">
+								<pre class="layui-code" lay-encode="true">
+									layui.use(['toast', 'jquery', 'layer', 'code'], function() {
+									    var toast = layui.toast;
+										                         
+									    toast.success({title: 'Caution',message: 'You forgot important data',position: 'topRight'});
+									    
+										toast.info({title: 'Caution',message: 'You forgot important data',position: 'topRight'});
+									    
+										toast.warning({title: 'Caution',message: 'You forgot important data',position: 'topRight'});
+									    
+										toast.error({title: 'Caution',message: 'You forgot important data',position: 'topRight'});
+									    
+										toast.question({title: 'Caution',message: 'You forgot important data',position: 'topRight'});
+									})
+								</pre>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-header">
+							不同位置
+						</div>
+						<div class="layui-card-body">
+							<button class="toast-top-left-btn pear-btn">上左</button>
+							<button class="toast-top-center-btn pear-btn">上中</button>
+							<button class="toast-top-right-btn pear-btn">上右</button>
+							<button class="toast-bottom-left-btn pear-btn">下左</button>
+							<button class="toast-bottom-center-btn pear-btn">下中</button>
+							<button class="toast-bottom-right-btn pear-btn">下右</button>
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-collapse">
+						<div class="layui-colla-item">
+							<h2 class="layui-colla-title">显示代码</h2>
+							<div class="layui-colla-content">
+								<pre class="layui-code" lay-encode="true">
+									layui.use(['toast', 'jquery', 'layer', 'code'], function() {
+									    var toast = layui.toast;
+										                         
+									    $(".toast-top-left-btn").click(function(){
+									        toast.success({title: 'Caution',message: 'You forgot important data',position: 'topLeft'});
+									    })
+									    $(".toast-top-center-btn").click(function(){
+									        toast.success({title: 'Caution',message: 'You forgot important data',position: 'topCenter'});
+									    })
+									    $(".toast-top-right-btn").click(function(){
+									        toast.success({title: 'Caution',message: 'You forgot important data',position: 'topRight'});
+									    })
+									    $(".toast-bottom-left-btn").click(function(){
+									        toast.success({title: 'Caution',message: 'You forgot important data',position: 'bottomLeft'});
+									    })
+									    $(".toast-bottom-center-btn").click(function(){
+									        toast.success({title: 'Caution',message: 'You forgot important data',position: 'bottomCenter'});
+									    })
+									    $(".toast-bottom-right-btn").click(function(){
+									        toast.success({title: 'Caution',message: 'You forgot important data',position: 'bottomRight'});
+									    })
+									})
+								</pre>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-header">
+							消息移除
+						</div>
+						<div class="layui-card-body">
+							<button class="pear-btn" id="closeAll">移除全部</button>
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-collapse">
+						<div class="layui-colla-item">
+							<h2 class="layui-colla-title">显示代码</h2>
+							<div class="layui-colla-content">
+								<pre class="layui-code" lay-encode="true">
+									layui.use(['toast', 'jquery', 'layer', 'code'], function() {
+									    var toast = layui.toast;
+										                         
+									    toast.destroy();
+									})
+								</pre>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+	<script src="../../component/layui/layui.js"></script>
+	<script src="../../component/pear/pear.js"></script>
+	<script>
+		layui.use(['toast', 'toast', 'jquery', 'layer', 'code', 'element'], function() {
+			var toast = layui.toast;
+			var layer = layui.layer;
+			var $ = layui.jquery;
+			var toast = layui.toast;
+
+			layui.code();
+
+			toast.success({
+				title: 'Caution',
+				message: 'You forgot important data',
+				position: 'topRight'
+			});
+			toast.info({
+				title: 'Caution',
+				message: 'You forgot important data',
+				position: 'topRight'
+			});
+			toast.error({
+				title: 'Caution',
+				message: 'You forgot important data',
+				position: 'topRight'
+			});
+			toast.warning({
+				title: 'Caution',
+				message: 'You forgot important data',
+				position: 'topRight'
+			});
+			toast.question({
+				title: 'Caution',
+				message: 'You forgot important data',
+				position: 'topRight'
+			});
+
+			$(".toast-success").click(function() {
+				toast.success({
+					title: 'Caution',
+					message: 'You forgot important data',
+					position: 'topRight'
+				});
+			})
+			$(".toast-failure").click(function() {
+				toast.error({
+					title: 'Caution',
+					message: 'You forgot important data',
+					position: 'topRight'
+				});
+			})
+			$(".toast-warning").click(function() {
+				toast.warning({
+					title: 'Caution',
+					message: 'You forgot important data',
+					position: 'topRight'
+				});
+			})
+
+			$(".toast-info").click(function() {
+				toast.info({
+					title: 'Caution',
+					message: 'You forgot important data',
+					position: 'topRight'
+				});
+			})
+			$(".toast-question").click(function() {
+				toast.question({
+					title: 'Caution',
+					message: 'You forgot important data',
+					position: 'topRight'
+				});
+			})
+			
+			$(".toast-top-left-btn").click(function(){
+				toast.info({
+					title: 'Caution',
+					message: 'You forgot important data',
+					position: 'topLeft'
+				});
+			})
+			$(".toast-top-center-btn").click(function(){
+				toast.info({
+					title: 'Caution',
+					message: 'You forgot important data',
+					position: 'topCenter'
+				});
+			})
+			$(".toast-top-right-btn").click(function(){
+				toast.info({
+					title: 'Caution',
+					message: 'You forgot important data',
+					position: 'topRight'
+				});
+			})
+			
+			$(".toast-bottom-left-btn").click(function(){
+				toast.info({
+					title: 'Caution',
+					message: 'You forgot important data',
+					position: 'bottomLeft'
+				});
+			})
+			$(".toast-bottom-center-btn").click(function(){
+				toast.info({
+					title: 'Caution',
+					message: 'You forgot important data',
+					position: 'bottomCenter'
+				});
+			})
+			$(".toast-bottom-right-btn").click(function(){
+				toast.info({
+					title: 'Caution',
+					message: 'You forgot important data',
+					position: 'bottomRight'
+				});
+			})
+			
+			$("#closeAll").click(function() {
+				toast.destroy();
+			});
+
+		});
+	</script>
+
+</html>

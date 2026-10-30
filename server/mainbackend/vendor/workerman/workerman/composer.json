@@ -1,0 +1,65 @@
+{
+    "name": "workerman/workerman",
+    "type": "library",
+    "keywords": [
+        "event-loop",
+        "asynchronous",
+        "http",
+        "framework"
+    ],
+    "homepage": "https://www.workerman.net",
+    "license": "MIT",
+    "description": "An asynchronous event driven PHP framework for easily building fast, scalable network applications.",
+    "authors": [
+        {
+            "name": "walkor",
+            "email": "walkor@workerman.net",
+            "homepage": "https://www.workerman.net",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "email": "walkor@workerman.net",
+        "issues": "https://github.com/walkor/workerman/issues",
+        "forum": "https://www.workerman.net/questions",
+        "wiki": "https://www.workerman.net/doc/workerman/",
+        "source": "https://github.com/walkor/workerman"
+    },
+    "require": {
+        "php": ">=8.1",
+        "ext-json": "*",
+        "workerman/coroutine": "^1.1 || dev-main"
+    },
+    "suggest": {
+        "ext-event": "For better performance. "
+    },
+    "autoload": {
+        "psr-4": {
+            "Workerman\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "dev",
+    "conflict": {
+        "ext-swow": "<v1.0.0"
+    },
+    "require-dev": {
+        "pestphp/pest": "^2.36 || ^3 || ^4",
+        "mockery/mockery": "^1.6",
+        "guzzlehttp/guzzle": "^7.0",
+        "phpstan/phpstan": "2.1.x-dev"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "scripts": {
+        "analyze": "php -d memory_limit=1G vendor/phpstan/phpstan/phpstan.phar",
+        "test": "pest --colors=always"
+    }
+}

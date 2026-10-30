@@ -1,0 +1,1 @@
+import{al as t}from"./index-DkkRapEr.js";const a={list(e){return t.get("/images",{params:e||{}})},create(e){return t.post("/images",e)},upload(e){return t.post("/images/upload",e)},delete(e){return t.delete(`/images/${e}`)}};export{a as i};

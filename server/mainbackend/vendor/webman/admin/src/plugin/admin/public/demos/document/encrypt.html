@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>哈希加密</title>
+		<link href="../../component/pear/css/pear.css" rel="stylesheet" />
+	</head>
+	<body class="pear-container">
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">
+						开发环境
+					</div>
+					<div class="layui-card-body">
+						Pear encrypt 为前端开发 提供 加密服务
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<div class="layui-collapse">
+					<div class="layui-colla-item">
+						<h2 class="layui-colla-title">显示代码</h2>
+						<div class="layui-colla-content">
+							<pre class="layui-code" lay-encode="true">
+								&lt;script src="component/layui/layui.js">&lt;/script>
+								 并
+								&lt;script src="component/pear/pear.js">&lt;/script>
+							</pre>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">加密操作</div>
+					<div class="layui-card-body">
+						<form class="layui-form" action="javascript:void(0);">
+							<div class="layui-form-item layui-input-inline">
+								<input id="enter" value="123456" type="text" class="layui-input" />
+							</div>
+							<div class="layui-form-item layui-input-inline">
+								<select name="encode" lay-verify="">
+									<option value="">加密方式</option>
+									<option value="1">MD5</option>
+									<option value="2">SHA1</option>
+									<option value="3">SHA256</option>
+									<option value="4">SHA512</option>
+									<option value="5">rmd160</option>
+									<option value="6">crc32</option>
+									<option value="7">Base64Encode</option>
+								</select>
+							</div>
+							<div class="layui-form-item layui-input-inline">
+								<button id="encode" class="pear-btn pear-btn-primary">Encode</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">加密结果</div>
+					<div class="layui-card-body" id="end">
+				
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<div class="layui-collapse">
+					<div class="layui-colla-item">
+						<h2 class="layui-colla-title">显示代码</h2>
+						<div class="layui-colla-content">
+							<pre class="layui-code" lay-encode="true">
+								layui.use(['encrypt'], function() {
+									var encrypt = layui.encrypt;
+								
+								    encrypt.md5( str );
+									
+								    encrypt.sha1( str );
+									
+								    encrypt.sha256( str );
+								})
+							</pre>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+			    <div class="layui-card">
+			    	<div class="layui-card-header">API 文档</div>
+			    	<div class="layui-card-body" id="end">
+			    		<div>
+			    			<span>encrypt.md5( str )  --  MD5加密</span>
+			    			<br>
+			    			<br>
+			    			<span>encrypt.sha1( str )  --  SHA1加密</span>
+			    			<br>
+			    			<br>
+			    			<span>encrypt.sha256( str )  --  SHA256加密</span>
+			    			<br>
+			    			<br>
+			    			<span>encrypt.sha512( str )  --  SHA512加密</span>
+			    			<br>
+			    			<br>
+			    			<span>encrypt.rmd160( str )  --  RMD160加密</span>
+			    			<br>
+			    			<br>
+			    			<span>encrypt.crc32( str )  --  CRC32加密</span>
+			    			<br>
+			    			<br>
+			    			<span>encrypt.Base64Encode( str )  --  BASE64加密</span>
+			    			<br>
+			    			<br>
+			    		</div>
+			    	</div>
+			    </div>	
+			</div>
+		</div>
+        <script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script>
+			layui.use(['encrypt', 'form', 'jquery','layer','element','code'], function() {
+				var encrypt = layui.encrypt;
+				var form = layui.form;
+				var $ = layui.jquery;
+				var layer = layui.layer;
+				var element = layui.element;
+				
+				layui.code();
+
+				$("#encode").click(function() {
+					var encode = $("[name='encode']").val();
+					var end;
+					if (encode == 1) {
+						end = encrypt.md5($("#enter").val());
+					} else if (encode == 2) {
+						end = encrypt.sha1($("#enter").val());
+					} else if (encode == 3) {
+						end = encrypt.sha256($("#enter").val());
+					} else if (encode == 4) {
+						end = encrypt.sha512($("#enter").val());
+					} else if (encode == 5) {
+						end = encrypt.rmd160($("#enter").val());
+					} else if (encode == 6) {
+						end = encrypt.crc32($("#enter").val());
+					} else if (encode == 7) {
+						end = encrypt.Base64Encode($("#enter").val());
+					} else{
+						layer.msg("请选择加密方式",{icon:3,time:1000});
+					}
+
+					$("#end").append('<button class="pear-btn">加密方式 : ' + $("[value=" + $("[name='encode']")
+							.val() + "]").text() + '&nbsp;&nbsp;&nbsp;&nbsp;明文 : ' + $("#enter").val() +
+						'&nbsp;&nbsp;&nbsp;&nbsp;加密结果 : ' + end + '</button><br><br>');
+				})
+			})
+		</script>
+	</body>
+</html>

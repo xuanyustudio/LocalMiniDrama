@@ -1,0 +1,40 @@
+{
+  "appDir": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/web_engine/src/main/resources/resfile/resources/app",
+  "packageJson": "/Users/Admin/Desktop/eng/tmp/LocalMiniDrama-ohos-migration/ohos_hap/web_engine/src/main/resources/resfile/resources/app/package.json",
+  "originalMain": "main.js",
+  "wrapper": "ohos-main-wrapper.js",
+  "registry": "/Users/Admin/.config/deveco/skills/ohos-electron-migrate/assets/shims/registry.json",
+  "scanProvided": true,
+  "loadAll": false,
+  "shims": [
+    {
+      "id": "platform-helper",
+      "file": "platform-openharmony.js",
+      "summary": "供应用集中判断平台时手动引用的辅助模块（isHarmonyOS/isDesktopLike）。",
+      "affectsStartup": false,
+      "load": "manual",
+      "autoLoaded": false,
+      "degradation": "无（不自动加载，也不改变运行时行为）。",
+      "testCase": null,
+      "matchedTriggers": [],
+      "reason": "手动引用模块，不进入启动链"
+    }
+  ],
+  "uncoveredUnsupported": [],
+  "applied": [
+    "preload runtime shim before original main (none)",
+    "platform branch note: process.platform is openharmony on device"
+  ],
+  "notes": [
+    "启动相关 shim 未被选中：startup-guard（扫描未命中 app.requestSingleInstanceLock / app.releaseSingleInstanceLock / app#event:second-instance）。若应用通过动态方式获取这些 API（例如 app[名]、工具库间接调用），静态扫描会漏判；此时请用 --all-shims 重跑。",
+    "process.platform 在设备上为 openharmony；平台分支需按扫描提示核对。"
+  ],
+  "scanStats": {
+    "API使用点": 17,
+    "不支持": 0,
+    "部分支持": 0,
+    "未知": 3,
+    "有shim": 0,
+    "阻断": 0
+  }
+}

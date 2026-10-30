@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+		<link rel="stylesheet" href="../../component/pear/css/pear.css" />
+		<style>
+			body {
+				margin: 0;
+				padding: 0;
+			}
+			.pear-container {
+				margin: 0;
+				padding: 0;
+			}
+			.right,
+			.left {
+				height: 100%;
+				position: absolute;
+				transition: all .3s;
+			}
+			.left {
+				width: 200px;
+				background-color: #f56c6c;
+			}
+			.right {
+				width: calc(100% - 200px);
+				background-color: #2d8cf0;
+				margin-left: 200px;
+			}
+			
+			.mini .left{
+				width: 0px;
+			}
+			.mini .right {
+				width: 100%;
+				margin-left: 0px;
+			}
+		</style>
+	</head>
+	<body class="pear-container">
+		<div class="left">
+		</div>
+		<div class="right">
+			<button class="">显示 / 隐藏
+			</button>
+		</div>
+		<script src="../../component/layui/layui.js"></script>
+		<script src="../../component/pear/pear.js"></script>
+		<script>
+			layui.use(['jquery'], function(){
+				var $ = layui.jquery;
+				
+				$("button").click(function(){
+					
+					if($(".pear-container").is(".mini")){
+						$(".pear-container").removeClass("mini");
+					} else {
+						$(".pear-container").addClass("mini");
+					}
+				})
+				
+			})
+		</script>
+	</body>
+</html>

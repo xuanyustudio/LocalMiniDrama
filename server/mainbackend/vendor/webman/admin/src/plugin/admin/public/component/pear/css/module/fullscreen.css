@@ -1,0 +1,22 @@
+html:-moz-full-screen {
+    background: grey;
+}
+html:-webkit-full-screen {
+    background: grey;
+    width: 100%;
+    height: 100%;
+}
+html:fullscreen{
+    background: grey;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+:not(:root):fullscreen::backdrop{
+    background:whitesmoke;
+}
+
+.pear-full-screen {
+    width: 100% !important;
+    height: 100% !important;
+}

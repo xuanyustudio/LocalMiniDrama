@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+    <head>
+        <meta charset="UTF-8">
+        <title>新增页面</title>
+        <link rel="stylesheet" href="/app/admin/component/layui/css/layui.css?v=2.8.12" />
+        <link rel="stylesheet" href="/app/admin/component/pear/css/pear.css" />
+        <link rel="stylesheet" href="/app/admin/admin/css/reset.css" />
+    </head>
+    <body>
+        <style>
+            .mainBox {
+                width: auto !important;
+            }
+            .layui-tab .layui-table-cell {
+                overflow:visible !important;
+            }
+            .layui-table-body ,.layui-table-box{
+                overflow:visible !important;
+            }
+            .layui-tab .layui-form-select dl {
+                max-height: 190px;
+            }
+            .layui-table-body .layui-table-col-special:last-child {
+                width: 100% !important;
+                border-right: 1px solid #eee !important;
+            }
+            .layui-table-view {
+                min-width: 1114px;
+            }
+            xm-select {
+                min-height: 38px;
+                line-height: 38px;
+            }
+            xm-select .xm-body .xm-option .xm-option-icon {
+                font-size: 18px !important;
+            }
+        </style>
+
+        <form class="layui-form" action="" lay-filter="create-table-form">
+
+            <div class="mainBox">
+                <div class="main-container">
+
+                    <div class="layui-form-item">
+                        <div class="layui-inline">
+                            <label class="layui-form-label">表名</label>
+                            <div class="layui-input-inline">
+                                <input type="text" name="table" required lay-verify="required" autocomplete="off" class="layui-input">
+                            </div>
+                            <label class="layui-form-label">注释</label>
+                            <div class="layui-input-inline">
+                                <input type="text" name="table_comment" required lay-verify="required" autocomplete="off" class="layui-input">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="layui-tab layui-tab-brief" lay-filter="create-table-tab">
+                        <ul class="layui-tab-title">
+                            <li class="layui-this">字段属性</li>
+                            <li>表单属性</li>
+                            <li>索引</li>
+                        </ul>
+                        <div class="layui-tab-content">
+
+                            <div class="layui-tab-item layui-show">
+
+                                <!-- 字段属性 -->
+                                <table id="column-table" lay-filter="column-table"></table>
+
+                                <script type="text/html" id="column-toolbar">
+                                    <button type="button" class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
+                                        <i class="layui-icon layui-icon-add-1"></i>新增
+                                    </button>
+                                    <button type="button" class="pear-btn pear-btn-danger pear-btn-md" lay-event="batchRemove">
+                                        <i class="layui-icon layui-icon-delete"></i>删除
+                                    </button>
+                                </script>
+
+                                <script type="text/html" id="col-field">
+                                    <input type="text" name="columns[{{ d.LAY_NUM-1 }}][field]" placeholder="字段名称" autocomplete="off" class="layui-input" value="{{ d.field }}">
+                                    <input type="hidden" name="columns[{{ d.LAY_NUM-1 }}][_field_id]" value="{{ d._field_id }}">
+                                </script>
+
+                                <script type="text/html" id="col-comment">
+                                    <input type="text" name="columns[{{ d.LAY_NUM-1 }}][comment]" placeholder="备注" autocomplete="off" class="layui-input" value="{{ d.comment }}">
+                                </script>
+
+                                <script type="text/html" id="col-length">
+                                    <input type="text" name="columns[{{ d.LAY_NUM-1 }}][length]" placeholder="长度/值" autocomplete="off" class="layui-input" value="{{ d.length }}">
+                                </script>
+
+                                <script type="text/html" id="col-default">
+                                    <input type="text" name="columns[{{ d.LAY_NUM-1 }}][default]" placeholder="默认值" autocomplete="off" class="layui-input" value="{{ d.default }}">
+                                </script>
+
+                                <script type="text/html" id="col-type">
+                                    <select name="columns[{{ d.LAY_NUM-1 }}][type]" lay-verify="">
+                                        {{# layui.each(["integer","string","text","date","enum","float","tinyInteger","smallInteger","mediumInteger","bigInteger","unsignedInteger","unsignedTinyInteger","unsignedSmallInteger","unsignedMediumInteger","unsignedBigInteger","decimal","double","mediumText","longText","dateTime","time","timestamp","char","binary","json"], function (index, item) { }}
+                                            <option value="{{ item }}" {{ d.type==item?"selected":""}}>{{ item }}</option>
+                                        {{#  }); }}
+                                    </select>
+                                </script>
+
+                                <script type="text/html" id="col-primary_key">
+                                    <input type="checkbox" name="columns[{{ d.LAY_NUM-1 }}][primary_key]" autocomplete="off" class="layui-input" lay-skin="primary" {{ d.primary_key ? 'checked' : '' }}>
+                                </script>
+
+                                <script type="text/html" id="col-auto_increment">
+                                    <input type="checkbox" name="columns[{{ d.LAY_NUM-1 }}][auto_increment]" autocomplete="off" class="layui-input" lay-skin="primary" {{ d.auto_increment ? 'checked' : '' }}>
+                                </script>
+
+                                <script type="text/html" id="col-nullable">
+                                    <input type="checkbox" name="columns[{{ d.LAY_NUM-1 }}][nullable]" autocomplete="off" class="layui-input" lay-skin="primary" {{ d.nullable ? 'checked' : '' }}>
+                                </script>
+
+                            </div>
+
+                            <!-- 表单属性 -->
+                            <div class="layui-tab-item">
+
+                                <table id="form-table" lay-filter="form-table"></table>
+
+                                <script type="text/html" id="form-field">
+                                    <input type="text" name="forms[{{ d.LAY_NUM-1 }}][field]" autocomplete="off" class="layui-input" value="{{ d.field }}" disabled>
+                                    <input type="hidden" name="forms[{{ d.LAY_NUM-1 }}][_field_id]" value="{{ d._field_id }}">
+                                </script>
+
+                                <script type="text/html" id="form-comment">
+                                    <input type="text" name="forms[{{ d.LAY_NUM-1 }}][comment]" autocomplete="off" class="layui-input" value="{{ d.comment }}" disabled>
+                                </script>
+
+                                <script type="text/html" id="form-control">
+                                    <select name="forms[{{ d.LAY_NUM-1 }}][control]" lay-verify="">
+                                        {{# layui.each([["input", "文本框"],["inputNumber", "数字文本框"],["textArea", "多行文本"],["richText", "富文本"],["jsonEditor", "json编辑框"],["select", "下拉单选"],["selectMulti", "下拉多选"],["treeSelect", "树形单选"],["treeSelectMulti", "树形多选"],["datePicker", "日期选择"],["dateTimePicker", "日期时间选择"],["switch", "开关"],["upload", "上传文件"],["uploadImage", "上传图片"],["iconPicker", "图标选择"]], function (index, item) { }}
+                                        <option value="{{ item[0] }}" {{ d.control.toLocaleLowerCase()==item[0].toLocaleLowerCase()?'selected':''}}>{{ item[1] }}</option>
+                                        {{#  }); }}
+                                    </select>
+                                </script>
+
+                                <script type="text/html" id="form-control_args">
+                                    <input type="text" name="forms[{{ d.LAY_NUM-1 }}][control_args]" placeholder="控件参数" autocomplete="off" class="layui-input" value="{{ d.control_args }}">
+                                </script>
+
+                                <script type="text/html" id="form-form_show">
+                                    <input type="checkbox" name="forms[{{ d.LAY_NUM-1 }}][form_show]" autocomplete="off" class="layui-input" lay-skin="primary" {{ d.form_show ? 'checked' : '' }}>
+                                </script>
+
+                                <script type="text/html" id="form-list_show">
+                                    <input type="checkbox" name="forms[{{ d.LAY_NUM-1 }}][list_show]" autocomplete="off" class="layui-input" lay-skin="primary" {{ d.list_show ? 'checked' : '' }}>
+                                </script>
+
+                                <script type="text/html" id="form-enable_sort">
+                                    <input type="checkbox" name="forms[{{ d.LAY_NUM-1 }}][enable_sort]" autocomplete="off" class="layui-input" lay-skin="primary" {{ d.enable_sort ? 'checked' : '' }}>
+                                </script>
+
+                                <script type="text/html" id="form-searchable">
+                                    <input type="checkbox" name="forms[{{ d.LAY_NUM-1 }}][searchable]" autocomplete="off" class="layui-input" lay-skin="primary" {{ d.searchable ? 'checked' : '' }}>
+                                </script>
+
+                                <script type="text/html" id="form-search_type">
+                                    <select name="forms[{{ d.LAY_NUM-1 }}][search_type]" lay-verify="">
+                                        {{# layui.each([["normal", "普通查询"], ["between", "范围查询"], ["like", "模糊查询"]], function (index, item) { }}
+                                        <option value="{{ item[0] }}" {{ d.search_type==item[0]?'selected':''}}>{{ item[1] }}</option>
+                                        {{#  }); }}
+                                    </select>
+                                </script>
+
+                            </div>
+
+                            <!-- 索引 -->
+                            <div class="layui-tab-item">
+                                <div class="layui-tab-item layui-show">
+
+                                    <table id="key-table" lay-filter="key-table"></table>
+
+                                    <script type="text/html" id="key-name">
+                                        <input type="text" name="keys[{{ d.LAY_NUM-1 }}][name]" placeholder="字段名称" autocomplete="off" class="layui-input" value="{{ d.name }}">
+                                    </script>
+
+                                    <script type="text/html" id="key-columns">
+                                        <div name="keys[{{ d.LAY_NUM-1 }}][columns]" class="key-columns-div" value="{{ d.columns }}"></div>
+                                    </script>
+
+                                    <script type="text/html" id="key-type">
+                                        <select name="keys[{{ d.LAY_NUM-1 }}][type]" lay-verify="">
+                                            {{# layui.each(["normal", "unique"], function (index, item) { }}
+                                            <option value="{{ item }}" {{ d.type==item?'selected':''}}>{{ item }}</option>
+                                            {{#  }); }}
+                                        </select>
+                                    </script>
+
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
+
+            <div class="bottom">
+                <div class="button-container">
+                    <button type="submit" class="pear-btn pear-btn-primary pear-btn-md" lay-submit=""
+                        lay-filter="save">
+                        提交
+                    </button>
+                    <button type="reset" class="pear-btn pear-btn-md">
+                        重置
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <script src="/app/admin/component/layui/layui.js?v=2.8.12"></script>
+        <script src="/app/admin/component/pear/pear.js"></script>
+        <script src="/app/admin/admin/js/permission.js"></script>
+        <script>
+
+            const CREATE_API = "/app/admin/table/create";
+
+            // 字段设置
+            layui.use(["table", "common", "popup"], function () {
+
+                let table = layui.table;
+                let common = layui.common;
+                let cols = [
+                    {
+                        type: "checkbox",
+                        width: 50,
+                    },
+                    {
+                        title: "字段名称",
+                        field: "field",
+                        templet: "#col-field",
+                        width: 182
+                    },
+                    {
+                        title: "字段备注",
+                        field: "comment",
+                        templet: "#col-comment",
+                        width: 182
+                    },
+                    {
+                        title: "长度/值",
+                        field: "length",
+                        templet: "#col-length",
+                        width: 182
+                    },
+                    {
+                        title: "默认值",
+                        field: "default",
+                        templet: "#col-default",
+                        width: 182
+                    },
+                    {
+                        title: "字段类型",
+                        field: "type",
+                        templet: "#col-type",
+                        width: 182
+                    },
+                    {
+                        title: "主键",
+                        field: "primary_key",
+                        templet: "#col-primary_key",
+                        width: 50,
+                        align: "center",
+                    },
+                    {
+                        title: "自增",
+                        field: "auto_increment",
+                        templet: "#col-auto_increment",
+                        width: 50,
+                        align: "center",
+                    },
+                    {
+                        title: "为空",
+                        field: "nullable",
+                        templet: "#col-nullable",
+                        width: 50,
+                        align: "center",
+                    },
+                    {
+                        type: "space"
+                    }
+                ];
+
+                window._field_id = 0;
+                let data = [{
+                    _field_id: _field_id++,
+                    field : "id",
+                    comment: "主键",
+                    length: 11,
+                    default: "",
+                    type: "integer",
+                    primary_key: true,
+                    auto_increment: true,
+                    nullable: false,
+                },{
+                    _field_id: _field_id++,
+                    field : "created_at",
+                    comment: "创建时间",
+                    length: "",
+                    default: "",
+                    type: "dateTime",
+                    primary_key: false,
+                    auto_increment: false,
+                    nullable: true,
+                },{
+                    _field_id: _field_id++,
+                    field : "updated_at",
+                    comment: "更新时间",
+                    length: "",
+                    default: "",
+                    type: "dateTime",
+                    primary_key: false,
+                    auto_increment: false,
+                    nullable: true,
+                },{
+                    _field_id: _field_id++,
+                    field : "",
+                    comment: "",
+                    length: "",
+                    default: "",
+                    type: "integer",
+                    primary_key: false,
+                    auto_increment: false,
+                    nullable: true,
+                }];
+
+                table.render({
+                    elem: "#column-table",
+                    cols: [cols],
+                    data: data,
+                    cellMinWidth: 40,
+                    skin: "line",
+                    size: "lg",
+                    limit: 10000,
+                    page: false,
+                    toolbar: "#column-toolbar",
+                    defaultToolbar: [],
+                });
+
+                table.on("toolbar(column-table)", function(obj) {
+                    if (obj.event === "add") {
+                        add();
+                    } else if (obj.event === "batchRemove") {
+                        batchRemove(obj);
+                    }
+                });
+
+                let add = function() {
+                    syncTableData();
+                    let options = table.getData("column-table");
+                    options.push({
+                        _field_id: _field_id++,
+                        field : "",
+                        comment: "",
+                        length: "",
+                        default: "",
+                        type: "integer",
+                        primary_key: false,
+                        auto_increment: false,
+                        nullable: true,
+                    });
+                    table.reloadData("column-table", {data:options});
+                }
+
+                let batchRemove = function(obj) {
+                    var checkIds = common.checkField(obj,"_field_id");
+                    if (checkIds === "") return layui.popup.warning("未选中数据");
+                    let data = table.getData("column-table");
+                    let newData = [];
+                    let deleteIds = checkIds.split(",");
+                    layui.each(data, function (index, item) {
+                        if (deleteIds.indexOf(item._field_id + "") === -1) {
+                            newData.push(item);
+                        }
+                    });
+                    table.reloadData("column-table", {data: newData})
+                }
+
+
+            });
+
+            // 表单设置
+            layui.use(["table", "common", "element"], function () {
+                let table = layui.table;
+
+                layui.element.on("tab(create-table-tab)", function(){
+                    syncTableData();
+                });
+
+                let cols = [
+                    {
+                        title: "字段名称",
+                        field: "field",
+                        templet: "#form-field",
+                        width: 180
+                    },
+                    {
+                        title: "字段备注",
+                        field: "comment",
+                        templet: "#form-comment",
+                        width: 180
+                    },
+                    {
+                        title: "控件类型",
+                        field: "control",
+                        templet: "#form-control",
+                        width: 180
+                    },
+                    {
+                        title: "控件参数",
+                        field: "control_args",
+                        templet: "#form-control_args",
+                        width: 180
+                    },
+                    {
+                        title: "表单显示",
+                        field: "form_show",
+                        templet: "#form-form_show",
+                        width: 67,
+                        align: "center",
+                    },
+                    {
+                        title: "列表显示",
+                        field: "list_show",
+                        templet: "#form-list_show",
+                        width: 67,
+                        align: "center",
+                    },
+                    {
+                        title: "支持排序",
+                        field: "enable_sort",
+                        templet: "#form-enable_sort",
+                        width: 67,
+                        align: "center",
+                    },
+                    {
+                        title: "支持查询",
+                        field: "searchable",
+                        templet: "#form-searchable",
+                        width: 67,
+                        align: "center",
+                    },
+                    {
+                        title: "查询类型",
+                        field: "search_type",
+                        templet: "#form-search_type",
+                        width: 130,
+                    },
+                    {
+                        type: "space"
+                    }
+                ];
+
+                let _id = 0;
+                let data = [{
+                    _field_id: _id++,
+                    field : "id",
+                    comment: "主键",
+                    control: "inputNumber",
+                    control_args: "",
+                    form_show: false,
+                    list_show: true,
+                    enable_sort: true,
+                    searchable: true,
+                    search_type: "normal",
+                },{
+                    _field_id: _id++,
+                    field : "created_at",
+                    comment: "创建时间",
+                    control: "dateTimePicker",
+                    control_args: "",
+                    form_show: false,
+                    list_show: true,
+                    enable_sort: true,
+                    searchable: true,
+                    search_type: "between",
+                },{
+                    _field_id: _id++,
+                    field : "updated_at",
+                    comment: "更新时间",
+                    control: "dateTimePicker",
+                    control_args: "",
+                    form_show: false,
+                    list_show: true,
+                    enable_sort: false,
+                    searchable: false,
+                    search_type: "between",
+                }];
+
+                table.render({
+                    elem: "#form-table",
+                    cols: [cols],
+                    data: data,
+                    cellMinWidth: 40,
+                    skin: "line",
+                    size: "lg",
+                    limit: 10000,
+                    page: false,
+                    defaultToolbar: [],
+                });
+
+            });
+
+            // 索引设置
+            layui.use(["table", "common", "xmSelect", "popup"], function () {
+                let table = layui.table;
+                let common = layui.common;
+
+                let cols = [
+                    {
+                        type: "checkbox",
+                        width: 52,
+                    },
+                    {
+                        title: "索引名称",
+                        field: "name",
+                        templet: "#key-name",
+                        width: 200,
+                    },
+                    {
+                        title: "索引字段",
+                        field: "columns",
+                        templet: "#key-columns",
+                        width: 200,
+                    },
+                    {
+                        title: "索引类型",
+                        field: "type",
+                        templet: "#key-type",
+                        width: 200,
+                    },
+                    {
+                        type: "space"
+                    }
+                ];
+
+                window._key_id = 0;
+                let data = [{
+                    _key_id: _key_id++,
+                    name : "",
+                    columns: "",
+                    type: "normal"
+                }];
+
+                table.render({
+                    elem: "#key-table",
+                    cols: [cols],
+                    data: data,
+                    skin: "line",
+                    size: "lg",
+                    limit: 10000,
+                    page: false,
+                    toolbar: "#column-toolbar",
+                    defaultToolbar: [],
+                });
+
+                table.on("toolbar(key-table)", function(obj) {
+                    if (obj.event === "add") {
+                        add();
+                    } else if (obj.event === "batchRemove") {
+                        batchRemove(obj);
+                    }
+                });
+
+                let add = function() {
+                    syncTableData();
+                    let options = table.getData("key-table");
+                    options.push({
+                        _key_id: _key_id++,
+                        name : "",
+                        columns: "",
+                        type: "normal"
+                    });
+                    table.reloadData("key-table", {data:options});
+                    keyColumnMultiSelectRender();
+                }
+
+                let batchRemove = function(obj) {
+                    var checkIds = common.checkField(obj,"_key_id");
+                    if (checkIds === "") return layui.popup.warning("未选中数据");
+                    let data = table.getData("key-table");
+                    let newData = [];
+                    let deleteIds = checkIds.split(",");
+                    layui.each(data, function (index, item) {
+                        if (deleteIds.indexOf(item._key_id + "") === -1) {
+                            newData.push(item);
+                        }
+                    });
+                    table.reloadData("key-table", {data: newData});
+                    keyColumnMultiSelectRender();
+                }
+
+                window.syncTableData = function () {
+
+                    let tableData = layui.form.val("create-table-form");
+                    let formTableDataOld = [];
+                    let columnTableData = [];
+                    let formTableData = [];
+                    let keyTableData = [];
+
+                    let len = Object.keys(tableData).length;
+                    let id = 0;
+                    window._key_id = 0;
+                    while (id < len) {
+                        // column data
+                        if (typeof tableData["columns[" + id + "][_field_id]"] !== "undefined") {
+                            columnTableData.push({
+                                _field_id: tableData["columns[" + id + "][_field_id]"],
+                                field : tableData["columns[" + id + "][field]"],
+                                comment: tableData["columns[" + id + "][comment]"],
+                                length: tableData["columns[" + id + "][length]"],
+                                default: tableData["columns[" + id + "][default]"],
+                                type: tableData["columns[" + id + "][type]"],
+                                primary_key: tableData["columns[" + id + "][primary_key]"] === "on",
+                                auto_increment: tableData["columns[" + id + "][auto_increment]"] === "on",
+                                nullable: tableData["columns[" + id + "][nullable]"] === "on",
+                            });
+                        }
+                        // old form data
+                        if (typeof tableData["forms[" + id + "][_field_id]"] !== "undefined") {
+                            formTableDataOld.push({
+                                _field_id: tableData["forms[" + id + "][_field_id]"],
+                                field : tableData["columns[" + id + "][field]"], // column
+                                comment: tableData["columns[" + id + "][comment]"], //column
+                                control: tableData["forms[" + id + "][control]"],
+                                control_args: tableData["forms[" + id + "][control_args]"],
+                                form_show: tableData["forms[" + id + "][form_show]"] === "on",
+                                list_show: tableData["forms[" + id + "][list_show]"] === "on",
+                                enable_sort: tableData["forms[" + id + "][enable_sort]"] === "on",
+                                searchable: tableData["forms[" + id + "][searchable]"],
+                                search_type: tableData["forms[" + id + "][search_type]"],
+                            });
+                        }
+                        // key data
+                        if (typeof tableData["keys[" + _key_id + "][name]"] !== "undefined") {
+                            keyTableData.push({
+                                _key_id: _key_id,
+                                name: tableData["keys[" + _key_id + "][name]"],
+                                columns: tableData["keys[" + _key_id + "][columns]"],
+                                type: tableData["keys[" + _key_id + "][type]"],
+                            });
+                        }
+                        _key_id++;
+                        id++;
+                    }
+
+                    let formTableOldDataMap = {};
+                    layui.each(formTableDataOld, function (_, item) {
+                        formTableOldDataMap[item._field_id] = item;
+                    });
+
+                    // form data
+                    layui.each(columnTableData, function (_, item) {
+                        if (!item.field) return;
+                        let _field_id = item._field_id;
+                        console.log(item.type);
+                        if (!formTableOldDataMap[_field_id]) {
+                            formTableData.push({
+                                _field_id: _field_id,
+                                field : item.field, // column
+                                comment: item.comment, // column
+                                control: item.type.toLocaleString().indexOf("date") !== -1 ? "dateTimePicker" : (item.type.toLocaleString().indexOf("int") !== -1 ? "inputNumber" : "input"),
+                                control_args: "",
+                                form_show: true,
+                                list_show: true,
+                                enable_sort: false,
+                                searchable: false,
+                                search_type: item.type.toLocaleString().indexOf("date") !== -1 ? "between" : "normal",
+                            });
+                        } else {
+                            formTableData.push(formTableOldDataMap[_field_id]);
+                        }
+                    });
+
+                    layui.table.reloadData("column-table", {data: columnTableData});
+                    layui.table.reloadData("form-table", {data: formTableData});
+                    layui.table.reloadData("key-table", {data: keyTableData});
+                    keyColumnMultiSelectRender();
+                }
+
+                window.keyColumnMultiSelectRender = function () {
+                    layui.use(["jquery", "xmSelect", "table"], function () {
+                        let $ = layui.$;
+                        let table = layui.table;
+                        let columnData = table.getData("column-table");
+                        let data = [];
+                        layui.each(columnData, function (i, item) {
+                            if (item.field) {
+                                data.push({
+                                    name: item.field, value:item.field
+                                });
+                            }
+                        });
+                        layui.each($(".key-columns-div"), function (_, dom) {
+                            let name = $(dom).attr("name");
+                            let value = $(dom).attr("value");
+                            let initValue = value ? value.split(",") : [];
+                            layui.xmSelect.render({
+                                el: dom,
+                                name: name,
+                                initValue: initValue,
+                                data: data,
+                            })
+                        });
+
+                    });
+                }
+
+                keyColumnMultiSelectRender();
+            });
+
+            layui.use(["form", "popup"], function () {
+                //提交事件
+                layui.form.on("submit(save)", function () {
+                    syncTableData();
+                    let data = layui.form.val("create-table-form");
+                    layui.$.ajax({
+                        url: CREATE_API,
+                        type: "POST",
+                        dateType: "json",
+                        data: data,
+                        success: function (res) {
+                            if (res.code) {
+                                return layui.popup.failure(res.msg);
+                            }
+                            return layui.popup.success("操作成功", function () {
+                                parent.refreshTable();
+                                parent.layer.close(parent.layer.getFrameIndex(window.name));
+                            });
+                        }
+                    });
+                    return false;
+                });
+            });
+
+        </script>
+
+    </body>
+</html>

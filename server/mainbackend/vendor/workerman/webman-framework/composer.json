@@ -1,0 +1,52 @@
+{
+  "name": "workerman/webman-framework",
+  "type": "library",
+  "keywords": [
+    "high performance",
+    "http service"
+  ],
+  "homepage": "https://www.workerman.net",
+  "license": "MIT",
+  "description": "High performance HTTP Service Framework.",
+  "authors": [
+    {
+      "name": "walkor",
+      "email": "walkor@workerman.net",
+      "homepage": "https://www.workerman.net",
+      "role": "Developer"
+    }
+  ],
+  "support": {
+    "email": "walkor@workerman.net",
+    "issues": "https://github.com/walkor/webman/issues",
+    "forum": "https://wenda.workerman.net/",
+    "wiki": "https://doc.workerman.net/",
+    "source": "https://github.com/walkor/webman-framework"
+  },
+  "require": {
+    "php": ">=8.1",
+    "ext-json": "*",
+    "workerman/workerman": "^5.1 || dev-master",
+    "nikic/fast-route": "^1.3",
+    "psr/container": ">=1.0",
+    "psr/log": "^2.0 || ^3.0"
+  },
+  "suggest": {
+    "ext-event": "For better performance. "
+  },
+  "autoload": {
+    "psr-4": {
+      "Webman\\": "./src",
+      "support\\": "./src/support",
+      "Support\\": "./src/support",
+      "Support\\Bootstrap\\": "./src/support/bootstrap",
+      "Support\\Exception\\": "./src/support/exception",
+      "Support\\View\\": "./src/support/view"
+    },
+    "files": [
+      "./src/support/helpers.php"
+    ]
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}

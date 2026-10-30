@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="utf-8">
+    <title>Webman Admin 安装</title>
+    <link rel="stylesheet" href="/app/admin/component/pear/css/pear.css" />
+    <link rel="stylesheet" href="/app/admin/admin/css/reset.css" />
+</head>
+<body class="pear-container">
+<div class="layui-row layui-col-space10">
+    <div class="layui-col-md12">
+        <div class="layui-card">
+            <div class="layui-card">
+                <div class="layui-card-body" style="padding-top: 40px;">
+                    <h1 style="text-align:center;margin: 20px 0 40px">Webman Admin 安装</h1>
+
+                    <div class="layui-carousel" id="stepForm" lay-filter="stepForm" style="margin: 0 auto;">
+                        <div carousel-item>
+                            <div>
+                                <form class="layui-form" action="javascript:void(0);" style="margin: 0 auto;max-width: 460px;padding-top: 40px;">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">用户名</label>
+                                        <div class="layui-input-block">
+                                            <input type="text" placeholder="请填写入用户名" name="user" class="layui-input" lay-verify="required" required value="root" autocomplete="off"/>
+                                        </div>
+                                    </div>
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">密码</label>
+                                        <div class="layui-input-block">
+                                            <input type="password" placeholder="请填写入密码" name="password" class="layui-input" autocomplete="off"/>
+                                        </div>
+                                    </div>
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">数据库</label>
+                                        <div class="layui-input-block">
+                                            <input type="text" placeholder="请填写入数据库" name="database" class="layui-input" lay-verify="required" required value="webman_admin"/>
+                                        </div>
+                                    </div>
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">host</label>
+                                        <div class="layui-input-block">
+                                            <input type="text" placeholder="请填写入数据库host" name="host" class="layui-input" lay-verify="required" required value="127.0.0.1"/>
+                                        </div>
+                                    </div>
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">端口</label>
+                                        <div class="layui-input-block">
+                                            <input type="number" placeholder="请填写入数据库端口" name="port" class="layui-input" required value="3306" />
+                                        </div>
+                                    </div>
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">强制覆盖</label>
+                                        <div class="layui-input-block">
+                                            <input type="checkbox" name="overwrite" lay-skin="primary">
+                                        </div>
+                                    </div>
+
+                                    <div class="layui-form-item">
+                                        <div class="layui-input-block">
+                                            <button type="button" class="pear-btn next">跳过此步骤</button>
+                                            <button class="pear-btn pear-btn-primary" lay-submit lay-filter="formStep">
+                                                &emsp;下一步&emsp;
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div>
+                                <form class="layui-form"  action="javascript:void(0);" style="margin: 0 auto;max-width: 460px;padding-top: 40px;">
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">用户名</label>
+                                        <div class="layui-input-block">
+                                            <input type="text" placeholder="请填写入用户名" name="username" class="layui-input" lay-verify="required" required />
+                                        </div>
+                                    </div>
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">密码</label>
+                                        <div class="layui-input-block">
+                                            <input type="password" placeholder="请填写入密码" name="password" class="layui-input"/>
+                                        </div>
+                                    </div>
+                                    <div class="layui-form-item">
+                                        <label class="layui-form-label">确认密码</label>
+                                        <div class="layui-input-block">
+                                            <input type="password" placeholder="请填再次写入密码" name="password_confirm" class="layui-input"/>
+                                        </div>
+                                    </div>
+                                    <div class="layui-form-item">
+                                        <div class="layui-input-block">
+                                            <button type="button" class="pear-btn pre">上一步</button>
+                                            <button class="pear-btn pear-btn-primary" lay-submit lay-filter="formStep2">
+                                                &emsp;提交&emsp;
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div>
+                                <div style="text-align: center;margin-top: 90px;">
+                                    <i class="layui-icon layui-circle pear-back" style="color: white;font-size:30px;font-weight:bold;background: #52C41A;padding: 20px;line-height: 80px;">&#xe605;</i>
+                                    <div style="font-size: 24px;color: #333;font-weight: 500;margin-top: 30px;">
+                                        安装成功
+                                    </div>
+                                    <div style="font-size: 14px;color: #666;margin-top: 20px;">需要重启才能生效</div>
+                                </div>
+                                <div style="text-align: center;margin-top: 50px;">
+                                    <button class="pear-btn pear-btn-primary finish">进入后台</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    var color = localStorage.getItem("theme-color-color");
+    var second = localStorage.getItem("theme-color-second");
+    if (!color || !second) {
+        localStorage.setItem("theme-color-color", "#2d8cf0");
+        localStorage.setItem("theme-color-second", "#ecf5ff");
+    }
+</script>
+
+<script src="/app/admin/component/layui/layui.js?v=2.8.12"></script>
+<script src="/app/admin/component/pear/pear.js"></script>
+
+<script>
+    layui.use(["form", "step","code","element", "popup"], function() {
+        var $ = layui.$,
+                form = layui.form,
+                step = layui.step;
+
+        layui.code();
+
+        step.render({
+            elem: "#stepForm",
+            filter: "stepForm",
+            width: "100%",
+            stepWidth: "70%",
+            height: "500px",
+            stepItems: [{
+                title: "填写数据库信息"
+            }, {
+                title: "填写管理员账户"
+            }, {
+                title: "完成"
+            }]
+        });
+
+        form.on("submit(formStep)", function(data) {
+            let loading = layer.load();
+            $.ajax({
+                url: "/app/admin/install/step1",
+                type: "POST",
+                dataType: "json",
+                data: data.field,
+                success: function (res) {
+                    if (res.code) {
+                        return layui.popup.failure(res.msg);
+                    }
+                    layui.popup.success("操作成功", function () {
+                        step.next("#stepForm");
+                    });
+                },
+                complete: function () {
+                    layer.close(loading);
+                }
+            })
+            return false;
+        });
+
+        form.on("submit(formStep2)", function(data) {
+            let loading = layer.load();
+            $.ajax({
+                url: "/app/admin/install/step2",
+                type: "POST",
+                dataType: "json",
+                data: data.field,
+                success: function (res) {
+                    if (res.code) {
+                        return layui.popup.failure(res.msg);
+                    }
+                    //layui.popup.success("安装成功");
+                    step.next("#stepForm");
+                    layer.close(loading);
+                },
+                complete: function () {
+                    layer.close(loading);
+                }
+            })
+            return false;
+        });
+
+        $(".pre").click(function() {
+            step.pre("#stepForm");
+            return false;
+        });
+
+        $(".next").click(function() {
+            step.next("#stepForm");
+            return false;
+        });
+
+        $(".finish").click(function() {
+            location.reload();
+        });
+    })
+</script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+import{r}from"./request-BTQ9KjNv.js";import"./index-CanHRsHq.js";const o={get(t){return r.get(`/tasks/${t}`)},cancel(t,e){return r.post(`/tasks/${t}/cancel`,e||{})},listByResource(t){return r.get("/tasks",{params:{resource_id:String(t)}})}};export{o as taskAPI};

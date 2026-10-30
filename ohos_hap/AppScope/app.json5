@@ -1,9 +1,9 @@
 {
   "app": {
-    "bundleName": "com.localminidrama.desktop",
+    "bundleName": "com.lu4.drama",
     "vendor": "codex-migrated",
-    "versionCode": 1000000,
-    "versionName": "1.2.8",
+    "versionCode": 1000001,
+    "versionName": "1.2.9",
     "icon": "$media:app_icon",
     "label": "$string:app_name",
     "configuration": "$profile:configuration",

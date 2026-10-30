@@ -13,3 +13,9 @@ oh_modules/
 .cxx/
 build/
 dist/
+.worktrees/feat-mastra-agent
+证书/com.lu4.drama-1.2.8-release.app
+证书/com.lu4.drama-1.2.9-release.app
+backend-node/data
+desktop/release
+exports

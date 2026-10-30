@@ -1,0 +1,35 @@
+{
+    "name": "webman/captcha",
+    "type": "library",
+    "description": "Captcha generator",
+    "keywords": ["captcha", "spam", "bot"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "walkor",
+            "email": "walkor@workerman.net"
+        },
+        {
+            "name": "Grégoire Passault",
+            "email": "g.passault@gmail.com",
+            "homepage": "http://www.gregwar.com/"
+        },
+        {
+            "name": "Jeremy Livingston",
+            "email": "jeremy.j.livingston@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.2",
+        "ext-gd": "*",
+        "ext-mbstring": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Webman\\Captcha\\": "src"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^6.4"
+    }
+}

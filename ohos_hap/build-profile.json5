@@ -4,7 +4,20 @@
       {
         "name": "default",
         "signingConfig": "default",
-        "compatibleSdkVersion": "6.1.1(24)",
+        "compatibleSdkVersion": "6.1.0(23)",
+        "compatibleSdkVersionStage": "release",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "nativeLib": {
+            "collectAllLibs": true
+          }
+        },
+        "targetSdkVersion": "6.1.1(24)"
+      },
+      {
+        "name": "release",
+        "signingConfig": "release",
+        "compatibleSdkVersion": "6.1.0(23)",
         "compatibleSdkVersionStage": "release",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
@@ -28,13 +41,26 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "/Users/Admin/.ohos/config/default_ohos_hap_Iz3SdiPe_Evy3BQFNIEivO4t6u7jsmP16ZmD2HoYgVU=.cer",
+          "certpath": "C:/Users/admin/.ohos/config/default_drama_T8ci4UYRXRQj5RccDKPmsrTMmecooaG5TESBNyWFYJk=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B3D137058F6068195558CACDE763196692E5587E01FF934E3346DB6A395A7A118DE741E85D98F2D",
-          "profile": "/Users/Admin/.ohos/config/default_ohos_hap_Iz3SdiPe_Evy3BQFNIEivO4t6u7jsmP16ZmD2HoYgVU=.p7b",
+          "keyPassword": "0000001A600966A2DFF17EC10FAFA442A1CD36E8BA7BD68622C902A18FFEEA747171B5E2F60B3575E105",
+          "profile": "C:/Users/admin/.ohos/config/default_drama_T8ci4UYRXRQj5RccDKPmsrTMmecooaG5TESBNyWFYJk=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "/Users/Admin/.ohos/config/default_ohos_hap_Iz3SdiPe_Evy3BQFNIEivO4t6u7jsmP16ZmD2HoYgVU=.p12",
-          "storePassword": "0000001B6C06214CBB02DCEED8AF80FB170D8E91F88D874FC59CBBC5ACF990A1E46E5E909655198F759339"
+          "storeFile": "C:/Users/admin/.ohos/config/default_drama_T8ci4UYRXRQj5RccDKPmsrTMmecooaG5TESBNyWFYJk=.p12",
+          "storePassword": "0000001ACCF5AB87CF07847813D3E4E6531B6DE66189ECB8D670CB4F20FA08B15C1042EE776C9BD1E87F"
+        }
+      },
+      {
+        "name": "release",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:/Users/admin/.ohos/config/release_com.lu4.drama.cer",
+          "keyAlias": "releaseKey",
+          "keyPassword": "0000002091D619B917D8A35AA549CB5A50B7B67C06D9AAF8BA7B4EEF2656B5B2C10136F28FB3A3D985BA25D9E6F63CF9",
+          "profile": "C:/Users/admin/.ohos/config/release_com.lu4.drama.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:/Users/admin/.ohos/config/release_com.lu4.drama.p12",
+          "storePassword": "0000002091D619B917D8A35AA549CB5A50B7B67C06D9AAF8BA7B4EEF2656B5B2C10136F28FB3A3D985BA25D9E6F63CF9"
         }
       }
     ]
@@ -47,7 +73,8 @@
         {
           "name": "default",
           "applyToProducts": [
-            "default"
+            "default",
+            "release"
           ]
         }
       ]

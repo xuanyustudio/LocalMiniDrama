@@ -1,0 +1,1066 @@
+// 角色库：与 Go character_library_service 对齐
+const path = require('path');
+const crypto = require('crypto');
+const imageClient = require('./imageClient');
+const { aspectRatioToSize } = require('./imageService');
+const aiClient = require('./aiClient');
+const promptI18n = require('./promptI18n');
+const { mergeCfgStyleWithDrama } = require('../utils/dramaStyleMerge');
+const jimengMaterialHubService = require('./jimengMaterialHubService');
+const modelArkAssetConfigService = require('./modelArkAssetConfigService');
+const uploadService = require('./uploadService');
+const seedance2AssetGuards = require('../utils/seedance2AssetGuards');
+const {
+  appendSourceIdFilters,
+  findExistingLibraryItem,
+  insertLibraryItem,
+  normalizeSourceId,
+  updateLibraryItem: updateExistingLibraryItem,
+} = require('./libraryDedup');
+
+function applyStyleOverrideToCfg(cfg, styleOverride) {
+  const o = (styleOverride || '').toString().trim();
+  if (!o) return cfg;
+  return {
+    ...cfg,
+    style: {
+      ...(cfg?.style || {}),
+      default_style_zh: o,
+      default_style_en: o,
+      default_style: o,
+    },
+  };
+}
+
+function appendPrompt(base, extra) {
+  const add = (extra || '').toString().trim();
+  if (!add) return base;
+  const current = (base || '').toString().trim();
+  if (!current) return add;
+  const lowerCurrent = current.toLowerCase();
+  const lowerAdd = add.toLowerCase();
+  if (lowerCurrent.includes(lowerAdd)) return current;
+  return current + ', ' + add;
+}
+
+function generateCharacterImage(db, log, cfg, characterId, modelName, style) {
+  const charRow = db.prepare(
+    'SELECT id, drama_id, name, appearance, description, negative_prompt FROM characters WHERE id = ? AND deleted_at IS NULL'
+  ).get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  const drama = db.prepare('SELECT id, style, metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
+  if (!drama) return { ok: false, error: 'unauthorized' };
+
+  let effectiveCfg = { ...cfg, style: { ...(cfg?.style || {}) } };
+  try {
+    const meta = drama.metadata ? (typeof drama.metadata === 'string' ? JSON.parse(drama.metadata) : drama.metadata) : null;
+    if (meta && meta.aspect_ratio) {
+      effectiveCfg.style.default_image_ratio = meta.aspect_ratio;
+    }
+  } catch (_) {}
+  effectiveCfg = mergeCfgStyleWithDrama(effectiveCfg, drama);
+  effectiveCfg = applyStyleOverrideToCfg(effectiveCfg, style);
+
+  let prompt = '';
+  if (charRow.appearance && String(charRow.appearance).trim()) {
+    prompt = String(charRow.appearance);
+  } else if (charRow.description && String(charRow.description).trim()) {
+    prompt = String(charRow.description);
+  } else {
+    prompt = charRow.name || '';
+  }
+  const styleForImage = (effectiveCfg?.style?.default_style_en || effectiveCfg?.style?.default_style || '').trim();
+  prompt = appendPrompt(prompt, styleForImage);
+  if (!(style && String(style).trim())) {
+    prompt = appendPrompt(prompt, effectiveCfg?.style?.default_role_style || '');
+  }
+  const ratioText = effectiveCfg?.style?.default_role_ratio
+    ? String(effectiveCfg.style.default_role_ratio)
+    : (effectiveCfg?.style?.default_image_ratio ? 'image ratio: ' + effectiveCfg.style.default_image_ratio : '');
+  prompt = appendPrompt(prompt, ratioText);
+  // 根据项目 aspect_ratio 动态计算图片尺寸，兜底 1920x1920
+  let imageSize = null;
+  try {
+    const meta = drama.metadata ? (typeof drama.metadata === 'string' ? JSON.parse(drama.metadata) : drama.metadata) : null;
+    if (meta && meta.aspect_ratio) imageSize = aspectRatioToSize(meta.aspect_ratio);
+  } catch (_) {}
+  imageSize = imageSize || '1920x1920';
+  const userNeg = imageClient.resolveAssetUserNegativeForApi(modelName, charRow.negative_prompt);
+  const imageGen = imageClient.createAndGenerateImage(db, log, {
+    drama_id: charRow.drama_id,
+    character_id: charRow.id,
+    prompt,
+    model: modelName || undefined,
+    size: imageSize,
+    quality: 'standard',
+    provider: 'openai',
+    user_negative_prompt: userNeg || undefined,
+  });
+  return { ok: true, image_generation: imageGen };
+}
+
+function listLibraryItems(db, query) {
+  let sql = 'FROM character_libraries WHERE deleted_at IS NULL';
+  const params = [];
+  if (query.global === '1' || query.global === 1) {
+    // 仅全局素材库（drama_id IS NULL）
+    sql += ' AND drama_id IS NULL';
+  } else if (query.drama_id != null && query.drama_id !== '') {
+    // 本剧资源库
+    sql += ' AND drama_id = ?';
+    params.push(Number(query.drama_id));
+  }
+  if (query.category) {
+    sql += ' AND category = ?';
+    params.push(query.category);
+  }
+  if (query.source_type) {
+    sql += ' AND source_type = ?';
+    params.push(query.source_type);
+  }
+  sql = appendSourceIdFilters(query, sql, params);
+  if (query.keyword) {
+    sql += ' AND (name LIKE ? OR description LIKE ?)';
+    const k = '%' + query.keyword + '%';
+    params.push(k, k);
+  }
+  const countRow = db.prepare('SELECT COUNT(*) as total ' + sql).get(...params);
+  const total = countRow.total || 0;
+  const page = Math.max(1, parseInt(query.page, 10) || 1);
+  const pageSize = Math.min(100, Math.max(1, parseInt(query.page_size, 10) || 20));
+  const offset = (page - 1) * pageSize;
+  const rows = db.prepare('SELECT * ' + sql + ' ORDER BY created_at DESC LIMIT ? OFFSET ?').all(...params, pageSize, offset);
+  return { items: rows.map(rowToItem), total, page, pageSize };
+}
+
+function createLibraryItem(db, log, req) {
+  const now = new Date().toISOString();
+  const sourceType = req.source_type || 'generated';
+  const info = insertLibraryItem(db, 'character_libraries', {
+    drama_id: req.drama_id ?? null,
+    name: req.name || '',
+    category: req.category ?? null,
+    image_url: req.image_url || '',
+    local_path: req.local_path ?? null,
+    description: req.description ?? null,
+    tags: req.tags ?? null,
+    source_type: sourceType,
+    source_id: normalizeSourceId(req.source_id) || null,
+    created_at: now,
+    updated_at: now,
+  });
+  log.info('Library item created', { item_id: info.lastInsertRowid });
+  return getLibraryItem(db, String(info.lastInsertRowid));
+}
+
+function getLibraryItem(db, id) {
+  const row = db.prepare('SELECT * FROM character_libraries WHERE id = ? AND deleted_at IS NULL').get(Number(id));
+  return row ? rowToItem(row) : null;
+}
+
+function updateLibraryItem(db, log, id, req) {
+  const row = db.prepare('SELECT id FROM character_libraries WHERE id = ? AND deleted_at IS NULL').get(Number(id));
+  if (!row) return null;
+  const updates = [];
+  const params = [];
+  if (req.name != null) { updates.push('name = ?'); params.push(req.name); }
+  if (req.category != null) { updates.push('category = ?'); params.push(req.category); }
+  if (req.description != null) { updates.push('description = ?'); params.push(req.description); }
+  if (req.tags != null) { updates.push('tags = ?'); params.push(req.tags); }
+  if (req.image_url != null) { updates.push('image_url = ?'); params.push(req.image_url); }
+  if (req.local_path != null) { updates.push('local_path = ?'); params.push(req.local_path); }
+  if (req.source_type != null) { updates.push('source_type = ?'); params.push(req.source_type); }
+  if (req.source_id != null) { updates.push('source_id = ?'); params.push(normalizeSourceId(req.source_id)); }
+  if (updates.length === 0) return getLibraryItem(db, id);
+  params.push(new Date().toISOString(), Number(id));
+  db.prepare('UPDATE character_libraries SET ' + updates.join(', ') + ', updated_at = ? WHERE id = ?').run(...params);
+  log.info('Library item updated', { item_id: id });
+  return getLibraryItem(db, id);
+}
+
+function deleteLibraryItem(db, log, id) {
+  const now = new Date().toISOString();
+  const result = db.prepare('UPDATE character_libraries SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL').run(now, Number(id));
+  if (result.changes === 0) return false;
+  log.info('Library item deleted', { item_id: id });
+  return true;
+}
+
+function applyLibraryItemToCharacter(db, log, characterId, libraryItemId) {
+  const item = getLibraryItem(db, libraryItemId);
+  if (!item) return { ok: false, error: 'library item not found' };
+  const charRow = db
+    .prepare('SELECT id, drama_id, local_path, image_url, seedance2_asset FROM characters WHERE id = ? AND deleted_at IS NULL')
+    .get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
+  if (!drama) return { ok: false, error: 'unauthorized' };
+  seedance2AssetGuards.markStaleOnCharacterMainImageDrift(db, log, charRow, {
+    image_url: item.image_url || null,
+    local_path: item.local_path || null,
+  });
+  const now = new Date().toISOString();
+  db.prepare('UPDATE characters SET image_url = ?, local_path = ?, updated_at = ? WHERE id = ?').run(
+    item.image_url || null,
+    item.local_path || null,
+    now,
+    Number(characterId)
+  );
+  log.info('Library item applied to character', { character_id: characterId, library_item_id: libraryItemId });
+  return { ok: true };
+}
+
+function uploadCharacterImage(db, log, characterId, imageUrl, opts = {}) {
+  const charRow = db
+    .prepare('SELECT id, drama_id, local_path, image_url, seedance2_asset FROM characters WHERE id = ? AND deleted_at IS NULL')
+    .get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
+  if (!drama) return { ok: false, error: 'unauthorized' };
+  if (!opts.skipStaleMark) {
+    seedance2AssetGuards.markStaleOnCharacterMainImageDrift(db, log, charRow, { image_url: imageUrl });
+  }
+  const now = new Date().toISOString();
+  db.prepare('UPDATE characters SET image_url = ?, updated_at = ? WHERE id = ?').run(imageUrl || null, now, Number(characterId));
+  log.info('Character image uploaded', { character_id: characterId });
+  return { ok: true };
+}
+
+/** local_path → image_url 兜底：避免旧库 NOT NULL 约束报错 */
+function resolveImageUrl(image_url, local_path) {
+  if (image_url && !image_url.startsWith('data:')) return image_url;
+  if (local_path) return `/static/${local_path}`;
+  return image_url || null;
+}
+
+// 加入本剧资源库（带 drama_id）
+function addCharacterToLibrary(db, log, characterId, category) {
+  const charRow = db.prepare('SELECT * FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
+  if (!drama) return { ok: false, error: 'unauthorized' };
+  if (!charRow.image_url && !charRow.local_path) return { ok: false, error: '角色还没有形象图片' };
+  const now = new Date().toISOString();
+  const imageUrl = resolveImageUrl(charRow.image_url, charRow.local_path);
+  const fields = {
+    drama_id: charRow.drama_id,
+    name: charRow.name,
+    category: category ?? null,
+    image_url: imageUrl,
+    local_path: charRow.local_path || null,
+    description: charRow.description || null,
+    source_type: 'character',
+    source_id: normalizeSourceId(charRow.id),
+    updated_at: now,
+  };
+  const existing = findExistingLibraryItem(db, 'character_libraries', {
+    dramaId: charRow.drama_id,
+    sourceType: 'character',
+    sourceId: charRow.id,
+    imageUrl,
+    localPath: charRow.local_path,
+  });
+  if (existing) {
+    updateExistingLibraryItem(db, 'character_libraries', existing.id, fields);
+    log.info('Character library item reused', { character_id: characterId, drama_id: charRow.drama_id, library_item_id: existing.id });
+    return { ok: true, item: getLibraryItem(db, String(existing.id)), duplicated: true };
+  }
+  const info = insertLibraryItem(db, 'character_libraries', { ...fields, created_at: now });
+  log.info('Character added to drama library', { character_id: characterId, drama_id: charRow.drama_id, library_item_id: info.lastInsertRowid });
+  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)), duplicated: false };
+}
+
+// 加入全局素材库（drama_id = NULL）
+function addCharacterToMaterialLibrary(db, log, characterId) {
+  const charRow = db.prepare('SELECT * FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  if (!charRow.image_url && !charRow.local_path) return { ok: false, error: '角色还没有形象图片' };
+  const now = new Date().toISOString();
+  const imageUrl = resolveImageUrl(charRow.image_url, charRow.local_path);
+  const fields = {
+    drama_id: null,
+    name: charRow.name,
+    image_url: imageUrl,
+    local_path: charRow.local_path || null,
+    description: charRow.description || null,
+    source_type: 'character',
+    source_id: normalizeSourceId(charRow.id),
+    updated_at: now,
+  };
+  const existing = findExistingLibraryItem(db, 'character_libraries', {
+    dramaId: null,
+    sourceType: 'character',
+    sourceId: charRow.id,
+    imageUrl,
+    localPath: charRow.local_path,
+  });
+  if (existing) {
+    updateExistingLibraryItem(db, 'character_libraries', existing.id, fields);
+    log.info('Character material library item reused', { character_id: characterId, library_item_id: existing.id });
+    return { ok: true, item: getLibraryItem(db, String(existing.id)), duplicated: true };
+  }
+  const info = insertLibraryItem(db, 'character_libraries', { ...fields, created_at: now });
+  log.info('Character added to material library (global)', { character_id: characterId, library_item_id: info.lastInsertRowid });
+  return { ok: true, item: getLibraryItem(db, String(info.lastInsertRowid)), duplicated: false };
+}
+
+function updateCharacter(db, log, characterId, req) {
+  const charRow = db
+    .prepare('SELECT id, drama_id, local_path, image_url, seedance2_asset FROM characters WHERE id = ? AND deleted_at IS NULL')
+    .get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
+  if (!drama) return { ok: false, error: 'unauthorized' };
+  const updates = [];
+  const params = [];
+  if (req.name != null) { updates.push('name = ?'); params.push(req.name); }
+  if (req.role != null) { updates.push('role = ?'); params.push(req.role); }
+  if (req.appearance != null) { updates.push('appearance = ?'); params.push(req.appearance); }
+  if (req.personality != null) { updates.push('personality = ?'); params.push(req.personality); }
+  if (req.description != null) { updates.push('description = ?'); params.push(req.description); }
+  if (req.image_url != null) { updates.push('image_url = ?'); params.push(req.image_url); }
+  if (req.local_path != null) { updates.push('local_path = ?'); params.push(req.local_path); }
+  if (req.polished_prompt != null) { updates.push('polished_prompt = ?'); params.push(req.polished_prompt); }
+  if (req.stages != null) { updates.push('stages = ?'); params.push(typeof req.stages === 'string' ? req.stages : JSON.stringify(req.stages)); }
+  if (req.negative_prompt !== undefined) { updates.push('negative_prompt = ?'); params.push(req.negative_prompt); }
+  if (updates.length === 0) return { ok: true };
+  if (req.image_url != null || req.local_path != null) {
+    seedance2AssetGuards.markStaleOnCharacterMainImageDrift(db, log, charRow, {
+      image_url: req.image_url != null ? req.image_url : charRow.image_url,
+      local_path: req.local_path != null ? req.local_path : charRow.local_path,
+    });
+  }
+  params.push(new Date().toISOString(), characterId);
+  db.prepare('UPDATE characters SET ' + updates.join(', ') + ', updated_at = ? WHERE id = ?').run(...params);
+  log.info('Character updated', { character_id: characterId });
+  return { ok: true };
+}
+
+function deleteCharacter(db, log, characterId) {
+  const charRow = db.prepare('SELECT id, drama_id FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
+  if (!drama) return { ok: false, error: 'unauthorized' };
+  const now = new Date().toISOString();
+  db.prepare('UPDATE characters SET deleted_at = ? WHERE id = ?').run(now, Number(characterId));
+  log.info('Character deleted', { id: characterId });
+  return { ok: true };
+}
+
+/**
+ * 批量生成角色图片（与 Go BatchGenerateCharacterImages 对齐：为每个角色单独起一个异步任务并发生成）
+ */
+function batchGenerateCharacterImages(db, log, cfg, characterIds, modelName, style) {
+  const ids = Array.isArray(characterIds) ? characterIds.map((id) => String(id)) : [];
+  if (ids.length === 0) return { ok: false, error: 'character_ids 不能为空' };
+  if (ids.length > 10) return { ok: false, error: '单次最多生成10个角色' };
+  log.info('Starting batch character four-view generation', { count: ids.length, model: modelName, character_ids: ids });
+  // 每个角色单独起一个异步任务，不阻塞响应
+  for (const characterId of ids) {
+    const charId = characterId;
+    setImmediate(async () => {
+      try {
+        const out = await generateCharacterFourViewImage(db, log, cfg, charId, modelName, style);
+        if (!out.ok) {
+          log.warn('Batch character four-view skip', { character_id: charId, error: out.error });
+          return;
+        }
+        log.info('Batch character four-view submitted', { character_id: charId, image_gen_id: out.image_generation ? out.image_generation.id : null });
+      } catch (err) {
+        log.error('Batch character four-view failed', { character_id: charId, error: err.message });
+      }
+    });
+  }
+  log.info('Batch character four-view tasks queued', { total: ids.length });
+  return { ok: true, count: ids.length };
+}
+
+function rowToItem(r) {
+  return {
+    id: r.id,
+    drama_id: r.drama_id ?? null,
+    name: r.name,
+    category: r.category,
+    image_url: r.image_url,
+    local_path: r.local_path,
+    description: r.description,
+    tags: r.tags,
+    source_type: r.source_type || 'generated',
+    source_id: r.source_id || null,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  };
+}
+
+/**
+ * 角色四视图生成：两步流程
+ * Step 1: 文本AI将 appearance 转换为标准四视图绘图描述
+ * Step 2: 图片AI根据描述生成 16:9 四格角色参考图
+ */
+/**
+ * 组装最终图片生成 prompt（布局指令 + 角色描述 + 风格 + 硬性要求）
+ * 这是实际发给图片AI的完整 prompt，与 polished_prompt 字段内容一致。
+ */
+/**
+ * 从描述文本中识别性别，用于在英文约束里强调，防止图片 AI 生成错误性别。
+ * @returns {'MALE'|'FEMALE'|null}
+ */
+function detectGenderFromDescription(text) {
+  if (!text) return null;
+  const t = text;
+
+  // ── 第1层：最明确的性别词 ───────────────────────────────────────────
+  if (/男性|男生|男孩|男人|帅哥|先生/.test(t)) return 'MALE';
+  if (/女性|女生|女孩|女人|美女|小姐|女士/.test(t)) return 'FEMALE';
+
+  // ── 第2层：亲属/称谓（复合词，误判率极低）────────────────────────
+  // 男：哥哥 大哥 二哥 老哥 / 兄长 兄弟 / 弟弟 老弟 小弟 /
+  //     爸爸 父亲 老爸 / 爷爷 老爷 大爷 / 叔叔 伯伯 舅舅
+  if (/哥哥|大哥|二哥|老哥|小哥|兄长|兄弟|弟弟|老弟|小弟|爸爸|父亲|老爸|爷爷|老爷|叔叔|伯伯|舅舅/.test(t)) return 'MALE';
+  // 女：姐姐 大姐 二姐 / 妹妹 小妹 / 妈妈 母亲 老妈 /
+  //     奶奶 姑姑 婶婶 阿姨
+  if (/姐姐|大姐|二姐|老姐|小姐姐|妹妹|小妹|大妹|妈妈|母亲|老妈|奶奶|姑姑|婶婶|阿姨/.test(t)) return 'FEMALE';
+
+  // ── 第3层：角色定位词 ──────────────────────────────────────────────
+  if (/男主|男二|男三|男配|男反|男一号/.test(t)) return 'MALE';
+  if (/女主|女二|女三|女配|女反|女一号/.test(t)) return 'FEMALE';
+
+  // ── 第4层：常见中文名字模式 ───────────────────────────────────────
+  // 「小/大/老/阿 + 典型男性用字」
+  // 典型男性字：明刚强磊军勇鹏龙伟超豪杰浩宇轩博远志峰涛
+  if (/小明|小刚|小强|小磊|小军|小勇|小鹏|小龙|小伟|小超|小豪|小杰|小浩|小宇|小轩|小博|小远|小志|小峰|小涛|大壮|阿强|阿勇|阿明|阿刚|阿豪|老刚|老强/.test(t)) return 'MALE';
+  // 「小/大/老/阿 + 典型女性用字」
+  // 典型女性字：美红花丽燕芳英敏静娟慧梅香秀玲萍云雪莹晴
+  if (/小美|小红|小花|小丽|小燕|小芳|小英|小敏|小静|小娟|小慧|小梅|小香|小秀|小玲|小萍|小云|小雪|小莹|小晴|阿美|阿花|阿丽|阿燕|阿芳|阿英|阿梅/.test(t)) return 'FEMALE';
+
+  // ── 第5层：单字称谓（放最后，避免误判）───────────────────────────
+  // 只匹配单独作称谓出现的情况（前后有汉字边界或标点）
+  if (/[（(【「\s：:]哥[）)】」\s,，。！!]|^哥[,，。]|[他]哥\b/.test(t)) return 'MALE';
+
+  // ── 第6层：英文兜底 ────────────────────────────────────────────────
+  if (/\b(male|man|boy|gentleman|he|his)\b/i.test(t)) return 'MALE';
+  if (/\b(female|woman|girl|lady|she|her)\b/i.test(t)) return 'FEMALE';
+
+  return null;
+}
+
+/**
+ * @param {string} fourViewDescription 文本AI润色后的角色四格描述
+ * @param {string} [styleEn] default_style_en 或 fallback default_style
+ * @param {string} [styleZh] default_style_zh（可与 en 相同；相同时不重复输出英文行）
+ */
+function buildFourViewImagePrompt(fourViewDescription, styleEn, styleZh) {
+  const imageLayoutInstruction = promptI18n.getRoleGenerateImagePrompt();
+  const zh = (styleZh || '').trim();
+  const en = (styleEn || '').trim();
+
+  const styleLines = [];
+  if (zh) styleLines.push(`【画风·最高优先级】四格统一：${zh}`);
+  if (en && en !== zh) styleLines.push(`MANDATORY ART STYLE (all 4 panels): ${en}.`);
+  else if (en && !zh) styleLines.push(`MANDATORY ART STYLE (all 4 panels): ${en}.`);
+  const styleHeader = styleLines.length ? `${styleLines.join('\n')}\n\n` : '';
+
+  const gender = detectGenderFromDescription(fourViewDescription);
+  const genderEnforcement = gender === 'MALE'
+    ? 'GENDER: male only — masculine build and facial features; do not feminize.'
+    : gender === 'FEMALE'
+      ? 'GENDER: female only — feminine build and facial features; do not masculinize.'
+      : '';
+
+  const tailParts = [];
+  if (genderEnforcement) tailParts.push(genderEnforcement);
+  if (zh || en) tailParts.push(`Reiterate: same art style as above (${en || zh}).`);
+  const tail = tailParts.length ? `\n\n---\n\n${tailParts.join(' ')}` : '';
+
+  return `${styleHeader}${imageLayoutInstruction}\n\n---\n\n${fourViewDescription}${tail}`;
+}
+
+/**
+ * 仅生成（并保存）角色四视图提示词，不触发图片生成。
+ * 供前端「生成提示词」按钮调用，或提取角色后后台异步调用。
+ * @returns {{ ok: boolean, polished_prompt?: string, error?: string }}
+ */
+async function generateCharacterPromptOnly(db, log, cfg, characterId, modelName, style) {
+  const charRow = db.prepare(
+    'SELECT id, drama_id, name, appearance, description FROM characters WHERE id = ? AND deleted_at IS NULL'
+  ).get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+
+  const dramaFull = db.prepare('SELECT id, style, metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
+  let mergedCfg = mergeCfgStyleWithDrama(cfg, dramaFull || {});
+  mergedCfg = applyStyleOverrideToCfg(mergedCfg, style);
+
+  let appearanceText = '';
+  if (charRow.appearance && String(charRow.appearance).trim()) {
+    appearanceText = String(charRow.appearance).trim();
+  } else if (charRow.description && String(charRow.description).trim()) {
+    appearanceText = String(charRow.description).trim();
+  } else {
+    appearanceText = charRow.name || '';
+  }
+
+  const systemPrompt = promptI18n.getRolePolishPrompt(mergedCfg);
+  const userPrompt = `角色名称：${charRow.name}\n\n角色描述：\n${appearanceText}`;
+
+  log.info('[四视图提示词] 开始生成', { character_id: characterId, name: charRow.name });
+
+  let fourViewDescription;
+  try {
+    fourViewDescription = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+      scene_key: 'role_image_polish',
+      model: modelName || undefined,
+      max_tokens: 4000,
+    });
+  } catch (err) {
+    log.error('[四视图提示词] 文本AI失败，降级为外貌描述', { error: err.message });
+    fourViewDescription = appearanceText;
+  }
+
+  const styleEn = (mergedCfg.style.default_style_en || mergedCfg.style.default_style || '').trim();
+  const styleZh = (mergedCfg.style.default_style_zh || '').trim();
+  const polishedPrompt = buildFourViewImagePrompt(fourViewDescription, styleEn, styleZh);
+
+  // 保存到 characters.polished_prompt
+  db.prepare('UPDATE characters SET polished_prompt = ?, updated_at = ? WHERE id = ?').run(
+    polishedPrompt, new Date().toISOString(), Number(characterId)
+  );
+
+  log.info('[四视图提示词] 生成并保存完成', { character_id: characterId, length: polishedPrompt.length });
+  return { ok: true, polished_prompt: polishedPrompt };
+}
+
+async function generateCharacterFourViewImage(db, log, cfg, characterId, modelName, style) {
+  const charRow = db.prepare(
+    'SELECT id, drama_id, name, appearance, description, polished_prompt, negative_prompt FROM characters WHERE id = ? AND deleted_at IS NULL'
+  ).get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  const dramaFull = db.prepare('SELECT id, style, metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(charRow.drama_id);
+  if (!dramaFull) return { ok: false, error: 'unauthorized' };
+
+  let mergedCfg = mergeCfgStyleWithDrama(cfg, dramaFull);
+  mergedCfg = applyStyleOverrideToCfg(mergedCfg, style);
+  let imagePrompt;
+
+  if (charRow.polished_prompt && String(charRow.polished_prompt).trim()) {
+    // 直接使用已保存的提示词（用户可能已编辑过）
+    imagePrompt = String(charRow.polished_prompt).trim();
+    log.info('[四视图] 使用已保存的 polished_prompt，跳过文字AI', { character_id: characterId });
+  } else {
+    // 没有预生成提示词，临时生成（与 generateCharacterPromptOnly 同逻辑）
+    let appearanceText = '';
+    if (charRow.appearance && String(charRow.appearance).trim()) {
+      appearanceText = String(charRow.appearance).trim();
+    } else if (charRow.description && String(charRow.description).trim()) {
+      appearanceText = String(charRow.description).trim();
+    } else {
+      appearanceText = charRow.name || '';
+    }
+
+    const systemPrompt = promptI18n.getRolePolishPrompt(mergedCfg);
+    const userPrompt = `角色名称：${charRow.name}\n\n角色描述：\n${appearanceText}`;
+
+    log.info('[四视图] Step1 开始生成四视图提示词', { character_id: characterId, name: charRow.name });
+
+    let fourViewDescription;
+    try {
+      fourViewDescription = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
+        scene_key: 'role_image_polish',
+        model: modelName || undefined,
+        max_tokens: 4000,
+      });
+    } catch (err) {
+      log.error('[四视图] Step1 文本AI失败，降级为直接使用外貌描述', { error: err.message });
+      fourViewDescription = appearanceText;
+    }
+
+    const styleEn = (mergedCfg.style.default_style_en || mergedCfg.style.default_style || '').trim();
+    const styleZh = (mergedCfg.style.default_style_zh || '').trim();
+    imagePrompt = buildFourViewImagePrompt(fourViewDescription, styleEn, styleZh);
+
+    // 顺带保存，供下次复用
+    try {
+      db.prepare('UPDATE characters SET polished_prompt = ?, updated_at = ? WHERE id = ?').run(
+        imagePrompt, new Date().toISOString(), Number(characterId)
+      );
+    } catch (_) {}
+
+    log.info('[四视图] Step1 完成，开始Step2生图', { character_id: characterId });
+  }
+
+  const userNeg = imageClient.resolveAssetUserNegativeForApi(modelName, charRow.negative_prompt);
+  const imageGen = imageClient.createAndGenerateImage(db, log, {
+    drama_id: charRow.drama_id,
+    character_id: charRow.id,
+    prompt: imagePrompt,
+    model: modelName || undefined,
+    size: '1792x1024',
+    quality: 'standard',
+    provider: 'openai',
+    user_negative_prompt: userNeg || undefined,
+  });
+
+  log.info('[四视图] Step2 图片生成任务已提交', { character_id: characterId, image_gen_id: imageGen?.id });
+
+  return { ok: true, image_generation: imageGen };
+}
+
+/**
+ * 从角色现有图片中反向提取外貌描述，更新 appearance 字段。
+ */
+async function extractAppearanceFromImage(db, log, cfg, characterId) {
+  const { generateTextWithVision, resolveEntityImageSource, EXTRACT_PROMPTS } = require('./aiClient');
+
+  const charRow = db.prepare(
+    'SELECT id, name, image_url, local_path, extra_images, ref_image FROM characters WHERE id = ? AND deleted_at IS NULL'
+  ).get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+
+  const imgSrc = resolveEntityImageSource(charRow, cfg);
+  if (!imgSrc) return { ok: false, error: '该角色暂无参考图片，请先上传图片' };
+
+  const { system: systemPrompt, user: userFn } = EXTRACT_PROMPTS.character;
+  const userPrompt = userFn(charRow.name);
+
+  const { isRefusalResponse } = require('./aiClient');
+  let appearance;
+  try {
+    appearance = await generateTextWithVision(db, log, 'text', userPrompt, systemPrompt, imgSrc, { max_tokens: 2000 });
+  } catch (err) {
+    log.error('[extractAppearanceFromImage] AI 调用失败', { characterId, error: err.message });
+    const errMsg = /image|vision|visual|multimodal/i.test(err.message)
+      ? `AI 模型不支持图片识别，请在「AI 配置」中使用支持视觉的模型（如 GPT-4o、Gemini 1.5 等）【原始错误：${err.message.slice(0, 120)}】`
+      : `AI 分析失败：${err.message}`;
+    return { ok: false, error: errMsg };
+  }
+
+  if (isRefusalResponse(appearance)) {
+    log.warn('[extractAppearanceFromImage] 模型拒绝描述真人', { characterId, result: appearance });
+    return { ok: false, error: '模型因安全策略拒绝描述图中人物面部特征。建议：①使用 Gemini 模型（限制较少）；②手动填写外貌描述；③上传卡通/插画风格的参考图。' };
+  }
+
+  db.prepare('UPDATE characters SET appearance = ?, updated_at = ? WHERE id = ?')
+    .run(appearance, new Date().toISOString(), Number(characterId));
+
+  log.info('[extractAppearanceFromImage] 外貌提取成功', { characterId, appearance_len: appearance.length });
+  return { ok: true, appearance };
+}
+
+/**
+ * 组成素材库可拉取的 http(s) 图片 URL：优先角色主图已为直链；否则用 storage.base_url + local_path 拼出（与图床/即梦回传直链二选一逻辑一致）
+ */
+function buildCharacterPublicImageUrlForHub(charRow, cfg) {
+  const img = (charRow.image_url || '').toString().trim();
+  const lp = (charRow.local_path || '').toString().trim();
+  const baseRaw = (cfg?.storage?.base_url || '').toString().trim();
+  const publicBase = baseRaw.replace(/\/$/, '');
+
+  if (/^https?:\/\//i.test(img)) {
+    return { ok: true, url: img };
+  }
+  if (!publicBase) {
+    return {
+      ok: false,
+      error:
+        '角色主图非 http(s) 直链且未配置 storage.base_url，无法组成素材库可拉取的图片 URL（请将主图设为图床/即梦返回地址，或配置本服务静态资源公网 base_url）',
+    };
+  }
+  if (lp) {
+    const pathPart = lp.replace(/^\/+/, '');
+    return { ok: true, url: `${publicBase}/${pathPart}` };
+  }
+  if (img.startsWith('/')) {
+    if (publicBase.endsWith('/static') && img.startsWith('/static/')) {
+      return { ok: true, url: publicBase + img.slice('/static'.length) };
+    }
+    const m = publicBase.match(/^(https?:\/\/[^/]+)/i);
+    if (m) return { ok: true, url: m[1] + img };
+  }
+  const fallback = resolveImageUrl(charRow.image_url, charRow.local_path);
+  if (/^https?:\/\//i.test(fallback)) return { ok: true, url: fallback };
+  return { ok: false, error: '角色缺少素材库可用的图片（需 http(s) 图链或 local_path + 公网 base_url）' };
+}
+
+function storageRootPath(cfg) {
+  const raw = (cfg?.storage?.local_path || './data/storage').toString();
+  return path.isAbsolute(raw) ? raw : path.join(process.cwd(), raw);
+}
+
+/** 云端素材库无法拉取：非 http(s)、data:、localhost、常见内网等 */
+function isNonPublicMaterialHubUrl(url) {
+  const s = String(url || '').trim();
+  if (!s) return true;
+  if (s.startsWith('data:')) return true;
+  if (!/^https?:\/\//i.test(s)) return true;
+  try {
+    const { hostname } = new URL(s);
+    const h = String(hostname || '').toLowerCase();
+    if (h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0' || h === '[::1]' || h === '::1') return true;
+    if (/^192\.168\./.test(h)) return true;
+    if (/^10\./.test(h)) return true;
+    const m = /^172\.(\d+)\./.exec(h);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n >= 16 && n <= 31) return true;
+    }
+  } catch (_) {
+    return true;
+  }
+  return false;
+}
+
+/** 与 image_proxy_cache 约定一致：有 local_path 用相对路径作 key；否则用 URL 哈希避免冲突 */
+function materialHubProxyCacheKey(charRow, imageUrl) {
+  const lp = (charRow.local_path || '').toString().trim().replace(/^\/+/, '');
+  if (lp) return lp;
+  return `sd2char:url:${crypto.createHash('sha256').update(String(imageUrl)).digest('hex').slice(0, 48)}`;
+}
+
+function isHubDownloadMediaError(msg) {
+  return /DownloadFailed|download media|accessible|拉取|下载|tos: request error|fetch-object/i.test(String(msg || ''));
+}
+
+function isHubAuthTokenError(msg) {
+  return /无效的\s*token|invalid\s*token|unauthorized|401/i.test(String(msg || ''));
+}
+
+function formatSd2HubError(errMsg, hubCtx) {
+  let out = String(errMsg || '素材库创建素材失败');
+  if (!isHubAuthTokenError(out)) return out;
+  const diag = hubCtx?.hubAuthDiag || {};
+  const parts = [
+    `即梦2素材库拒绝了当前 Token（${out}）。`,
+    '请在「AI 配置」→「即梦2角色认证」中重新粘贴与 curl 测试完全相同的密钥并点击保存（勿带 Bearer 前缀、勿多空格）。',
+    '保存前可用「列出素材」验证；若列出成功而 SD2 仍失败，说明未保存或存在多条配置未设为默认。',
+  ];
+  if (diag.db_config_id != null) parts.push(`当前读取的配置：id=${diag.db_config_id}${diag.db_config_name ? `「${diag.db_config_name}」` : ''}。`);
+  const fp = diag.token_fingerprint || hubCtx?.tokenFingerprint;
+  if (fp) parts.push(`Token 指纹：${fp}（请与 curl 测试通过时 Bearer 密钥的首尾字符对照是否一致）。`);
+  return parts.join('');
+}
+
+/**
+ * localhost / 内网 / 相对 URL 等：先查 image_proxy_cache，未命中则读本地文件上传图床，供即梦素材库拉取。
+ * @param {{ forceLocalProxy?: boolean }} [opts] - 为 true 时跳过直链，强制用 local_path 上传图床（网关拉取火山/TOS 等失败时重试）
+ */
+async function ensurePublicRegisterImageUrlForMaterialHub(db, log, cfg, charRow, imageUrl, opts = {}) {
+  const forceLocalProxy = !!opts.forceLocalProxy;
+  if (!forceLocalProxy && !isNonPublicMaterialHubUrl(imageUrl)) {
+    return { ok: true, url: imageUrl, via: 'direct' };
+  }
+  const cacheKey = materialHubProxyCacheKey(charRow, imageUrl);
+  const cached = await imageClient.getProxyCacheValidated(db, cacheKey, log, `sd2_char_${charRow.id}`);
+  if (cached) {
+    log.info('[SD2认证] 使用图床缓存 URL', { character_id: charRow.id, cache_key: cacheKey });
+    return { ok: true, url: cached, via: 'cache' };
+  }
+  const storagePath = storageRootPath(cfg);
+  const localRef = (charRow.local_path || '').toString().trim() || imageUrl;
+  const proxyUrl = await uploadService.uploadLocalImageToProxy(storagePath, localRef, log, `sd2_char_${charRow.id}`);
+  if (!proxyUrl) {
+    return {
+      ok: false,
+      error:
+        '角色图为本机或内网地址，已尝试上传到中转图床失败（请确认 storage.local_path 下文件存在，且 image_proxy 配置可用）',
+    };
+  }
+  imageClient.setProxyCache(db, cacheKey, proxyUrl);
+  log.info('[SD2认证] 已上传图床供素材库拉取', { character_id: charRow.id, cache_key: cacheKey });
+  return { ok: true, url: proxyUrl, via: 'upload' };
+}
+
+function readSeedance2AssetJson(text) {
+  if (!text) return null;
+  try {
+    return typeof text === 'string' ? JSON.parse(text) : text;
+  } catch (_) {
+    return null;
+  }
+}
+
+function resolveSd2RegisterProvider(cfg, db, log) {
+  const hubCtx = jimengMaterialHubService.buildHubContext(cfg, db, log);
+  if (hubCtx.token) return { provider: 'hub', hubCtx };
+  const arkCtx = modelArkAssetConfigService.buildModelArkContext(db, log);
+  if (arkCtx.ready) return { provider: 'model_ark', arkCtx };
+  return { provider: null, hubCtx, arkCtx };
+}
+
+function sd2ConfigMissingError(hubCtx, arkCtx) {
+  const parts = [
+    '未配置 SD2 认证，请在「AI 配置」中任选其一：',
+    '① 添加「即梦2角色认证」（网关 URL + Token）；',
+    '② 或在「SD2 资产管理」点击「保存到 AI 配置」，填写 AK/SK 与默认资产组 Id。',
+  ];
+  if (arkCtx?.diag?.missing) {
+    parts.push(`（ModelArk 配置不完整：缺少 ${arkCtx.diag.missing}）`);
+  }
+  if (!hubCtx?.token && arkCtx?.diag?.db_model_ark_row_found === false) {
+    parts.push('（当前未找到已保存的 ModelArk 资产库配置）');
+  }
+  return parts.join('');
+}
+
+async function prepareCharacterRegisterImage(db, log, cfg, characterId) {
+  const charRow = db.prepare('SELECT * FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  if (!charRow.image_url && !charRow.local_path) {
+    return { ok: false, error: '角色还没有形象图片' };
+  }
+  const urlOut = buildCharacterPublicImageUrlForHub(charRow, cfg);
+  if (!urlOut.ok) return urlOut;
+  const imageUrl = urlOut.url;
+  if (String(imageUrl).startsWith('data:')) {
+    return { ok: false, error: '不支持 base64 图片注册，请先使用上传或外网图链' };
+  }
+  const pub = await ensurePublicRegisterImageUrlForMaterialHub(db, log, cfg, charRow, imageUrl);
+  if (!pub.ok) return pub;
+  return {
+    ok: true,
+    charRow,
+    imageUrl,
+    registerImageUrl: pub.url,
+    pub,
+    assetName: String(charRow.name || 'role').replace(/\s+/g, '').slice(0, 12) || 'role',
+  };
+}
+
+function buildSeedance2BasePayload(charRow, assetId, created, registerImageUrl, sd2Provider) {
+  const now = new Date().toISOString();
+  const certifiedLp = seedance2AssetGuards.normalizeStorageRelPath(charRow.local_path || '') || null;
+  const certifiedImg = (charRow.image_url || '').toString().trim() || null;
+  return {
+    hub_asset_id: assetId,
+    asset_url: created.asset_url || modelArkAssetConfigService.assetUrlForVideo(created) || null,
+    status: created.status || 'processing',
+    source_image_url: registerImageUrl,
+    certified_local_path: certifiedLp,
+    certified_image_url: certifiedImg,
+    sd2_provider: sd2Provider,
+    character_display: {
+      name: charRow.name || '',
+      appearance: (charRow.appearance || '').slice(0, 500) || null,
+      description: (charRow.description || '').slice(0, 500) || null,
+    },
+    updated_at: now,
+  };
+}
+
+async function registerCharacterViaJimengHub(db, log, cfg, characterId, hubCtx, prep) {
+  const { charRow, imageUrl, registerImageUrl: initialUrl, pub, assetName } = prep;
+  let registerImageUrl = initialUrl;
+  const registerUrlLooksPrivate = isNonPublicMaterialHubUrl(imageUrl);
+  log.info('[SD2认证][hub] 请求参数摘要', {
+    character_id: Number(characterId),
+    character_name: charRow.name,
+    drama_id: charRow.drama_id,
+    resolved_register_image_url: String(registerImageUrl).slice(0, 500),
+    hub_gateway: hubCtx.baseUrl,
+    hub_auth_diag: hubCtx.hubAuthDiag || null,
+    asset_name: assetName,
+    register_url_looks_private_host: registerUrlLooksPrivate,
+  });
+
+  let createRes = await jimengMaterialHubService.createImageAsset(hubCtx, { url: registerImageUrl, name: assetName }, log);
+  if (!createRes.ok && isHubDownloadMediaError(createRes.error) && pub.via === 'direct' && charRow.local_path) {
+    const proxyRetry = await ensurePublicRegisterImageUrlForMaterialHub(db, log, cfg, charRow, imageUrl, {
+      forceLocalProxy: true,
+    });
+    if (proxyRetry.ok && proxyRetry.url && proxyRetry.url !== registerImageUrl) {
+      registerImageUrl = proxyRetry.url;
+      createRes = await jimengMaterialHubService.createImageAsset(hubCtx, { url: registerImageUrl, name: assetName }, log);
+    }
+  }
+  if (!createRes.ok) {
+    let errMsg = formatSd2HubError(createRes.error, hubCtx);
+    if (isHubDownloadMediaError(createRes.error)) {
+      errMsg +=
+        ' 【说明】素材库会从云端访问你提交的「图片 URL」。火山引擎/即梦临时链常无法被网关拉取，本服务已尝试用本地图上传中转图床；若仍失败请检查 local_path 文件是否存在、图床是否可用，或换百度图床等公网直链。';
+    }
+    return { ok: false, error: errMsg };
+  }
+  const created = createRes.data;
+  const assetId = created.id;
+  if (!assetId) return { ok: false, error: '素材库返回缺少素材 id' };
+
+  const basePayload = buildSeedance2BasePayload(charRow, assetId, created, registerImageUrl, 'hub');
+  db.prepare('UPDATE characters SET seedance2_asset = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(basePayload),
+    basePayload.updated_at,
+    Number(characterId)
+  );
+
+  const poll = await jimengMaterialHubService.pollAssetUntilSettled(hubCtx, assetId, {
+    maxMs: hubCtx.poll_max_ms != null ? Number(hubCtx.poll_max_ms) : 120000,
+    intervalMs: hubCtx.poll_interval_ms != null ? Number(hubCtx.poll_interval_ms) : 2000,
+    log,
+  });
+  if (!poll.ok) return { ok: false, error: poll.error };
+  const settled = poll.asset || created;
+  const nextPayload = {
+    ...basePayload,
+    asset_url: settled.asset_url ?? basePayload.asset_url,
+    status: settled.status || basePayload.status,
+    hub_url: settled.url || created.url || null,
+    poll_timed_out: !!poll.timedOut,
+    updated_at: new Date().toISOString(),
+  };
+  db.prepare('UPDATE characters SET seedance2_asset = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(nextPayload),
+    nextPayload.updated_at,
+    Number(characterId)
+  );
+  log.info('[SD2认证][hub] 素材已登记', { characterId, hub_asset_id: assetId, status: nextPayload.status });
+  return { ok: true, seedance2_asset: nextPayload };
+}
+
+async function registerCharacterViaModelArk(db, log, cfg, characterId, arkCtx, prep) {
+  const { charRow, imageUrl, registerImageUrl: initialUrl, pub, assetName } = prep;
+  let registerImageUrl = initialUrl;
+  log.info('[SD2认证][model_ark] 请求参数摘要', {
+    character_id: Number(characterId),
+    character_name: charRow.name,
+    drama_id: charRow.drama_id,
+    resolved_register_image_url: String(registerImageUrl).slice(0, 500),
+    asset_group_id: arkCtx.assetGroupId,
+    auth_mode: arkCtx.diag?.auth_mode,
+    asset_name: assetName,
+  });
+
+  let createRes = await modelArkAssetConfigService.createImageAsset(
+    arkCtx,
+    { url: registerImageUrl, name: assetName },
+    log
+  );
+  if (!createRes.ok && isHubDownloadMediaError(createRes.error) && pub.via === 'direct' && charRow.local_path) {
+    const proxyRetry = await ensurePublicRegisterImageUrlForMaterialHub(db, log, cfg, charRow, imageUrl, {
+      forceLocalProxy: true,
+    });
+    if (proxyRetry.ok && proxyRetry.url && proxyRetry.url !== registerImageUrl) {
+      registerImageUrl = proxyRetry.url;
+      createRes = await modelArkAssetConfigService.createImageAsset(
+        arkCtx,
+        { url: registerImageUrl, name: assetName },
+        log
+      );
+    }
+  }
+  if (!createRes.ok) {
+    return {
+      ok: false,
+      error: `ModelArk 创建资产失败：${String(createRes.error || '').slice(0, 1500)}`,
+    };
+  }
+  const created = createRes.data;
+  const assetId = created.id;
+  if (!assetId) return { ok: false, error: 'ModelArk 返回缺少资产 Id' };
+
+  const basePayload = buildSeedance2BasePayload(charRow, assetId, created, registerImageUrl, 'model_ark');
+  db.prepare('UPDATE characters SET seedance2_asset = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(basePayload),
+    basePayload.updated_at,
+    Number(characterId)
+  );
+
+  const poll = await modelArkAssetConfigService.pollAssetUntilSettled(arkCtx, assetId, { log });
+  if (!poll.ok) return { ok: false, error: poll.error };
+  const settled = poll.asset || created;
+  const nextPayload = {
+    ...basePayload,
+    asset_url: settled.asset_url ?? basePayload.asset_url,
+    status: settled.status || basePayload.status,
+    poll_timed_out: !!poll.timedOut,
+    updated_at: new Date().toISOString(),
+  };
+  db.prepare('UPDATE characters SET seedance2_asset = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(nextPayload),
+    nextPayload.updated_at,
+    Number(characterId)
+  );
+  log.info('[SD2认证][model_ark] 素材已登记', { characterId, hub_asset_id: assetId, status: nextPayload.status });
+  return { ok: true, seedance2_asset: nextPayload };
+}
+
+/**
+ * 注册角色主图为 Seedance 2.0 可用 asset 引用。
+ * 优先即梦2角色认证（hub）；否则使用已保存的 ModelArk 官方资产库配置。
+ */
+async function registerCharacterJimengMaterialAsset(db, log, cfg, characterId) {
+  const route = resolveSd2RegisterProvider(cfg, db, log);
+  if (!route.provider) {
+    return { ok: false, error: sd2ConfigMissingError(route.hubCtx, route.arkCtx) };
+  }
+  const prep = await prepareCharacterRegisterImage(db, log, cfg, characterId);
+  if (!prep.ok) return prep;
+  if (route.provider === 'hub') {
+    return registerCharacterViaJimengHub(db, log, cfg, characterId, route.hubCtx, prep);
+  }
+  return registerCharacterViaModelArk(db, log, cfg, characterId, route.arkCtx, prep);
+}
+
+async function refreshCharacterJimengMaterialAsset(db, log, cfg, characterId) {
+  const charRow = db.prepare('SELECT id, seedance2_asset FROM characters WHERE id = ? AND deleted_at IS NULL').get(Number(characterId));
+  if (!charRow) return { ok: false, error: 'character not found' };
+  const prev = readSeedance2AssetJson(charRow.seedance2_asset);
+  const assetId = prev?.hub_asset_id;
+  if (!assetId) {
+    return { ok: false, error: '暂未取得素材 id，请先完成 SD2 认证' };
+  }
+
+  const provider = String(prev?.sd2_provider || '').toLowerCase() === 'model_ark' ? 'model_ark' : 'hub';
+  let settled;
+  if (provider === 'model_ark') {
+    const arkCtx = modelArkAssetConfigService.buildModelArkContext(db, log);
+    if (!arkCtx.ready) {
+      return { ok: false, error: '未找到有效的 ModelArk 资产库配置，无法刷新认证状态' };
+    }
+    const r = await modelArkAssetConfigService.getAsset(arkCtx, assetId, log);
+    if (!r.ok) return { ok: false, error: r.error };
+    settled = r.data;
+  } else {
+    const hubCtx = jimengMaterialHubService.buildHubContext(cfg, db, log);
+    if (!hubCtx.token) {
+      return { ok: false, error: '未配置即梦2角色认证：请在「AI 配置」中填写 Token' };
+    }
+    const r = await jimengMaterialHubService.getAsset(hubCtx, assetId, log);
+    if (!r.ok) return { ok: false, error: r.error };
+    settled = r.data;
+  }
+
+  const now = new Date().toISOString();
+  const nextPayload = {
+    ...(prev && typeof prev === 'object' ? prev : {}),
+    hub_asset_id: assetId,
+    asset_url: settled.asset_url ?? prev?.asset_url ?? modelArkAssetConfigService.assetUrlForVideo(settled) ?? null,
+    status: settled.status || prev?.status || 'processing',
+    hub_url: settled.url ?? prev?.hub_url ?? null,
+    sd2_provider: provider,
+    updated_at: now,
+  };
+  db.prepare('UPDATE characters SET seedance2_asset = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(nextPayload),
+    now,
+    Number(characterId)
+  );
+  return { ok: true, seedance2_asset: nextPayload };
+}
+
+module.exports = {
+  listLibraryItems,
+  createLibraryItem,
+  getLibraryItem,
+  updateLibraryItem,
+  deleteLibraryItem,
+  applyLibraryItemToCharacter,
+  uploadCharacterImage,
+  addCharacterToLibrary,
+  addCharacterToMaterialLibrary,
+  updateCharacter,
+  deleteCharacter,
+  generateCharacterImage,
+  batchGenerateCharacterImages,
+  generateCharacterFourViewImage,
+  generateCharacterPromptOnly,
+  extractAppearanceFromImage,
+  registerCharacterJimengMaterialAsset,
+  refreshCharacterJimengMaterialAsset,
+};

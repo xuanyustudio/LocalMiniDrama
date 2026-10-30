@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta http-equiv="X-UA-Compatible" content="ie=edge">
+		<title>通知组件</title>
+		<link rel="stylesheet" href="../../component/pear/css/pear.css" />
+	</head>
+	<body class="pear-container">
+		<div>
+			<div class="layui-row layui-col-space10">
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-header">开发环境</div>
+						<div class="layui-card-body">
+							Notice 用于 消息通知 场景
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-collapse">
+						<div class="layui-colla-item">
+							<h2 class="layui-colla-title">显示代码</h2>
+							<div class="layui-colla-content">
+								<pre class="layui-code" lay-encode="true">
+									&lt;link rel="stylesheet" href="component/pear/css/pear.css" />
+									 或
+									&lt;link rel="stylesheet" href="component/pear/css/pear-module/notice.css" />
+									 并
+									&lt;script src="component/layui/layui.js">&lt;/script>
+									 并
+									&lt;script src="component/pear/pear.js">&lt;/script>
+								</pre>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-header">消息提醒</div>
+						<div class="layui-card-body">
+							<div>
+								<span>notice.success("成功消息")</span>
+								<br>
+								<br>
+								<span>notice.error("危险消息")</span>
+								<br>
+								<br>
+								<span>notice.warning("警告消息")</span>
+								<br>
+								<br>
+								<span>notice.info("通用消息")</span>
+								<br>
+								<br>
+							</div>
+							<button class="notice-info pear-btn pear-btn-primary">通用消息</button>
+							<button class="notice-success pear-btn pear-btn-success">成功消息</button>
+							<button class="notice-failure pear-btn pear-btn-danger">错误消息</button>
+							<button class="notice-warning pear-btn pear-btn-warming">警告消息</button>
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-collapse">
+						<div class="layui-colla-item">
+							<h2 class="layui-colla-title">显示代码</h2>
+							<div class="layui-colla-content">
+								<pre class="layui-code" lay-encode="true">
+									layui.use(['notice', 'jquery', 'layer', 'code'], function() {
+									    var notice = layui.notice;
+										                         
+									    notice.success("成功消息")
+									    notice.error("危险消息")
+									    notice.warning("警告消息")
+									    notice.info("通用消息")
+									})
+								</pre>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-header">
+							消息移除
+						</div>
+						<div class="layui-card-body">
+							<button class="pear-btn" id="closeAll">移除全部</button>
+						</div>
+					</div>
+				</div>
+				<div class="layui-col-md12">
+					<div class="layui-collapse">
+						<div class="layui-colla-item">
+							<h2 class="layui-colla-title">显示代码</h2>
+							<div class="layui-colla-content">
+								<pre class="layui-code" lay-encode="true">
+									layui.use(['notice', 'jquery', 'layer', 'code'], function() {
+									    var notice = layui.notice;
+										                         
+									    notice.clear();
+									})
+								</pre>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+	<script src="../../component/layui/layui.js"></script>
+	<script src="../../component/pear/pear.js"></script>
+	<script>
+		layui.use(['notice', 'jquery', 'layer', 'code', 'element'], function() {
+			var notice = layui.notice;
+			var layer = layui.layer;
+			var $ = layui.jquery;
+
+			layui.code();
+
+			notice.warning("成功消息");
+			notice.info("提示消息");
+			notice.error("错误消息");
+			notice.success("成功消息");
+
+			$(".notice-success").click(function() {
+				notice.success("成功消息")
+			})
+			$(".notice-failure").click(function() {
+				notice.error("危险消息")
+			})
+			$(".notice-warning").click(function() {
+				notice.warning("警告消息")
+			})
+
+			$(".notice-info").click(function() {
+				notice.info("通用消息")
+			})
+
+			$("#closeAll").click(function() {
+				notice.clear();
+			});
+
+		});
+	</script>
+
+</html>

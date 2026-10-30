@@ -1,0 +1,19 @@
+{
+    "name": "webman/think-orm",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "topthink/think-container": "^2.0|^3.0",
+        "topthink/think-orm": "^2.0.53 || ^3.0.0 || ^4.0.30 || dev-master",
+        "workerman/webman-framework": "^2.1 || dev-master"
+    },
+    "prefer-stable": true,
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "Webman\\ThinkOrm\\": "src",
+            "support\\": "src/support"
+        }
+    }
+}

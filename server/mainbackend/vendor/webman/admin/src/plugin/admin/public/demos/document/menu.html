@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>数据菜单</title>
+		<link rel="stylesheet" href="../../component/pear/css/pear.css"/>
+	</head>
+	<body class="pear-container">
+		<div class="layui-row layui-col-space10">
+			<div class="layui-col-md12">
+				<div class="layui-card">
+					<div class="layui-card-header">开发环境</div>
+					<div class="layui-card-body">
+						Menu 数据菜单对普通菜单的深度封装 
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md12">
+				<div class="layui-collapse">
+					<div class="layui-colla-item">
+						<h2 class="layui-colla-title">显示代码</h2>
+						<div class="layui-colla-content">
+							<pre class="layui-code" lay-encode="true">
+								&lt;link rel="stylesheet" href="component/pear/css/pear.css" /&gt;
+								 并
+								&lt;script src="component/layui/layui.js"&gt;&lt;/script&gt;
+								 并
+								&lt;script src="component/pear/pear.js"&gt;&lt;/script&gt;
+							</pre>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md6">
+				<div class="layui-card">
+					<div class="layui-card-header">实例</div>
+					<div class="layui-card-body">
+						<button id="collapse" class="pear-btn">隐藏</button>
+						<br/>
+						<br/>
+						<div id="sideMenu"></div>
+					</div>
+				</div>
+			</div>
+			<div class="layui-col-md6">
+				<div class="layui-collapse">
+					<div class="layui-colla-item">
+						<h2 class="layui-colla-title">显示代码</h2>
+						<div class="layui-colla-content layui-show">
+							<pre class="layui-code" lay-encode="true">
+								
+								var sideMenu = menu.render({
+								    elem: 'sideMenu',
+								    async: true,
+								    theme: "light-theme",
+								    height: '300px',
+								    control: false, 
+								    defaultMenu: 0,
+								    accordion: true,
+								    url: "../../demos/data/menu.json",
+								    parseData: false,
+								    done: function() {
+								        layer.msg("加载完成")
+								    }
+								});
+								
+								sideMenu.click(function(dom, data) {
+								    
+									layer.msg("菜单点击 : " + JSON.stringify(data));
+								})
+						</pre>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+	<script src="../../component/layui/layui.js"></script>
+	<script src="../../component/pear/pear.js"></script>
+	<script>
+		layui.use(['layer', 'form',
+			'element', 'menu', 'code','jquery'
+		], function() {
+			var layer = layui.layer,
+				menu = layui.menu,
+				$ = layui.jquery,
+				form = layui.form;
+	
+			layui.code();
+	
+		 	var sideMenu = menu.render({
+			    elem: 'sideMenu',
+				async: true,
+				theme: "light-theme",
+				height: '300px',
+				control: false, 
+				defaultMenu: 0,
+				accordion: true,
+				url: "../../demos/data/dataMenu.json",
+				parseData: false,
+				done: function() {
+					layer.msg("加载完成")
+				}
+			});
+			
+			sideMenu.click(function(dom, data) {
+				layer.msg("菜单点击 : " + JSON.stringify(data));
+			})
+			
+			$("#collapse").click(function(){
+				sideMenu.collapse();
+			})
+		});
+	</script>
+</html>

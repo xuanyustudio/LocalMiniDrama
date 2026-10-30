@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <title>新增字典</title>
+    <link rel="stylesheet" href="/app/admin/component/layui/css/layui.css?v=2.8.12" />
+    <link rel="stylesheet" href="/app/admin/component/pear/css/pear.css" />
+    <link rel="stylesheet" href="/app/admin/admin/css/reset.css" />
+</head>
+<body>
+<style>
+    .mainBox {
+        width: auto !important;
+    }
+    .layui-tab .layui-table-cell {
+        overflow:visible !important;
+    }
+    .layui-table-body ,.layui-table-box{
+        overflow:visible !important;
+    }
+    .layui-tab .layui-form-select dl {
+        max-height: 190px;
+    }
+    .layui-table-body .layui-table-col-special:last-child {
+        width: 100% !important;
+        border-right: 1px solid #eee !important;
+    }
+    xm-select {
+        min-height: 38px;
+        line-height: 38px;
+    }
+    xm-select .xm-body .xm-option .xm-option-icon {
+        font-size: 18px !important;
+    }
+</style>
+
+<form class="layui-form" action="" lay-filter="create-dict-form">
+
+    <div class="mainBox">
+        <div class="main-container mr-5">
+
+            <div class="layui-form-item">
+                <div class="layui-inline">
+                    <label class="layui-form-label required" style="width:auto">字典名</label>
+                    <div class="layui-input-inline">
+                        <input type="text" name="name" required lay-verify="required" autocomplete="off" class="layui-input" placeholder="请输入英文字母组合">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+
+                <!-- 字段属性 -->
+                <table id="column-table" lay-filter="column-table"></table>
+
+                <script type="text/html" id="column-toolbar">
+                    <button type="button" class="pear-btn pear-btn-primary pear-btn-md" lay-event="add">
+                        <i class="layui-icon layui-icon-add-1"></i>新增
+                    </button>
+                    <button type="button" class="pear-btn pear-btn-danger pear-btn-md" lay-event="batchRemove">
+                        <i class="layui-icon layui-icon-delete"></i>删除
+                    </button>
+                </script>
+
+                <script type="text/html" id="col-value">
+                    <input type="text" name="value[{{ d.LAY_NUM-1 }}][value]" placeholder="值" autocomplete="off" class="layui-input" value="{{ d.value }}">
+                    <input type="hidden" name="value[{{ d.LAY_NUM-1 }}][_field_id]" value="{{ d._field_id }}">
+                </script>
+
+                <script type="text/html" id="col-name">
+                    <input type="text" name="value[{{ d.LAY_NUM-1 }}][name]" placeholder="标题" autocomplete="off" class="layui-input" value="{{ d.name }}">
+                </script>
+
+            </div>
+
+
+        </div>
+    </div>
+
+    <div class="bottom">
+        <div class="button-container">
+            <button type="submit" class="pear-btn pear-btn-primary pear-btn-md" lay-submit=""
+                    lay-filter="save">
+                提交
+            </button>
+            <button type="reset" class="pear-btn pear-btn-md">
+                重置
+            </button>
+        </div>
+    </div>
+</form>
+
+<script src="/app/admin/component/layui/layui.js?v=2.8.12"></script>
+<script src="/app/admin/component/pear/pear.js"></script>
+        <script src="/app/admin/admin/js/permission.js"></script>
+<script>
+
+    const INSERT_API = "/app/admin/dict/insert";
+
+    // 字段设置
+    layui.use(["table", "common", "popup"], function () {
+
+        let table = layui.table;
+        let common = layui.common;
+        let cols = [
+            {
+                type: "checkbox",
+                width: 50,
+            },
+            {
+                title: "值",
+                field: "value",
+                templet: "#col-value"
+            },
+            {
+                title: "标题",
+                field: "name",
+                templet: "#col-name",
+            }
+        ];
+
+        window._field_id = 0;
+        let data = [{
+            _field_id: _field_id++,
+            value : "",
+            name: "",
+        }];
+
+        table.render({
+            elem: "#column-table",
+            cols: [cols],
+            data: data,
+            cellMinWidth: 40,
+            skin: "line",
+            size: "lg",
+            limit: 10000,
+            page: false,
+            toolbar: "#column-toolbar",
+            defaultToolbar: [],
+        });
+
+        table.on("toolbar(column-table)", function(obj) {
+            if (obj.event === "add") {
+                add();
+            } else if (obj.event === "batchRemove") {
+                batchRemove(obj);
+            }
+        });
+
+        let add = function() {
+            syncTableData();
+            let options = table.getData("column-table");
+            options.push({
+                _field_id: _field_id++,
+                value : "",
+                name: "",
+            });
+            table.reloadData("column-table", {data:options});
+        }
+
+        let batchRemove = function(obj) {
+            var checkIds = common.checkField(obj,"_field_id");
+            if (checkIds === "") return layui.popup.warning("未选中数据");
+            let data = table.getData("column-table");
+            let newData = [];
+            let deleteIds = checkIds.split(",");
+            layui.each(data, function (index, item) {
+                if (deleteIds.indexOf(item._field_id + "") === -1) {
+                    newData.push(item);
+                }
+            });
+            table.reloadData("column-table", {data: newData})
+        }
+
+    });
+
+    layui.use(["form", "popup"], function () {
+        //提交事件
+        layui.form.on("submit(save)", function () {
+            let data = layui.form.val("create-dict-form");
+            layui.$.ajax({
+                url: INSERT_API,
+                type: "POST",
+                dateType: "json",
+                data: data,
+                success: function (res) {
+                    if (res.code) {
+                        return layui.popup.failure(res.msg);
+                    }
+                    return layui.popup.success("操作成功", function () {
+                        parent.refreshTable();
+                        parent.layer.close(parent.layer.getFrameIndex(window.name));
+                    });
+                }
+            });
+            return false;
+        });
+    });
+
+    window.syncTableData = function () {
+        let tableData = layui.form.val("create-dict-form");
+        let columnTableData = [];
+        let len = Object.keys(tableData).length;
+        let id = 0;
+        window._key_id = 0;
+        while (id < len) {
+            // column data
+            if (typeof tableData["value[" + id + "][_field_id]"] !== "undefined") {
+                columnTableData.push({
+                    _field_id: tableData["value[" + id + "][_field_id]"],
+                    name : tableData["value[" + id + "][name]"],
+                    value: tableData["value[" + id + "][value]"],
+                });
+            }
+            _key_id++;
+            id++;
+        }
+        layui.table.reloadData("column-table", {data: columnTableData});
+    }
+
+</script>
+
+</body>
+</html>

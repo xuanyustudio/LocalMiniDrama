@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+    <head>
+        <meta charset="UTF-8">
+        <title>一键菜单</title>
+        <link rel="stylesheet" href="/app/admin/component/pear/css/pear.css" />
+        <link rel="stylesheet" href="/app/admin/admin/css/reset.css" />
+        <style>
+            .layui-iconpicker .layui-anim {
+                top: 42px !important;
+                bottom: inherit !important;
+            }
+        </style>
+    </head>
+    <body>
+
+        <form class="layui-form" action="">
+
+            <div class="mainBox">
+                <div class="main-container mr-5">
+                    <input type="hidden" name="table" value="<?=htmlspecialchars($table)?>">
+                    <div class="layui-form-item">
+                        <label class="layui-form-label required">菜单名</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="title" value="" required lay-verify="required" class="layui-input">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">图标</label>
+                        <div class="layui-input-block">
+                            <input name="icon" id="icon" value="" />
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">上级菜单</label>
+                        <div class="layui-input-block">
+                            <div name="pid" id="pid"></div>
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label required">控制器</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="controller" value="<?=$controller?>" class="layui-input" required lay-verify="required">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label required">模型</label>
+                        <div class="layui-input-block">
+                            <input type="text" name="model" value="<?=$model?>" class="layui-input" required lay-verify="required">
+                        </div>
+                    </div>
+                    <div class="layui-form-item">
+                        <label class="layui-form-label">强制覆盖</label>
+                        <div class="layui-input-block">
+                            <input type="checkbox" name="overwrite" lay-skin="primary">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom">
+                <div class="button-container">
+                    <button type="submit" class="pear-btn pear-btn-primary pear-btn-md" lay-submit=""
+                        lay-filter="save">
+                        提交
+                    </button>
+                    <button type="reset" class="pear-btn pear-btn-md">
+                        重置
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <script src="/app/admin/component/layui/layui.js?v=2.8.12"></script>
+        <script src="/app/admin/component/pear/pear.js"></script>
+        <script src="/app/admin/admin/js/permission.js"></script>
+        <script>
+
+            const CRUD_API = "/app/admin/table/crud";
+
+            layui.use(["jquery", "xmSelect", "popup"], function() {
+                layui.$.ajax({
+                    url: "/app/admin/rule/select?format=tree&type=0,1",
+                    dataType: "json",
+                    success: function (res) {
+                        let value = layui.$("#pid").attr("value");
+                        let initValue = value ? value.split(",") : [];
+                        layui.xmSelect.render({
+                            el: "#pid",
+                            name: "pid",
+                            initValue: initValue,
+                            tips: "无",
+                            data: res.data,
+                            toolbar: {show: true, list: ["CLEAR"]},
+                            model: {"icon":"hidden","label":{"type":"text"}},
+                            clickClose: true,
+                            radio: true,
+                            tree: {show:true, strict:false, clickCheck:true, clickExpand:false},
+                        });
+                        if (res.code) {
+                            return layui.popup.failure(res.msg);
+                        }
+                    }
+                });
+            });
+
+            layui.use(["iconPicker"], function() {
+                layui.iconPicker.render({
+                    elem: "#icon",
+                    type: "fontClass",
+                    page: false
+                });
+            });
+
+            layui.use(["form", "popup"], function () {
+                //提交事件
+                layui.form.on("submit(save)", function (data) {
+                    layui.$.ajax({
+                        url: CRUD_API,
+                        type: "POST",
+                        dateType: "json",
+                        data: data.field,
+                        success: function (res) {
+                            if (res.code) {
+                                return layui.popup.failure(res.msg);
+                            }
+                            return layui.popup.success("操作成功", function () {
+                                parent.layer.close(parent.layer.getFrameIndex(window.name));
+                            });
+                        }
+                    });
+                    return false;
+                });
+            });
+
+        </script>
+
+    </body>
+</html>

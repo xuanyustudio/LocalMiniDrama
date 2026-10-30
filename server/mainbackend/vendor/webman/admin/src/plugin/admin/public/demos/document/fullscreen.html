@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>全屏组件</title>
+  <link rel="stylesheet" href="../../component/pear/css/pear.css" />
+</head>
+<style type="text/css">
+
+</style>
+<body class="pear-container">
+<div class="layui-row layui-col-space10" id="homeid">
+  <div class="layui-col-md12">
+    <div class="layui-card">
+      <div class="layui-card-header">开发环境</div>
+      <div class="layui-card-body">
+        fullscreen 用于控制页面或元素全屏
+      </div>
+    </div>
+  </div>
+  <div class="layui-col-md12">
+    <div class="layui-collapse">
+      <div class="layui-colla-item">
+        <h2 class="layui-colla-title">显示代码</h2>
+        <div class="layui-colla-content">
+            <pre class="layui-code" lay-encode="true">
+                &lt;link rel="stylesheet" href="component/pear/css/pear.css" /&gt;
+                 并
+                &lt;script src="component/layui/layui.js"&gt;&lt;/script&gt;
+                 并
+                &lt;script src="component/pear/pear.js"&gt;&lt;/script&gt;
+            </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="layui-col-md12">
+    <div class="layui-card">
+      <div class="layui-card-header">全屏控制</div>
+      <div class="layui-card-body">
+        <button class="fullstart pear-btn pear-btn-primary">全屏</button>
+        <button class="fullclose pear-btn pear-btn-danger">退出全屏</button>
+        <button class="fulltarg pear-btn pear-btn-warming">指定目标全屏</button>
+      </div>
+    </div>
+  </div>
+  <div class="layui-col-md12">
+    <div class="layui-collapse">
+      <div class="layui-colla-item">
+        <h2 class="layui-colla-title">显示代码</h2>
+        <div class="layui-colla-content">
+			<pre class="layui-code" lay-encode="true">
+				layui.use(['fullscreen'], function() {
+    var fullscreen = layui.fullscreen;
+     fullscreen.fullScreen();
+	    fullscreen.fullClose();
+	    fullscreen.fullScreen("#fulltarget");
+	    fullscreen.isFullscreen();
+
+			})
+			</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="layui-col-md12">
+    <div class="layui-card">
+      <div class="layui-card-header">指定容器全屏</div>
+      <div class="layui-card-body">
+        <div id="fulltarget"
+             style="width: 600px;
+								height: 300px;
+								overflow: hidden;
+								position: relative;
+								border: 1px solid gainsboro;
+								background-color: #EEE;
+								margin-top: 20px;
+								display: flex;
+								justify-content: space-around;
+								align-items: center">
+          <button class="fullclose pear-btn pear-btn-danger">退出全屏</button>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+<script src="../../component/layui/layui.js"></script>
+<script src="../../component/pear/pear.js"></script>
+<script>
+  layui.use([ 'jquery', 'code','admin','fullscreen'], function() {
+    var popup = layui.popup;
+    var $ = layui.jquery;
+    var admin = layui.admin;
+    var fullscreen=layui.fullscreen;
+    layui.code();
+    fullscreen.onFullchange(function(){
+        //增加全屏状态回调，可针对不同浏览器做后续处理
+        console.log("当前全屏状态:",fullscreen.isFullscreen());
+        var document = fullscreen.isFullscreen();
+        if(document){
+            $("#fulltarget").addClass('pear-full-screen');
+        }else{
+            $("#fulltarget").removeClass('pear-full-screen');
+        }
+    });
+    $(".fullstart").click(function() {
+      fullscreen.fullScreen().then(function ok(res){
+            console.log(res);
+        }
+      );
+    })
+
+    $(".fullclose").click(function() {
+      fullscreen.fullClose();
+    })
+
+    $(".fulltarg").click(function() {
+      fullscreen.fullScreen("#fulltarget");
+    })
+
+
+  })
+</script>
+</html>

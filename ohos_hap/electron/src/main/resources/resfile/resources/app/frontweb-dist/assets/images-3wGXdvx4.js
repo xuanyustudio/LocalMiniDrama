@@ -1,0 +1,1 @@
+import{r}from"./request-BTQ9KjNv.js";const s={list(e){return r.get("/images",{params:e||{}})},create(e){return r.post("/images",e)},upload(e){return r.post("/images/upload",e)},delete(e){return r.delete(`/images/${e}`)}};export{s as i};
