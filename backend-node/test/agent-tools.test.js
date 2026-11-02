@@ -49,6 +49,55 @@ describe('agent tools', () => {
     assert.equal(row.title, '开场');
   });
 
+  it('reports storyboard hasImage from real image records, not from video paths', async () => {
+    const { executeGetCurrentProject } = await import('../src/mastra/tools.mjs');
+    const db = createAgentTestDb();
+    const ids = seedTwoDramas(db);
+    const now = '2026-10-16T00:00:00.000Z';
+
+    // 初始：分镜还没有任何图
+    const before = executeGetCurrentProject(db, ids.dramaA, ids.episodeA1);
+    assert.equal(before.project.storyboards[0].hasImage, false);
+
+    // 普通分镜图只落在 image_generations，不回写 storyboards.image_url
+    db.prepare(
+      `INSERT INTO image_generations (storyboard_id, drama_id, episode_id, frame_type, status, created_at, updated_at)
+       VALUES (?, ?, ?, 'first', 'processing', ?, ?)`
+    ).run(ids.storyboardA, ids.dramaA, ids.episodeA1, now, now);
+    const processing = executeGetCurrentProject(db, ids.dramaA, ids.episodeA1);
+    assert.equal(processing.project.storyboards[0].hasImage, false, '处理中的图生不算已有图');
+
+    db.prepare(
+      `UPDATE image_generations SET status = 'completed', local_path = 'images/ig_a.jpg' WHERE storyboard_id = ?`
+    ).run(ids.storyboardA);
+    const afterGeneration = executeGetCurrentProject(db, ids.dramaA, ids.episodeA1);
+    assert.equal(afterGeneration.project.storyboards[0].hasImage, true, '已完成的图生记录算已有图');
+
+    // 删掉的图生记录不算已有图
+    db.prepare('UPDATE image_generations SET deleted_at = ? WHERE storyboard_id = ?').run(now, ids.storyboardA);
+    const afterDeleted = executeGetCurrentProject(db, ids.dramaA, ids.episodeA1);
+    assert.equal(afterDeleted.project.storyboards[0].hasImage, false, '已删除的图生记录不算已有图');
+
+    // 尾帧绑定/导入会回写 storyboards.image_url
+    db.prepare('UPDATE storyboards SET image_url = ? WHERE id = ?').run('/static/a.png', ids.storyboardA);
+    const afterRowUrl = executeGetCurrentProject(db, ids.dramaA, ids.episodeA1);
+    assert.equal(afterRowUrl.project.storyboards[0].hasImage, true, 'storyboards.image_url 有值算已有图');
+
+    // 视频管线把 storyboards.local_path 写成视频路径，不能据此判断已有图
+    db.prepare('UPDATE storyboards SET image_url = NULL, local_path = ?, video_url = ? WHERE id = ?')
+      .run('videos/sb_a.mp4', '/static/sb_a.mp4', ids.storyboardA);
+    const afterVideo = executeGetCurrentProject(db, ids.dramaA, ids.episodeA1);
+    assert.equal(afterVideo.project.storyboards[0].hasImage, false, '只有视频路径时不算已有图');
+
+    // 别的剧的图不能算到当前剧
+    db.prepare(
+      `INSERT INTO image_generations (storyboard_id, drama_id, episode_id, frame_type, status, local_path, created_at, updated_at)
+       VALUES (?, ?, ?, 'first', 'completed', 'images/ig_b.jpg', ?, ?)`
+    ).run(ids.storyboardB, ids.dramaB, ids.episodeB1, now, now);
+    const crossDrama = executeGetCurrentProject(db, ids.dramaA, ids.episodeA1);
+    assert.equal(crossDrama.project.storyboards[0].hasImage, false, '别的剧的图不能算到当前剧');
+  });
+
   it('edits characters, scenes, and shots without touching other dramas', async () => {
     const { executeUpdateCharacter, executeUpdateScene, executeUpdateStoryboard } = await import('../src/mastra/tools.mjs');
     const db = createAgentTestDb();
