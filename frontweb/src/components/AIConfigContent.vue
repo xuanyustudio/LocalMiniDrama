@@ -424,7 +424,7 @@
                   <b>Base URL：</b><code>https://workbench.ohmybb.xyz/api/openai</code><br>
                   <b>接口规范：</b><code>sora</code>（multipart/form-data；多图参考时用 JSON <code>images</code> 数组，最多 9 张）<br>
                   <b>默认 Endpoint：</b><code>POST /v1/videos</code>，查询 <code>GET /v1/videos/{taskId}</code>；成片需带 Key 下载 <code>/v1/videos/{id}/content</code>（本系统会自动处理）。<br>
-                  <b>模型：</b><code>wb-seedance-2-fast</code>（5/10/15 秒）、<code>wb-seedance-2.5</code>（5/10 秒）<br>
+                  <b>模型：</b><code>wb-seedance-2-fast</code>（5/10 秒）、<code>yk-seedance-mini</code> / <code>yk-seedance2.0-fast</code> / <code>yk-seedance2.0</code>（4–15 秒）、<code>minimax-h3-1080p-15s</code>（4–15 秒，仅 1 张参考图）<br>
                   <b>官网 / 充值：</b><a href="https://workbench.ohmybb.xyz/" target="_blank" rel="noopener noreferrer">https://workbench.ohmybb.xyz/</a>
                 </div>
               </el-collapse-item>
@@ -919,7 +919,7 @@ input_reference = (图片文件，可选)</pre>
         <div class="one-key-section">
           <div class="one-key-section-title">📋 将自动创建以下配置</div>
           <ul class="one-key-list">
-            <li><b>视频生成</b>：低价 Seedance2（wb-seedance-2-fast / wb-seedance-2.5）— 练手与流水剧，约 1 元/次，不按秒计费</li>
+            <li><b>视频生成</b>：低价 Seedance2（wb-seedance-2-fast / yk-seedance-mini / yk-seedance2.0-fast / yk-seedance2.0 / minimax-h3-1080p-15s）</li>
           </ul>
           <p class="one-key-note">会设为视频服务的默认配置；Base URL / 协议 / 端点自动填好。</p>
         </div>
@@ -1430,7 +1430,7 @@ const providerConfigs = {
     {
       id: 'cheap_seedance2',
       name: '低价 Seedance2',
-      models: ['wb-seedance-2-fast', 'wb-seedance-2.5'],
+      models: ['wb-seedance-2-fast', 'yk-seedance-mini', 'yk-seedance2.0-fast', 'yk-seedance2.0', 'minimax-h3-1080p-15s'],
     },
     { id: 'klingai', name: '可灵官方 Omni (api-beijing.klingai.com)', models: ['kling-video-o1', 'kling-v3-omni'] },
     { id: 'ffir', name: '飞儿API / 可灵 Omni-Video (ffir.cn)', models: ['kling-video-o1', 'kling-v3-omni'] },
@@ -1813,7 +1813,7 @@ const CHEAP_SEEDANCE2_CONFIGS = [
     base_url: 'https://workbench.ohmybb.xyz/api/openai',
     endpoint: '/v1/videos',
     query_endpoint: '/v1/videos/{taskId}',
-    model: ['wb-seedance-2-fast', 'wb-seedance-2.5'],
+    model: ['wb-seedance-2-fast', 'yk-seedance-mini', 'yk-seedance2.0-fast', 'yk-seedance2.0', 'minimax-h3-1080p-15s'],
     settings: JSON.stringify({ supports_universal_omni: true }),
   },
 ]

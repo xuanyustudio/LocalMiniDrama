@@ -1,6 +1,7 @@
 // ? Go pkg/video + VideoGenerationService ????????? API??????(????)
 const fs = require('fs');
 const path = require('path');
+const { ipv4Request, formatNetError } = require('../utils/ipv4Http');
 const aiConfigService = require('./aiConfigService');
 const { flattenModelIds, pickModelId, ARK_RETIRED_VIDEO_MODELS } = require('./modelId');
 let sharp; try { sharp = require('sharp'); } catch (_) { sharp = null; }
@@ -55,39 +56,58 @@ function configSupportsUniversalOmni(config) {
   return s.supports_universal_omni === true || s.supports_universal_omni === 1 || s.supports_universal_omni === 'true';
 }
 
+/** ohmybb 按次/按秒模型：4–15 秒逐秒可选，默认 5 秒 */
+function isCheapSeedance2FlexibleDurationModel(model) {
+  const m = String(model || '').toLowerCase();
+  return m === 'yk-seedance-mini'
+    || m === 'yk-seedance2.0-fast'
+    || m === 'yk-seedance2.0'
+    || m === 'minimax-h3-1080p-15s';
+}
+
 /**
- * ohmybb Seedance 时长档：fast 5/10/15，2.5 为 5/10。就近映射。
+ * ohmybb 时长档。
+ * wb-seedance-2-fast 仅 5/10（默认 10）；yk / minimax-h3-1080p-15s 为 4–15 逐秒（默认 5）。
  * @returns {string} seconds 字符串
  */
 function normalizeCheapSeedance2Duration(duration, model) {
-  const modelLower = String(model || '').toLowerCase();
-  const is25 = /wb-seedance-2\.5|seedance-2\.5|seedance2\.5/.test(modelLower);
-  const allowed = is25 ? [5, 10] : [5, 10, 15];
   const raw = duration == null || duration === '' ? NaN : Number(duration);
-  let target;
-  if (!Number.isFinite(raw) || raw <= 0) {
-    target = 10;
-  } else if (raw <= 5) {
-    target = 5;
-  } else if (raw <= 10) {
-    target = 10;
-  } else {
-    target = is25 ? 10 : 15;
+  if (isCheapSeedance2FlexibleDurationModel(model)) {
+    if (!Number.isFinite(raw) || raw <= 0) return '5';
+    const n = Math.round(raw);
+    if (n < 4) return '4';
+    if (n > 15) return '15';
+    return String(n);
   }
-  if (!allowed.includes(target)) target = allowed[allowed.length - 1];
-  return String(target);
+  if (!Number.isFinite(raw) || raw <= 0) return '10';
+  return raw <= 5 ? '5' : '10';
 }
 
-/** ohmybb 支持的 size：1280x720 / 720x1280 / 1024x1024 / 960x720 / 720x960 */
-function normalizeCheapSeedance2Size(aspectRatio) {
+/** ohmybb 参考图上限。minimax-h3-1080p-15s 只收 1 张，其余最多 9 张。 */
+function cheapSeedance2MaxImages(model) {
+  return String(model || '').toLowerCase() === 'minimax-h3-1080p-15s' ? 1 : 9;
+}
+
+/**
+ * ohmybb size。fast 与 yk 的 1:1 不同；minimax-h3-1080p-15s 只有 1920x1080 / 1080x1920。
+ */
+function normalizeCheapSeedance2Size(aspectRatio, model) {
+  const ratio = String(aspectRatio || '').trim();
+  const m = String(model || '').toLowerCase();
+  if (m === 'minimax-h3-1080p-15s') {
+    if (ratio === '9:16' || ratio === '3:4') return '1080x1920';
+    return '1920x1080';
+  }
+  const yk = m === 'yk-seedance-mini' || m === 'yk-seedance2.0-fast' || m === 'yk-seedance2.0';
   const sizeMap = {
     '16:9': '1280x720',
     '9:16': '720x1280',
-    '1:1': '1024x1024',
+    '1:1': yk ? '720x720' : '1024x1024',
     '4:3': '960x720',
     '3:4': '720x960',
+    '21:9': '1680x720',
   };
-  return sizeMap[String(aspectRatio || '').trim()] || '1280x720';
+  return sizeMap[ratio] || '1280x720';
 }
 
 /** 完成态无直链时，拼 Sora 兼容 content 下载地址 */
@@ -2940,10 +2960,12 @@ async function callSoraVideoApi(config, log, opts) {
   if (!ep.startsWith('/')) ep = '/' + ep;
   const url = base + ep;
 
-  // seconds：通用 Sora 为 4/8/12；低价 Seedance2 为 5/10/15
+  const resolvedModel = model || getModelFromConfig(config) || (cheapSeedance ? 'wb-seedance-2-fast' : '');
+
+  // seconds：通用 Sora 为 4/8/12；低价 Seedance2 按模型时长档
   let dur;
   if (cheapSeedance) {
-    dur = normalizeCheapSeedance2Duration(duration, model || getModelFromConfig(config));
+    dur = normalizeCheapSeedance2Duration(duration, resolvedModel);
   } else {
     const rawSec = duration ? Number(duration) : 4;
     dur = rawSec <= 4 ? '4' : rawSec <= 8 ? '8' : '12';
@@ -2952,7 +2974,7 @@ async function callSoraVideoApi(config, log, opts) {
   // aspect_ratio → size
   let size;
   if (cheapSeedance) {
-    size = normalizeCheapSeedance2Size(aspect_ratio);
+    size = normalizeCheapSeedance2Size(aspect_ratio, resolvedModel);
   } else {
     const sizeMap = {
       '9:16': '720x1280',
@@ -2965,18 +2987,20 @@ async function callSoraVideoApi(config, log, opts) {
     size = sizeMap[aspect_ratio || ''] || '720x1280';
   }
 
-  // 支持全能多图：低价 Seedance2，或配置勾选 supports_universal_omni → JSON images[]（最多 9）
+  // 支持全能多图：低价 Seedance2，或配置勾选 supports_universal_omni → JSON images[]
+  // minimax-h3-1080p-15s 上游只收 1 张，其余最多 9 张
   const refList = Array.isArray(reference_urls) ? reference_urls.filter(Boolean).map(String) : [];
   const useOmniMultiImages = configSupportsUniversalOmni(config) && (refList.length > 0 || (image_url || '').trim());
   if (useOmniMultiImages) {
-    const rawList = (refList.length > 0 ? refList : [(image_url || '').trim()]).slice(0, 9);
+    const maxImages = cheapSeedance ? cheapSeedance2MaxImages(resolvedModel) : 9;
+    const rawList = (refList.length > 0 ? refList : [(image_url || '').trim()]).slice(0, maxImages);
     const images = [];
     for (let i = 0; i < rawList.length; i++) {
       const resolved = await resolveSoraImageToDataUrl(rawList[i], storage_local_path, log, video_gen_id, i);
       if (resolved) images.push(resolved);
     }
     const body = {
-      model: model || getModelFromConfig(config) || (cheapSeedance ? 'wb-seedance-2-fast' : 'sora-2'),
+      model: resolvedModel || (cheapSeedance ? 'wb-seedance-2-fast' : 'sora-2'),
       prompt: prompt || '',
       seconds: cheapSeedance ? (Number(dur) || 10) : dur,
       size,
@@ -2991,14 +3015,21 @@ async function callSoraVideoApi(config, log, opts) {
       image_count: images.length,
       video_gen_id,
     });
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + (config.api_key || ''),
-      },
-      body: JSON.stringify(body),
-    });
+    const postHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + (config.api_key || ''),
+    };
+    const postBody = JSON.stringify(body);
+    let res;
+    try {
+      res = cheapSeedance
+        ? await ipv4Request(url, { method: 'POST', headers: postHeaders, body: postBody, timeoutMs: 180000 })
+        : await fetch(url, { method: 'POST', headers: postHeaders, body: postBody });
+    } catch (e) {
+      const msg = formatNetError(e);
+      log.error('[Sora][omni-multi] 请求失败', { video_gen_id, message: msg, ipv4: !!cheapSeedance });
+      return { error: '视频接口连接失败: ' + msg };
+    }
     const raw = await res.text();
     log.info('[Sora][omni-multi] raw response', { status: res.status, raw: raw.slice(0, 1000), video_gen_id });
     if (!res.ok) {
@@ -3165,14 +3196,20 @@ async function callSoraVideoApi(config, log, opts) {
     }, null, 2),
   });
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
-      Authorization: 'Bearer ' + (config.api_key || ''),
-    },
-    body: bodyBuffer,
-  });
+  const postHeaders = {
+    'Content-Type': `multipart/form-data; boundary=${boundary}`,
+    Authorization: 'Bearer ' + (config.api_key || ''),
+  };
+  let res;
+  try {
+    res = cheapSeedance
+      ? await ipv4Request(url, { method: 'POST', headers: postHeaders, body: bodyBuffer, timeoutMs: 180000 })
+      : await fetch(url, { method: 'POST', headers: postHeaders, body: bodyBuffer });
+  } catch (e) {
+    const msg = formatNetError(e);
+    log.error('[Sora] 请求失败', { video_gen_id, message: msg, ipv4: !!cheapSeedance });
+    return { error: '视频接口连接失败: ' + msg };
+  }
   const raw = await res.text();
   log.info('[Sora] raw response', { status: res.status, raw: raw.slice(0, 1000), video_gen_id });
 
@@ -4569,7 +4606,9 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
       }
       const pollRound = attempt + 1;
       log.info('[poll] 发起查询', { video_gen_id: videoGenId, round: pollRound, url });
-      const res = await fetch(url, { method: 'GET', headers });
+      const res = isCheapSeedance2Provider(provider)
+        ? await ipv4Request(url, { method: 'GET', headers, timeoutMs: 30000 })
+        : await fetch(url, { method: 'GET', headers });
       const raw = await res.text();
       const bodyLogged =
         pollLogBodyMax === Infinity
@@ -4921,5 +4960,6 @@ module.exports = {
   configSupportsUniversalOmni,
   normalizeCheapSeedance2Duration,
   normalizeCheapSeedance2Size,
+  cheapSeedance2MaxImages,
   buildCheapSeedance2ContentUrl,
 };

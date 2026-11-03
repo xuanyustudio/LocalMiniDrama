@@ -88,6 +88,7 @@ const { spawnSync } = require('child_process');
 const { randomUUID } = require('crypto');
 const videoClient = require('./videoClient');
 const taskService = require('./taskService');
+const { ipv4Request, formatNetError } = require('../utils/ipv4Http');
 const storageLayout = require('./storageLayout');
 const { getFfmpegPath, hasLocalFfmpeg } = require('../utils/ffmpegPath');
 
@@ -120,18 +121,20 @@ async function downloadVideoToLocal(storagePath, videoUrl, videoGenId, log, proj
     if (apiKey) {
       headers.Authorization = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`;
     }
-    const res = await fetch(videoUrl, { method: 'GET', headers });
+    const res = apiKey
+      ? await ipv4Request(videoUrl, { method: 'GET', headers, timeoutMs: 180000 })
+      : await fetch(videoUrl, { method: 'GET', headers });
     if (!res.ok) {
       log.warn('Download video failed', { status: res.status, videoGenId, auth: !!apiKey });
       return null;
     }
-    const buf = Buffer.from(await res.arrayBuffer());
+    const buf = apiKey ? res.buffer() : Buffer.from(await res.arrayBuffer());
     fs.writeFileSync(filePath, buf);
     const relativePath = `${relPrefix}/${name}`.replace(/\\/g, '/');
     log.info('Video saved to local', { videoGenId, local_path: relativePath, projectSubdir: projectSubdir || '(root)' });
     return relativePath;
   } catch (e) {
-    log.warn('Download video error', { videoGenId, error: e.message });
+    log.warn('Download video error', { videoGenId, error: formatNetError(e) });
     return null;
   }
 }
