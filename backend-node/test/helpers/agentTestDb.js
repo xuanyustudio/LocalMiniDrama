@@ -62,6 +62,22 @@ function createAgentTestDb() {
       action TEXT,
       image_prompt TEXT,
       video_prompt TEXT,
+      image_url TEXT,
+      local_path TEXT,
+      video_url TEXT,
+      deleted_at TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+    CREATE TABLE image_generations (
+      id INTEGER PRIMARY KEY,
+      storyboard_id INTEGER,
+      drama_id INTEGER,
+      episode_id INTEGER,
+      frame_type TEXT,
+      status TEXT,
+      image_url TEXT,
+      local_path TEXT,
       deleted_at TEXT,
       created_at TEXT,
       updated_at TEXT

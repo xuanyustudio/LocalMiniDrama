@@ -54,15 +54,26 @@ export function executeGetCurrentProject(db, dramaId, episodeId) {
     const full = episode && episode.script_content ? episode.script_content : '';
     script = clip(full, 12000);
     scriptTruncated = full.length > 12000;
+    // 分镜图的两个落点：storyboards.image_url（首尾帧绑定/导入会回写）和已完成的
+    // image_generations 记录（四宫格等不写回 storyboards）。不能用 storyboards.local_path，
+    // 视频管线会把同一个字段写成视频路径。
     storyboards = db.prepare(
-      `SELECT id, storyboard_number, description, image_prompt FROM storyboards
-       WHERE episode_id = ? AND deleted_at IS NULL
-       ORDER BY storyboard_number ASC, id ASC`
+      `SELECT s.id, s.storyboard_number, s.description, s.image_prompt, s.image_url,
+              EXISTS (
+                SELECT 1 FROM image_generations ig
+                WHERE ig.storyboard_id = s.id
+                  AND ig.status = 'completed'
+                  AND ig.deleted_at IS NULL
+                  AND (TRIM(COALESCE(ig.local_path, '')) != '' OR TRIM(COALESCE(ig.image_url, '')) != '')
+              ) AS has_generated_image
+       FROM storyboards s
+       WHERE s.episode_id = ? AND s.deleted_at IS NULL
+       ORDER BY s.storyboard_number ASC, s.id ASC`
     ).all(resolvedId).map((row) => ({
       id: row.id,
       number: row.storyboard_number,
       summary: clip(row.description || row.image_prompt || '', 200),
-      hasImage: false,
+      hasImage: Boolean(String(row.image_url || '').trim()) || Boolean(row.has_generated_image),
     }));
   }
 
