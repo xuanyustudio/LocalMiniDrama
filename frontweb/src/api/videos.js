@@ -27,6 +27,17 @@ export const videosAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  /**
+   * 粘贴远程链接：由服务端下载视频并替换分镜视频。
+   * @param {{ url: string, storyboardId: number|string, prompt?: string }} opts
+   */
+  fetchRemote(opts = {}) {
+    return request.post('/videos/fetch-remote', {
+      url: String(opts.url || ''),
+      storyboard_id: Number(opts.storyboardId),
+      prompt: opts.prompt || '远程链接下载',
+    })
+  },
   /** 签发插件上传凭证（后端 HMAC 签名），返回 { storyboard_id, ts, nonce, sign, expires_in } */
   extensionCredential(storyboardId) {
     return request.post('/videos/extension-credential', { storyboard_id: Number(storyboardId) })

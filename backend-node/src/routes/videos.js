@@ -9,7 +9,59 @@ const { loadConfig } = require('../config');
 const { normalizeAspectRatioForApi } = require('../services/videoClient');
 
 function routes(db, log) {
-  /** 手动/插件上传视频：保存文件 → 写入 video_generations(completed) → 回写分镜主视频 */
+  /** 把视频 Buffer 落盘 → 写入 video_generations(completed) → 回写分镜主视频 */
+  const storeVideoForStoryboard = (storyboardId, file, { provider, prompt }) => {
+    const sbRow = db.prepare('SELECT id, episode_id FROM storyboards WHERE id = ? AND deleted_at IS NULL').get(storyboardId);
+    if (!sbRow) {
+      const err = new Error('分镜不存在');
+      err.status = 404;
+      throw err;
+    }
+    // storyboards 没有 drama_id，需通过 episode 关联获取
+    let dramaId = 0;
+    try {
+      const ep = db.prepare('SELECT drama_id FROM episodes WHERE id = ? AND deleted_at IS NULL').get(sbRow.episode_id);
+      dramaId = ep?.drama_id || 0;
+    } catch (_) {}
+    const cfg = loadConfig();
+    const rawStorage = cfg?.storage?.local_path || './data/storage';
+    const storagePath = path.isAbsolute(rawStorage) ? rawStorage : path.join(process.cwd(), rawStorage);
+    const baseUrl = (cfg?.storage?.base_url || '').replace(/\/$/, '');
+    const projectSubdir = dramaId ? storageLayout.getProjectStorageSubdir(db, dramaId) : null;
+    const result = uploadService.uploadFile(
+      storagePath,
+      baseUrl,
+      log,
+      file.buffer,
+      file.originalname || 'video.mp4',
+      file.mimetype,
+      'videos',
+      projectSubdir
+    );
+    const now = new Date().toISOString();
+    // 写入一条已完成的 video_generations 记录，便于前端「历史视频」切换
+    db.prepare(
+      `INSERT INTO video_generations
+        (drama_id, storyboard_id, provider, prompt, video_url, local_path, status, completed_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?)`
+    ).run(dramaId, storyboardId, provider, prompt, result.url || null, result.local_path, now, now, now);
+    const videoGenId = db.prepare('SELECT last_insert_rowid() as id').get().id;
+    // 回写分镜主视频地址，合成视频时直接采用
+    try {
+      db.prepare('UPDATE storyboards SET video_url = ?, local_path = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL')
+        .run(result.url || null, result.local_path, now, storyboardId);
+    } catch (_) {}
+    const item = videoService.getById(db, videoGenId);
+    log.info('Video stored for storyboard', { provider, storyboard_id: storyboardId, video_gen_id: videoGenId, local_path: result.local_path });
+    return item || { id: videoGenId, status: 'completed', video_url: result.url, local_path: result.local_path };
+  };
+
+  const respondStoreError = (res, err, fallback) => {
+    if (err && err.status === 404) return response.notFound(res, err.message);
+    return response.internalError(res, (err && err.message) || fallback);
+  };
+
+  /** 手动/插件上传视频 */
   const persistUploadedVideo = (req, res, { provider, prompt }) => {
     try {
       if (!req.file || !req.file.buffer) {
@@ -20,50 +72,11 @@ function routes(db, log) {
       if (!storyboardId || storyboardId <= 0) {
         return response.badRequest(res, 'storyboard_id 必填');
       }
-      const sbRow = db.prepare('SELECT id, episode_id FROM storyboards WHERE id = ? AND deleted_at IS NULL').get(storyboardId);
-      if (!sbRow) {
-        return response.notFound(res, '分镜不存在');
-      }
-      // storyboards 没有 drama_id，需通过 episode 关联获取
-      let dramaId = 0;
-      try {
-        const ep = db.prepare('SELECT drama_id FROM episodes WHERE id = ? AND deleted_at IS NULL').get(sbRow.episode_id);
-        dramaId = ep?.drama_id || 0;
-      } catch (_) {}
-      const cfg = loadConfig();
-      const rawStorage = cfg?.storage?.local_path || './data/storage';
-      const storagePath = path.isAbsolute(rawStorage) ? rawStorage : path.join(process.cwd(), rawStorage);
-      const baseUrl = (cfg?.storage?.base_url || '').replace(/\/$/, '');
-      const projectSubdir = dramaId ? storageLayout.getProjectStorageSubdir(db, dramaId) : null;
-      const result = uploadService.uploadFile(
-        storagePath,
-        baseUrl,
-        log,
-        req.file.buffer,
-        req.file.originalname || 'video.mp4',
-        req.file.mimetype,
-        'videos',
-        projectSubdir
-      );
-      const now = new Date().toISOString();
-      // 写入一条已完成的 video_generations 记录，便于前端「历史视频」切换
-      db.prepare(
-        `INSERT INTO video_generations
-          (drama_id, storyboard_id, provider, prompt, video_url, local_path, status, completed_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?)`
-      ).run(dramaId, storyboardId, provider, prompt, result.url || null, result.local_path, now, now, now);
-      const videoGenId = db.prepare('SELECT last_insert_rowid() as id').get().id;
-      // 回写分镜主视频地址，合成视频时直接采用
-      try {
-        db.prepare('UPDATE storyboards SET video_url = ?, local_path = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL')
-          .run(result.url || null, result.local_path, now, storyboardId);
-      } catch (_) {}
-      const item = videoService.getById(db, videoGenId);
-      log.info('Video uploaded for storyboard', { provider, storyboard_id: storyboardId, video_gen_id: videoGenId, local_path: result.local_path });
-      response.created(res, item || { id: videoGenId, status: 'completed', video_url: result.url, local_path: result.local_path });
+      const item = storeVideoForStoryboard(storyboardId, req.file, { provider, prompt });
+      response.created(res, item);
     } catch (err) {
       log.error('videos persistUploadedVideo', { provider, error: err.message });
-      response.internalError(res, err.message || '上传失败');
+      respondStoreError(res, err, '上传失败');
     }
   };
 
@@ -184,6 +197,54 @@ function routes(db, log) {
     },
     /** 手动上传视频替换分镜视频 */
     uploadManual: (req, res) => persistUploadedVideo(req, res, { provider: 'manual', prompt: req.body?.prompt || '手动上传视频' }),
+    /** 粘贴远程链接：服务端直接下载视频并替换分镜视频 */
+    fetchRemote: async (req, res) => {
+      const storyboardId = Number(req.body?.storyboard_id || 0);
+      if (!storyboardId || storyboardId <= 0) {
+        return response.badRequest(res, 'storyboard_id 必填');
+      }
+      const rawUrl = String(req.body?.url || '').trim();
+      let parsed;
+      try {
+        parsed = new URL(rawUrl);
+      } catch (_) {
+        return response.badRequest(res, '请输入合法的视频链接');
+      }
+      if (!/^https?:$/.test(parsed.protocol)) {
+        return response.badRequest(res, '仅支持 http/https 链接');
+      }
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+      try {
+        const dl = await fetch(rawUrl, { method: 'GET', redirect: 'follow', signal: controller.signal });
+        if (!dl.ok) {
+          return response.badRequest(res, `下载失败（HTTP ${dl.status}）`);
+        }
+        const contentType = String(dl.headers.get('content-type') || '');
+        if (/^text\/|json|html/i.test(contentType)) {
+          return response.badRequest(res, '该链接返回的不是视频文件');
+        }
+        const buffer = Buffer.from(await dl.arrayBuffer());
+        if (!buffer.length) {
+          return response.badRequest(res, '下载到的文件为空');
+        }
+        const base = path.basename(parsed.pathname) || 'remote_video';
+        const originalname = /\.[a-z0-9]{2,5}$/i.test(base) ? base : `${base}.mp4`;
+        const item = storeVideoForStoryboard(
+          storyboardId,
+          { buffer, originalname, mimetype: contentType || 'video/mp4' },
+          { provider: 'remote_url', prompt: req.body?.prompt || '远程链接下载' }
+        );
+        response.created(res, item);
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          return response.badRequest(res, '下载超时，请检查链接是否可访问');
+        }
+        log.error('videos fetchRemote', { error: err.message });
+        respondStoreError(res, err, '下载失败');
+      }
+    },
     /** 签发插件上传凭证：{ storyboard_id } → { storyboard_id, ts, nonce, sign, expires_in } */
     extensionCredential: (req, res) => {
       try {

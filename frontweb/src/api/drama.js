@@ -26,6 +26,10 @@ export const dramaAPI = {
   saveOutline(id, data) {
     return request.put(`/dramas/${id}/outline`, data)
   },
+  /** AI 生成抖音标题与话题标签，返回 { title, titles, tags } */
+  generateDouyinMeta(id) {
+    return request.post(`/dramas/${id}/douyin-meta`, {})
+  },
   saveProgress(id, data) {
     return request.put(`/dramas/${id}/progress`, data)
   },

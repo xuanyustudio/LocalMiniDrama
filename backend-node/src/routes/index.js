@@ -80,6 +80,21 @@ function setupRouter(cfg, db, log) {
   r.get('/dramas/examples', drama.listExamples);
   r.post('/dramas/import-example', drama.importExample);
   r.put('/dramas/:id/outline', drama.saveOutline);
+  // 生成抖音标题与话题标签
+  r.post('/dramas/:id/douyin-meta', async (req, res) => {
+    const douyinMetaService = require('../services/douyinMetaService');
+    try {
+      const result = await douyinMetaService.generateDouyinMeta(db, log, req.params.id);
+      if (!result) return response.notFound(res, '剧本不存在');
+      response.success(res, result);
+    } catch (err) {
+      log.error('dramas/douyin-meta', { error: err.message });
+      if (err.message && err.message.includes('未配置')) {
+        return response.badRequest(res, err.message);
+      }
+      response.internalError(res, err.message || '生成抖音标题失败');
+    }
+  });
   r.get('/dramas/:id/characters', drama.getCharacters);
   r.put('/dramas/:id/characters', drama.saveCharacters);
   r.put('/dramas/:id/episodes', drama.saveEpisodes);
@@ -253,6 +268,7 @@ function setupRouter(cfg, db, log) {
   r.get('/videos', videos.list);
   r.post('/videos', videos.create);
   r.post('/videos/upload-manual', uploadModule.multerVideoSingle, videos.uploadManual);
+  r.post('/videos/fetch-remote', videos.fetchRemote);
   r.post('/videos/extension-credential', videos.extensionCredential);
   // 签名校验必须在 multer 之前，非法请求不占用内存/落盘
   r.post('/videos/upload-extension', videos.verifyExtensionUpload, uploadModule.multerVideoSingle, videos.uploadExtension);

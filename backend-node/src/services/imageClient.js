@@ -881,6 +881,7 @@ function resolveImageRef(value, filesBaseUrl, storageLocalPath) {
   }
 
   let relPath = null;
+  if (s.startsWith('data:')) return s;
   if (s.startsWith('http://') || s.startsWith('https://')) {
     if (!isLocalhost || !storageLocalPath) return s;
     // 从 URL 中提取 /static/ 之后的相对路径；或去掉 baseUrl 前缀
@@ -890,7 +891,8 @@ function resolveImageRef(value, filesBaseUrl, storageLocalPath) {
     if (afterStatic) relPath = afterStatic.replace(/^\//, '');
     else return s;
   } else if (storageLocalPath) {
-    relPath = s.replace(/^\//, '');
+    // 兼容误传的 "/static/xxx" 形式，统一转成存储根目录下的相对路径
+    relPath = s.replace(/^\//, '').replace(/^static\//, '');
   }
   if (!relPath) return toPublicUrl(s);
   const filePath = path.join(storageLocalPath, relPath);

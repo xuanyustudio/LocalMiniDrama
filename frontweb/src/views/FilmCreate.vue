@@ -1581,6 +1581,9 @@
                 <el-tooltip content="手动上传本地视频替换当前分镜视频" placement="top">
                   <el-button size="small" :loading="uploadingSbVideoId === sb.id" @click="onUploadSbVideoClick(sb)">上传替换</el-button>
                 </el-tooltip>
+                <el-tooltip content="粘贴远程视频链接，由服务端下载后替换当前分镜视频" placement="top">
+                  <el-button size="small" :loading="fetchingRemoteSbVideoId === sb.id" @click="onFetchRemoteSbVideo(sb)">链接替换</el-button>
+                </el-tooltip>
                 <template v-if="!isSbUniversalMode(sb.id)">
                   <el-tooltip content="复制该分镜的视频生成提示词" placement="top">
                     <el-button size="small" @click="copySbVideoPrompt(sb)">复制提示词</el-button>
@@ -1727,6 +1730,126 @@
           />
         </div>
       </section>
+
+      <!-- 9. 封面与抖音信息 -->
+      <section id="anchor-cover" class="section card">
+        <h2 class="section-title">封面与抖音信息</h2>
+
+        <div class="cover-meta-block">
+          <div class="cover-meta-head">
+            <span class="cover-meta-label">短剧封面</span>
+            <div class="cover-meta-actions">
+              <el-button
+                size="small"
+                :loading="coverLoading['4:3']"
+                :disabled="!dramaId || coverLoading['4:3']"
+                @click="onGenerateCover('4:3')"
+              >
+                {{ coverImages['4:3'] ? '重新生成 4:3' : '生成 4:3 封面' }}
+              </el-button>
+              <el-button
+                size="small"
+                :loading="coverLoading['3:4']"
+                :disabled="!dramaId || coverLoading['3:4']"
+                @click="onGenerateCover('3:4')"
+              >
+                {{ coverImages['3:4'] ? '重新生成 3:4' : '生成 3:4 封面' }}
+              </el-button>
+            </div>
+          </div>
+          <p class="config-tip">根据当前剧本、角色参考图与画风生成，画面上不添加文字；4:3 适合横版展示，3:4 适合抖音封面。</p>
+          <div class="cover-preview-row">
+            <div class="cover-preview-item">
+              <div class="cover-preview-box cover-preview-box--4-3">
+                <el-image
+                  v-if="coverImages['4:3']"
+                  :src="coverImages['4:3']"
+                  fit="cover"
+                  :preview-src-list="[coverImages['4:3']]"
+                  preview-teleported
+                />
+                <div v-else class="cover-preview-empty">{{ coverLoading['4:3'] ? '生成中...' : '暂无封面' }}</div>
+              </div>
+              <div class="cover-preview-meta">
+                <span>4:3 横版</span>
+                <a v-if="coverImages['4:3']" :href="coverImages['4:3']" target="_blank" rel="noopener">查看原图</a>
+              </div>
+            </div>
+            <div class="cover-preview-item">
+              <div class="cover-preview-box cover-preview-box--3-4">
+                <el-image
+                  v-if="coverImages['3:4']"
+                  :src="coverImages['3:4']"
+                  fit="cover"
+                  :preview-src-list="[coverImages['3:4']]"
+                  preview-teleported
+                />
+                <div v-else class="cover-preview-empty">{{ coverLoading['3:4'] ? '生成中...' : '暂无封面' }}</div>
+              </div>
+              <div class="cover-preview-meta">
+                <span>3:4 竖版</span>
+                <a v-if="coverImages['3:4']" :href="coverImages['3:4']" target="_blank" rel="noopener">查看原图</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cover-meta-block">
+          <div class="cover-meta-head">
+            <span class="cover-meta-label">抖音标题与标签</span>
+            <el-button
+              size="small"
+              :loading="douyinMetaGenerating"
+              :disabled="!dramaId || douyinMetaGenerating"
+              @click="onGenerateDouyinMeta"
+            >
+              {{ douyinMeta.titles.length ? '重新生成' : 'AI 生成' }}
+            </el-button>
+          </div>
+          <template v-if="douyinMeta.titles.length || douyinMeta.tags.length">
+            <div class="douyin-title-row">
+              <el-input v-model="douyinMeta.title" maxlength="40" show-word-limit placeholder="抖音标题" />
+              <el-button size="small" @click="copyDouyinTitle">复制标题</el-button>
+            </div>
+            <div v-if="douyinMeta.titles.length > 1" class="douyin-title-alts">
+              <span class="douyin-title-alts-label">备选标题：</span>
+              <el-tag
+                v-for="(t, i) in douyinMeta.titles"
+                :key="i"
+                size="small"
+                :type="douyinMeta.title === t ? 'primary' : 'info'"
+                effect="plain"
+                class="douyin-title-alt"
+                @click="douyinMeta.title = t"
+              >
+                {{ t }}
+              </el-tag>
+            </div>
+            <div class="douyin-tags-row">
+              <el-tag
+                v-for="(tag, i) in douyinMeta.tags"
+                :key="tag + i"
+                size="small"
+                closable
+                @close="removeDouyinTag(i)"
+              >
+                #{{ tag }}
+              </el-tag>
+              <el-input
+                v-model="douyinTagInput"
+                size="small"
+                class="douyin-tag-input"
+                placeholder="输入标签后回车"
+                @keyup.enter="addDouyinTag"
+                @blur="addDouyinTag"
+              />
+              <el-button size="small" :disabled="!douyinMeta.tags.length" @click="copyDouyinTags">复制标签</el-button>
+            </div>
+          </template>
+          <p v-else class="config-tip">AI 会根据短剧剧情生成适合抖音发布的标题与话题标签。</p>
+        </div>
+      </section>
+
     </main>
 
     <!-- 添加道具弹窗 -->
@@ -3148,6 +3271,13 @@ const navSteps = computed(() => {
     { key: 'sb',       label: '分镜脚本',   anchor: 'anchor-storyboard', status: sbScriptStatus,  count: sbList.length },
     { key: 'sbimg',    label: '分镜图',      anchor: 'anchor-storyboard', status: sbImgStatus,     count: sbList.length },
     { key: 'video',    label: '分镜视频',   anchor: 'anchor-video',      status: videoStatus,     count: 0 },
+    {
+      key: 'cover',
+      label: '封面/抖音',
+      anchor: 'anchor-cover',
+      status: (coverImages['4:3'] && coverImages['3:4']) ? 'done' : (coverImages['4:3'] || coverImages['3:4']) ? 'partial' : 'pending',
+      count: 0
+    },
   ]
 })
 
@@ -3343,6 +3473,8 @@ const sbImageUploadForId = ref(null)
 const uploadingSbVideoId = ref(null)
 const sbVideoFileInput = ref(null)
 const sbVideoUploadForId = ref(null)
+// 分镜远程链接替换（服务端下载）
+const fetchingRemoteSbVideoId = ref(null)
 // 浏览器插件「发送任务」：扩展 ID 固定；分镜 -> 'sending' | 'sent'
 const EXTENSION_ID = 'ekoobmaofgcmaipkhjpbggofhkilponh'
 const sbTaskStatus = ref({})
@@ -4866,6 +4998,40 @@ function onSbVideoFileChange(ev) {
   })
 }
 
+// 粘贴远程视频链接，由服务端下载后替换当前分镜视频
+async function onFetchRemoteSbVideo(sb) {
+  if (!sb?.id) return
+  let url = ''
+  try {
+    const { value } = await ElMessageBox.prompt('粘贴视频直链（http/https），由服务端下载后替换当前分镜视频', '链接替换', {
+      confirmButtonText: '下载替换',
+      cancelButtonText: '取消',
+      inputPlaceholder: 'https://example.com/video.mp4',
+      inputValidator: (v) => (/^https?:\/\/\S+$/i.test(String(v || '').trim()) ? true : '请输入 http/https 开头的视频链接'),
+    })
+    url = String(value || '').trim()
+  } catch (_) {
+    return
+  }
+  fetchingRemoteSbVideoId.value = sb.id
+  try {
+    await videosAPI.fetchRemote({ url, storyboardId: sb.id })
+    ElMessage.success('视频下载完成，已替换当前分镜视频')
+    // 清除前端选中，让合成时自动取最新视频
+    if (sbSelectedVideoId.value[sb.id] != null) {
+      const next = { ...sbSelectedVideoId.value }
+      delete next[sb.id]
+      sbSelectedVideoId.value = next
+    }
+    await loadSingleStoryboardMedia(sb.id)
+    restoreSelectionsFromBackend()
+  } catch (e) {
+    ElMessage.error(e.message || '下载失败')
+  } finally {
+    fetchingRemoteSbVideoId.value = null
+  }
+}
+
 function syncStoryboardStateFromEpisode(ep) {
   const boards = ep?.storyboards || []
   const nextCharIds = {}
@@ -5008,6 +5174,7 @@ async function loadDrama() {
     syncStoryboardStateFromEpisode(ep)
     await loadStoryboardMedia()
     await recoverAndSyncEpisodeTasks(ep?.id)
+    loadCovers()
   } catch (e) {
     ElMessage.error(e.message || '加载失败')
   }
@@ -8831,6 +8998,189 @@ watch(
     }
   }
 )
+
+// ── 封面与抖音信息 ────────────────────────────────────────────────
+const COVER_RATIOS = ['4:3', '3:4']
+const COVER_FRAME_TYPES = { '4:3': 'cover_4_3', '3:4': 'cover_3_4' }
+const coverImages = reactive({ '4:3': '', '3:4': '' })
+const coverLoading = reactive({ '4:3': false, '3:4': false })
+const douyinMeta = reactive({ title: '', titles: [], tags: [] })
+const douyinMetaGenerating = ref(false)
+const douyinTagInput = ref('')
+
+const COVER_REF_LIMIT = 3
+const COVER_PROMPT_MAX_SCRIPT_CHARS = 600
+
+/** 主角优先排序角色列表 */
+function sortCharactersByRole(list) {
+  const rank = (c) => (c?.role === 'main' ? 0 : c?.role === 'supporting' ? 1 : 2)
+  return [...(list || [])].sort((a, b) => rank(a) - rank(b))
+}
+
+/** 角色参考图：优先返回本地相对路径（不带 /static/ 前缀），由后端读取文件转 base64 后上传图片接口 */
+function coverCharacterRefUrl(char) {
+  const stripStatic = (v) => String(v).trim().replace(/^\/+/, '').replace(/^static\//, '')
+  const local = String(char?.local_path || '').trim()
+  if (local) return stripStatic(local)
+  const ref = String(char?.ref_image || '').trim()
+  if (ref) return ref.startsWith('http') || ref.startsWith('data:') ? ref : stripStatic(ref)
+  return String(char?.image_url || '').trim()
+}
+
+/** 取最多 3 张角色参考图（主角色优先），用于保持封面人物形象一致 */
+function buildCoverReferenceImages() {
+  const urls = []
+  for (const char of sortCharactersByRole(store.characters)) {
+    const url = coverCharacterRefUrl(char)
+    if (url && !urls.includes(url)) urls.push(url)
+    if (urls.length >= COVER_REF_LIMIT) break
+  }
+  return urls
+}
+
+/** 剧本信息：优先当前分集剧本，其次分集梗概，最后分镜要点 */
+function coverStoryContext() {
+  const ep = currentEpisode.value || {}
+  const parts = []
+  if (ep.title) parts.push(`本集：${ep.title}`)
+  const script = String(scriptContent.value || ep.script_content || '').replace(/\s+/g, ' ').trim()
+  if (script) {
+    parts.push(script.slice(0, COVER_PROMPT_MAX_SCRIPT_CHARS))
+  } else {
+    const desc = String(ep.description || store.drama?.description || '').replace(/\s+/g, ' ').trim()
+    if (desc) parts.push(desc.slice(0, COVER_PROMPT_MAX_SCRIPT_CHARS))
+  }
+  if (parts.length < 2) {
+    const sbDesc = (store.storyboards || [])
+      .map((s) => String(s.description || s.image_prompt || '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .join('；')
+    if (sbDesc) parts.push(`分镜要点：${sbDesc.slice(0, COVER_PROMPT_MAX_SCRIPT_CHARS)}`)
+  }
+  return parts.join('。')
+}
+
+/** 拼接封面提示词：包含剧本信息与主要角色设定，强调吸引力与视觉冲击 */
+function buildCoverPrompt(ratio) {
+  const d = store.drama || {}
+  const parts = []
+  if (d.title) parts.push(`抖音短剧《${d.title}》的高点击率封面海报`)
+  if (d.genre) parts.push(`题材：${d.genre}`)
+  const story = coverStoryContext()
+  if (story) parts.push(`剧本信息：${story}`)
+  const charInfo = sortCharactersByRole(store.characters)
+    .slice(0, 3)
+    .map((c) => {
+      const role = c.role === 'main' ? '主角' : c.role === 'supporting' ? '配角' : ''
+      const look = String(c.appearance || c.description || '').replace(/\s+/g, ' ').trim().slice(0, 80)
+      return [c.name, role, look].filter(Boolean).join(' ')
+    })
+  if (charInfo.length) parts.push(`主要角色：${charInfo.join('；')}`)
+  const styleZh = getSelectedStylePromptZh()
+  if (styleZh) parts.push(`画风：${styleZh}`)
+  parts.push(ratio === '4:3' ? '横向 4:3 构图' : '竖向 3:4 竖屏构图')
+  parts.push('画面必须具有强烈视觉冲击力和情绪张力：人物眼神直视镜头、表情有戏、戏剧化明暗对比、高饱和电影级调色、浅景深层次，突出核心冲突与反转爽感')
+  parts.push('人物的脸型、发型、服装与气质必须与提供的角色参考图保持一致')
+  parts.push('整张图是一幅完整连续的封面画面，禁止分屏、拼贴或多图并排')
+  parts.push('主体居中偏上，画面中不要出现任何 logo 或水印')
+  return parts.join('，')
+}
+
+/** 拉取指定比例最新一张已完成封面，写入 coverImages 并返回地址 */
+async function loadCover(ratio) {
+  if (!dramaId.value) return ''
+  try {
+    const res = await imagesAPI.list({
+      drama_id: dramaId.value,
+      frame_type: COVER_FRAME_TYPES[ratio],
+      page: 1,
+      page_size: 5,
+    })
+    const item = (res?.items || []).find((it) => it.image_url || it.local_path)
+    if (item) {
+      coverImages[ratio] = assetImageUrl(item)
+      return coverImages[ratio]
+    }
+  } catch (_) {}
+  return ''
+}
+
+async function loadCovers() {
+  await Promise.all(COVER_RATIOS.map((ratio) => loadCover(ratio)))
+}
+
+async function onGenerateCover(ratio) {
+  if (!dramaId.value || coverLoading[ratio]) return
+  coverLoading[ratio] = true
+  try {
+    const referenceImages = buildCoverReferenceImages()
+    const res = await imagesAPI.create({
+      drama_id: dramaId.value,
+      prompt: buildCoverPrompt(ratio),
+      style: getSelectedStyle(),
+      aspect_ratio: ratio,
+      frame_type: COVER_FRAME_TYPES[ratio],
+      reference_images: referenceImages.length ? referenceImages : undefined,
+    })
+    if (!res?.task_id) throw new Error('封面任务创建失败')
+    const pollRes = await pollTask(res.task_id, null, { label: `${ratio} 封面` })
+    if (pollRes?.status !== 'completed') throw new Error(pollRes?.error || '封面生成失败')
+    const url = await loadCover(ratio)
+    if (!url) throw new Error('封面已生成，但未能获取图片地址')
+    ElMessage.success(`${ratio} 封面已生成`)
+  } catch (e) {
+    ElMessage.error(e?.message || '封面生成失败')
+  } finally {
+    coverLoading[ratio] = false
+  }
+}
+
+async function onGenerateDouyinMeta() {
+  if (!dramaId.value || douyinMetaGenerating.value) return
+  douyinMetaGenerating.value = true
+  try {
+    const res = await dramaAPI.generateDouyinMeta(dramaId.value)
+    const titles = Array.isArray(res?.titles) ? res.titles.filter(Boolean) : []
+    const tags = Array.isArray(res?.tags) ? res.tags.filter(Boolean) : []
+    if (!titles.length && !tags.length) throw new Error('AI 未返回有效内容，请重试')
+    douyinMeta.titles = titles
+    douyinMeta.tags = tags
+    douyinMeta.title = res?.title || titles[0] || ''
+    ElMessage.success('抖音标题与标签已生成')
+  } catch (e) {
+    ElMessage.error(e?.message || '生成失败')
+  } finally {
+    douyinMetaGenerating.value = false
+  }
+}
+
+async function copyDouyinTitle() {
+  const text = (douyinMeta.title || '').trim()
+  if (!text) {
+    ElMessage.warning('请先填写标题')
+    return
+  }
+  const ok = await copyTextToClipboard(text)
+  ok ? ElMessage.success('标题已复制') : ElMessage.error('复制失败')
+}
+
+async function copyDouyinTags() {
+  if (!douyinMeta.tags.length) return
+  const text = douyinMeta.tags.map((t) => `#${t}`).join(' ')
+  const ok = await copyTextToClipboard(text)
+  ok ? ElMessage.success('标签已复制') : ElMessage.error('复制失败')
+}
+
+function addDouyinTag() {
+  const v = String(douyinTagInput.value || '').replace(/^#+/, '').replace(/\s+/g, '').trim()
+  douyinTagInput.value = ''
+  if (!v) return
+  if (!douyinMeta.tags.includes(v)) douyinMeta.tags.push(v)
+}
+
+function removeDouyinTag(i) {
+  douyinMeta.tags.splice(i, 1)
+}
 </script>
 
 <style scoped>
@@ -11469,5 +11819,111 @@ html.light .frame-layout-anchor {
   color: #64748b;
   margin-top: 4px;
   line-height: 1.4;
+}
+
+/* 封面与抖音信息 */
+.cover-meta-block {
+  padding: 16px 0;
+  border-top: 1px dashed var(--el-border-color);
+}
+.cover-meta-block:first-of-type {
+  padding-top: 8px;
+  border-top: none;
+}
+.cover-meta-block:last-child {
+  padding-bottom: 0;
+}
+.cover-meta-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cover-meta-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+.cover-meta-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cover-preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+}
+.cover-preview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cover-preview-box {
+  width: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cover-preview-box--4-3 {
+  aspect-ratio: 4 / 3;
+}
+.cover-preview-box--3-4 {
+  aspect-ratio: 3 / 4;
+}
+.cover-preview-box .el-image {
+  width: 100%;
+  height: 100%;
+}
+.cover-preview-empty {
+  font-size: 12px;
+  color: var(--el-text-color-placeholder);
+}
+.cover-preview-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.cover-preview-meta a {
+  color: var(--el-color-primary);
+  text-decoration: none;
+}
+.douyin-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.douyin-title-alts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.douyin-title-alts-label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.douyin-title-alt {
+  cursor: pointer;
+}
+.douyin-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.douyin-tag-input {
+  width: 150px;
 }
 </style>
