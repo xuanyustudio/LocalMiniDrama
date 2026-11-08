@@ -390,7 +390,7 @@ function omniDurationString(modelName, durationNum) {
 /**
  * 本地/内网图 → base64（图床上传失败时的兜底，与可灵 I2V 一致）
  */
-function resolveImageInputForOmniLocalBase64(rawUrl, files_base_url, storage_local_path, log, video_gen_id) {
+async function resolveImageInputForOmniLocalBase64(rawUrl, files_base_url, storage_local_path, log, video_gen_id) {
   const raw = (rawUrl || '').trim();
   if (!raw) return null;
   if (raw.startsWith('data:')) return raw;
@@ -401,15 +401,15 @@ function resolveImageInputForOmniLocalBase64(rawUrl, files_base_url, storage_loc
     if (relPath) {
       const filePath = path.join(storage_local_path, relPath);
       try {
-        if (fs.existsSync(filePath)) {
-          const buf = fs.readFileSync(filePath);
-          const ext = path.extname(filePath).toLowerCase();
-          const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[ext] || 'image/jpeg';
-          log.info('[KlingOmni] 图床失败兜底 → base64', { file: filePath, video_gen_id });
-          return 'data:' + mime + ';base64,' + buf.toString('base64');
-        }
+        const buf = await fs.promises.readFile(filePath);
+        const ext = path.extname(filePath).toLowerCase();
+        const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[ext] || 'image/jpeg';
+        log.info('[KlingOmni] 图床失败兜底 → base64', { file: filePath, video_gen_id });
+        return 'data:' + mime + ';base64,' + buf.toString('base64');
       } catch (e) {
-        log.warn('[KlingOmni] 读本地图失败', { error: e.message, video_gen_id });
+        if (e && e.code !== 'ENOENT') {
+          log.warn('[KlingOmni] 读本地图失败', { error: e.message, video_gen_id });
+        }
       }
     }
   }
@@ -462,7 +462,7 @@ async function resolveVolcOmniImageAsync(rawUrl, files_base_url, storage_local_p
   if (isPublicHttp) return raw;
 
   if (storage_local_path && !useImageProxyForVideo()) {
-    const b64 = resolveVolcClassicImage(raw, files_base_url, storage_local_path, log, video_gen_id, `ref_${index}`);
+    const b64 = await resolveVolcClassicImage(raw, files_base_url, storage_local_path, log, video_gen_id, `ref_${index}`);
     if (b64 && String(b64).startsWith('data:')) {
       log.info('[VolcOmni] 本地参考图 → base64（image_proxy.use_for_video 未启用）', { video_gen_id, index });
       return b64;
@@ -690,15 +690,13 @@ async function callVolcengineOmniVideoApi(config, log, opts) {
         if (relPath) {
           const filePath = path.join(storage_local_path, relPath);
           try {
-            if (fs.existsSync(filePath)) {
-              const buf = fs.readFileSync(filePath);
-              const ext = path.extname(filePath).toLowerCase();
-              const mime =
-                { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.bmp': 'image/bmp' }[
-                  ext
-                ] || 'image/png';
-              u = 'data:' + mime + ';base64,' + buf.toString('base64');
-            }
+            const buf = await fs.promises.readFile(filePath);
+            const ext = path.extname(filePath).toLowerCase();
+            const mime =
+              { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.bmp': 'image/bmp' }[
+                ext
+              ] || 'image/png';
+            u = 'data:' + mime + ';base64,' + buf.toString('base64');
           } catch (_) {}
         }
       }
@@ -724,13 +722,11 @@ async function callVolcengineOmniVideoApi(config, log, opts) {
         if (relPath) {
           const filePath = path.join(storage_local_path, relPath);
           try {
-            if (fs.existsSync(filePath)) {
-              const buf = fs.readFileSync(filePath);
-              const ext = path.extname(filePath).toLowerCase();
-              const mime =
-                { '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg' }[ext] || 'audio/mpeg';
-              voiceUrl = 'data:' + mime + ';base64,' + buf.toString('base64');
-            }
+            const buf = await fs.promises.readFile(filePath);
+            const ext = path.extname(filePath).toLowerCase();
+            const mime =
+              { '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg' }[ext] || 'audio/mpeg';
+            voiceUrl = 'data:' + mime + ';base64,' + buf.toString('base64');
           } catch (_) {}
         }
       }
@@ -1511,16 +1507,16 @@ async function callKlingVideoApi(config, log, opts) {
       if (relPath) {
         const filePath = require('path').join(storage_local_path, relPath);
         try {
-          if (require('fs').existsSync(filePath)) {
-            const buf = require('fs').readFileSync(filePath);
-            const ext = require('path').extname(filePath).toLowerCase();
-            const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[ext] || 'image/jpeg';
-            imageInput = 'data:' + mime + ';base64,' + buf.toString('base64');
-            log.info('[Kling视频] 本地图片 → base64', { file: filePath, size_kb: Math.round(buf.length / 1024), video_gen_id });
-          }
+          const buf = await fs.promises.readFile(filePath);
+          const ext = path.extname(filePath).toLowerCase();
+          const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[ext] || 'image/jpeg';
+          imageInput = 'data:' + mime + ';base64,' + buf.toString('base64');
+          log.info('[Kling视频] 本地图片 → base64', { file: filePath, size_kb: Math.round(buf.length / 1024), video_gen_id });
         } catch (e) {
-          log.warn('[Kling视频] 读取本地图片失败', { error: e.message, video_gen_id });
-          imageInput = rawImgUrl;
+          if (e && e.code !== 'ENOENT') {
+            log.warn('[Kling视频] 读取本地图片失败', { error: e.message, video_gen_id });
+            imageInput = rawImgUrl;
+          }
         }
       }
     } else {
@@ -1670,7 +1666,7 @@ async function callDashScopeVideoApi(config, log, opts) {
   }
 
   /** ?????? base_url ? localhost????????????? base64??? DashScope ? download image failed */
-  function toImageInput(value) {
+  async function toImageInput(value) {
     if (!value || !String(value).trim()) return null;
     const s = String(value).trim();
     let relPath = null;
@@ -1685,8 +1681,7 @@ async function callDashScopeVideoApi(config, log, opts) {
     if (!relPath) return toPublicUrl(s);
     const filePath = path.join(storage_local_path, relPath);
     try {
-      if (!fs.existsSync(filePath)) return toPublicUrl(s);
-      const buf = fs.readFileSync(filePath);
+      const buf = await fs.promises.readFile(filePath);
       const ext = path.extname(filePath).toLowerCase();
       const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.bmp': 'image/bmp' }[ext] || 'image/png';
       return 'data:' + mime + ';base64,' + buf.toString('base64');
@@ -1702,8 +1697,8 @@ async function callDashScopeVideoApi(config, log, opts) {
     url = base + DASHSCOPE_IMAGE2VIDEO;
     const firstRaw = (first_frame_url && first_frame_url.trim()) || (image_url && image_url.trim());
     const lastRaw = (last_frame_url && last_frame_url.trim()) || firstRaw;
-    const firstUrl = toImageInput(firstRaw);
-    const lastUrl = toImageInput(lastRaw);
+    const firstUrl = await toImageInput(firstRaw);
+    const lastUrl = await toImageInput(lastRaw);
     if (!firstUrl || !lastUrl) {
       return { error: 'wan2.2-kf2v-flash ?????????' };
     }
@@ -1722,7 +1717,7 @@ async function callDashScopeVideoApi(config, log, opts) {
   } else if (model === 'wan2.6-i2v-flash') {
     url = base + DASHSCOPE_VIDEO_GENERATION;
     const imgRaw = (image_url && image_url.trim()) || (first_frame_url && first_frame_url.trim());
-    const imgUrl = toImageInput(imgRaw);
+    const imgUrl = await toImageInput(imgRaw);
     if (!imgUrl) return { error: 'wan2.6-i2v-flash ??????' };
     body = {
       model,
@@ -1840,12 +1835,10 @@ async function callGeminiVideoApi(config, log, opts) {
       if (relPath) {
         const filePath = path.join(storage_local_path, relPath);
         try {
-          if (fs.existsSync(filePath)) {
-            const buf = fs.readFileSync(filePath);
-            const ext = path.extname(filePath).toLowerCase();
-            mimeType = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[ext] || 'image/jpeg';
-            imageB64 = buf.toString('base64');
-          }
+          const buf = await fs.promises.readFile(filePath);
+          const ext = path.extname(filePath).toLowerCase();
+          mimeType = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[ext] || 'image/jpeg';
+          imageB64 = buf.toString('base64');
         } catch (_) {}
       }
     } else {
@@ -1970,7 +1963,9 @@ async function loadViduReferenceImageBuffer(rawImgUrl, publicImgUrl, storage_loc
       const afterStatic = raw.split('/static/')[1];
       if (afterStatic) {
         const localFile = path.join(storage_local_path, afterStatic.replace(/^\//, ''));
-        if (fs.existsSync(localFile)) buf = fs.readFileSync(localFile);
+        try {
+          buf = await fs.promises.readFile(localFile);
+        } catch (_) {}
       }
     }
     if (!buf) {
@@ -2374,14 +2369,21 @@ async function resolveVeo3ImageForApi(rawImgUrl, storage_local_path, log, video_
       const localFile = path.join(storage_local_path, safeRel);
       const resolved = path.resolve(localFile);
       const baseResolved = path.resolve(storage_local_path);
-      if (resolved.startsWith(baseResolved) && fs.existsSync(localFile)) {
-        const buf = fs.readFileSync(localFile);
-        const ext = path.extname(localFile).toLowerCase();
-        const mime = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' }[ext] || 'image/jpeg';
-        const proxyUrl = await uploadToImageProxy(buf, mime, log, tag);
-        if (proxyUrl) return { kind: 'url', value: proxyUrl };
-        log.warn('[视频参考图] 本地图床失败 → base64', { video_gen_id });
-        return { kind: 'data', value: `data:${mime};base64,${buf.toString('base64')}` };
+      if (resolved.startsWith(baseResolved)) {
+        let buf = null;
+        try {
+          buf = await fs.promises.readFile(localFile);
+        } catch (e) {
+          if (!e || e.code !== 'ENOENT') throw e;
+        }
+        if (buf) {
+          const ext = path.extname(localFile).toLowerCase();
+          const mime = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' }[ext] || 'image/jpeg';
+          const proxyUrl = await uploadToImageProxy(buf, mime, log, tag);
+          if (proxyUrl) return { kind: 'url', value: proxyUrl };
+          log.warn('[视频参考图] 本地图床失败 → base64', { video_gen_id });
+          return { kind: 'data', value: `data:${mime};base64,${buf.toString('base64')}` };
+        }
       }
     } catch (e) {
       log.warn('[视频参考图] 读本地文件失败', { error: e.message, video_gen_id });
@@ -2912,8 +2914,13 @@ async function resolveSoraImageToDataUrl(rawUrl, storage_local_path, log, video_
       const afterStatic = raw.split('/static/')[1];
       if (afterStatic) {
         const localFile = path.join(storage_local_path, afterStatic.replace(/^\//, ''));
-        if (fs.existsSync(localFile)) {
-          const buf = fs.readFileSync(localFile);
+        let buf = null;
+        try {
+          buf = await fs.promises.readFile(localFile);
+        } catch (e) {
+          if (!e || e.code !== 'ENOENT') throw e;
+        }
+        if (buf) {
           const ext = path.extname(localFile).toLowerCase();
           const mimeMap = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
           const mime = mimeMap[ext] || 'image/jpeg';
@@ -3085,11 +3092,17 @@ async function callSoraVideoApi(config, log, opts) {
         const afterStatic = rawImgUrl.split('/static/')[1];
         if (afterStatic && storage_local_path) {
           const localFile = path.join(storage_local_path, afterStatic.replace(/^\//, ''));
-          if (fs.existsSync(localFile)) {
-            imageBuffer = fs.readFileSync(localFile);
+          let buf = null;
+          try {
+            buf = await fs.promises.readFile(localFile);
+          } catch (e) {
+            if (!e || e.code !== 'ENOENT') throw e;
+          }
+          if (buf) {
             const ext = path.extname(localFile).toLowerCase();
             const mimeMap = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
             imageMime = mimeMap[ext] || 'image/jpeg';
+            imageBuffer = buf;
             imageFilename = path.basename(localFile);
             log.info('[Sora] ????????', { file: localFile, size_kb: Math.round(imageBuffer.length / 1024), video_gen_id });
           } else {
@@ -3276,21 +3289,19 @@ async function resolveJimengApiImageBuffer(rawUrl, files_base_url, storage_local
     if (relPath) {
       const filePath = path.join(storage_local_path, relPath);
       try {
-        if (fs.existsSync(filePath)) {
-          const buf = fs.readFileSync(filePath);
-          return { buffer: buf, filename: path.basename(filePath) || 'ref_' + index + '.jpg' };
-        }
+        const buf = await fs.promises.readFile(filePath);
+        return { buffer: buf, filename: path.basename(filePath) || 'ref_' + index + '.jpg' };
       } catch (e) {
-        log.warn('[JimengAI] 读本地参考图失败', { error: e.message, video_gen_id, index });
+        if (e && e.code !== 'ENOENT') {
+          log.warn('[JimengAI] 读本地参考图失败', { error: e.message, video_gen_id, index });
+        }
       }
     }
   }
   if (raw.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(raw)) {
     try {
-      if (fs.existsSync(raw)) {
-        const buf = fs.readFileSync(raw);
-        return { buffer: buf, filename: path.basename(raw) || 'ref_' + index + '.jpg' };
-      }
+      const buf = await fs.promises.readFile(raw);
+      return { buffer: buf, filename: path.basename(raw) || 'ref_' + index + '.jpg' };
     } catch (_) {}
   }
   const isPublicHttp = /^https?:\/\//i.test(raw) && !/localhost|127\.0\.0\.1/i.test(raw);
@@ -3806,7 +3817,7 @@ function applySeedance2CertifiedAssetUrlsToVideoOpts(db, log, opts) {
  * 火山经典 Seedance（非 omni）路径：本地图片转 base64（或直传公网 URL）。
  * 同时支持 first_frame / last_frame 专用字段，以及回退到 image_url。
  */
-function resolveVolcClassicImage(rawUrl, files_base_url, storage_local_path, log, video_gen_id, roleHint) {
+async function resolveVolcClassicImage(rawUrl, files_base_url, storage_local_path, log, video_gen_id, roleHint) {
   let u = String(rawUrl || '').trim();
   if (!u) return null;
   if (u.startsWith('data:') || u.startsWith('asset://')) return u;
@@ -3833,16 +3844,14 @@ function resolveVolcClassicImage(rawUrl, files_base_url, storage_local_path, log
     if (rel) {
       const filePath = path.join(storage_local_path, rel);
       try {
-        if (fs.existsSync(filePath)) {
-          const buf = fs.readFileSync(filePath);
-          const ext = path.extname(filePath).toLowerCase();
-          const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.bmp': 'image/bmp' }[ext] || 'image/png';
-          const b64 = 'data:' + mime + ';base64,' + buf.toString('base64');
-          if (log && log.info) {
-            log.info('[Volc] 本地首/尾帧已转为 base64 提交', { video_gen_id, role: roleHint, rel: rel.slice(0, 80) });
-          }
-          return b64;
+        const buf = await fs.promises.readFile(filePath);
+        const ext = path.extname(filePath).toLowerCase();
+        const mime = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.bmp': 'image/bmp' }[ext] || 'image/png';
+        const b64 = 'data:' + mime + ';base64,' + buf.toString('base64');
+        if (log && log.info) {
+          log.info('[Volc] 本地首/尾帧已转为 base64 提交', { video_gen_id, role: roleHint, rel: rel.slice(0, 80) });
         }
+        return b64;
       } catch (_) {}
     }
   }
@@ -3955,7 +3964,7 @@ async function callMinimaxH3VideoApi(config, log, opts) {
 
   const rawFirst = (first_frame_url || image_url || '').toString().trim();
   const rawLast = (last_frame_url || '').toString().trim();
-  const firstForApi = resolveVolcClassicImage(
+  const firstForApi = await resolveVolcClassicImage(
     rawFirst,
     files_base_url,
     storage_local_path,
@@ -3965,7 +3974,7 @@ async function callMinimaxH3VideoApi(config, log, opts) {
   );
   let lastForApi = null;
   if (rawLast) {
-    lastForApi = resolveVolcClassicImage(rawLast, files_base_url, storage_local_path, log, video_gen_id, 'last_frame');
+    lastForApi = await resolveVolcClassicImage(rawLast, files_base_url, storage_local_path, log, video_gen_id, 'last_frame');
   }
   if (firstForApi && lastForApi && firstForApi === lastForApi) lastForApi = null;
 
@@ -3981,7 +3990,7 @@ async function callMinimaxH3VideoApi(config, log, opts) {
     }
   } else if (refs.length) {
     for (let i = 0; i < Math.min(refs.length, 9); i++) {
-      const refUrl = resolveVolcClassicImage(
+      const refUrl = await resolveVolcClassicImage(
         refs[i],
         files_base_url,
         storage_local_path,
@@ -4361,10 +4370,10 @@ async function callVideoApi(db, log, opts) {
   const rawLast = (last_frame_url || last_frame_local_path || '').toString().trim();
 
   // 使用新 helper 解析（自动处理 localhost → base64、asset:// 直传、公网 URL）
-  const firstForApi = resolveVolcClassicImage(rawFirst, files_base_url || opts.files_base_url, storage_local_path || opts.storage_local_path, log, video_gen_id, 'first_frame');
+  const firstForApi = await resolveVolcClassicImage(rawFirst, files_base_url || opts.files_base_url, storage_local_path || opts.storage_local_path, log, video_gen_id, 'first_frame');
   let lastForApi = null;
   if (rawLast) {
-    lastForApi = resolveVolcClassicImage(rawLast, files_base_url || opts.files_base_url, storage_local_path || opts.storage_local_path, log, video_gen_id, 'last_frame');
+    lastForApi = await resolveVolcClassicImage(rawLast, files_base_url || opts.files_base_url, storage_local_path || opts.storage_local_path, log, video_gen_id, 'last_frame');
   }
 
   // 去重：如果 first 和 last 指向同一资源，只保留 first（极少见）
@@ -4420,7 +4429,7 @@ async function callVideoApi(db, log, opts) {
   // 向后兼容：没有任何 first/last 字段时，单张 image_url 仍按老逻辑作为 first_frame（i2v）
   if (!hasAnyFrame && image_url && image_url.trim()) {
     // 极少数兜底（正常流程不会走到这里，因为 rawFirst 已包含 image_url）
-    const legacy = resolveVolcClassicImage(image_url, files_base_url || opts.files_base_url, storage_local_path || opts.storage_local_path, log, video_gen_id, 'image_url_fallback');
+    const legacy = await resolveVolcClassicImage(image_url, files_base_url || opts.files_base_url, storage_local_path || opts.storage_local_path, log, video_gen_id, 'image_url_fallback');
     if (legacy) {
       const p = { type: 'image_url', image_url: { url: legacy } };
       p.role = 'first_frame';
@@ -4962,4 +4971,6 @@ module.exports = {
   normalizeCheapSeedance2Size,
   cheapSeedance2MaxImages,
   buildCheapSeedance2ContentUrl,
+  resolveVolcClassicImage,
+  loadViduReferenceImageBuffer,
 };
