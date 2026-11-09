@@ -143,7 +143,7 @@ describe('buildAgnesPollUrl (align new-api FetchTask)', () => {
     );
     assert.equal(
       url,
-      'https://apihub.agnes-ai.com/agnesapi?video_id=video_xyz&model_name=agnes-video-2.5'
+      'https://apihub.agnes-ai.com/v1/videos/video_xyz?model_name=agnes-video-2.5'
     );
   });
 
