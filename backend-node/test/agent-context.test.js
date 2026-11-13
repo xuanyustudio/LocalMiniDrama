@@ -4,11 +4,19 @@ const { createAgentTestDb, seedTwoDramas } = require('./helpers/agentTestDb');
 
 describe('agent context', () => {
   it('keeps the current drama boundary', async () => {
-    const { dramaThreadId, resolveEpisode, assertOwned, validateChatBody } = await import('../src/mastra/context.mjs');
+    const { dramaThreadId, resolveEpisode, assertOwned, validateChatBody, resolveChatEpisode } = await import('../src/mastra/context.mjs');
     const db = createAgentTestDb();
     const ids = seedTwoDramas(db);
 
     assert.equal(dramaThreadId(3), 'drama-3');
+
+    const chatEpisode = resolveChatEpisode(db, ids.dramaA, ids.episodeA1);
+    assert.equal(chatEpisode.ok, true);
+    assert.equal(chatEpisode.episodeId, ids.episodeA1);
+
+    const chatNone = resolveChatEpisode(db, ids.dramaA, null);
+    assert.equal(chatNone.ok, true);
+    assert.equal(chatNone.episodeId, null);
 
     const many = resolveEpisode(db, ids.dramaA, null);
     assert.equal(many.ok, false);
