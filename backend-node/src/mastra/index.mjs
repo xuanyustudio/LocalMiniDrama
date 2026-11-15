@@ -254,11 +254,12 @@ export async function streamChat({ dramaId, episodeId, message, writeEvent }) {
   await emitStream(output, dramaId, writeEvent);
 }
 
-export async function resumeApproval({ dramaId, runId, toolCallId, approved, writeEvent }) {
+export async function resumeApproval({ dramaId, episodeId, runId, toolCallId, approved, writeEvent }) {
   if (!ready) throw new Error('助手未就绪');
   const requestContext = new RequestContext();
   requestContext.set('dramaId', Number(dramaId));
-  requestContext.set('episodeId', null);
+  // 恢复的运行沿用用户当前的集；不传时保持 null（工具会提示“请指定哪一集”）
+  requestContext.set('episodeId', episodeId == null ? null : Number(episodeId));
   const options = { runId, toolCallId, ...threadOptions(dramaId, requestContext) };
   const output = approved
     ? await agent.approveToolCall(options)
