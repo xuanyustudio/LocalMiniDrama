@@ -53,8 +53,8 @@ export function canUseUniversalOmniVideoApi(cfg) {
   if (proto === 'agnes' || provider === 'agnes' || /agnes-video/.test(model)) {
     return true
   }
-  // 低价 Seedance2（ohmybb）：支持最多 9 张参考图
-  if (provider === 'cheap_seedance2' || /^wb-seedance-2/.test(model) || /^yk-seedance/.test(model) || model === 'minimax-h3-1080p-15s') return true
+  // 低价 Seedance2（ohmybb）：厂商预设全部支持全能多图（2.5 最多 30 张，其余最多 9 张）
+  if (provider === 'cheap_seedance2' || /^wb-seedance-2/.test(model) || /^yk-seedance/.test(model) || /^mb-minimax[-_]?h3/.test(model) || model === 'doubao-seedance-2-0-mini-480p' || model === 'seedance2.5-full-480p' || model === 'mb-seedance2.5-480p') return true
   // Seedance 2.x 家族（含 doubao-seedance-2.5-260628 等新版本）本身支持多图参考，
   // 配置常走标准「火山引擎」协议，不能再误判为不支持而降级（issue #49）
   if (isSeedance2VideoModel(model)) return true
