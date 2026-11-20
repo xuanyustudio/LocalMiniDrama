@@ -8,6 +8,7 @@ const storageLayout = require('./storageLayout');
 const taskService = require('./taskService');
 const { loadConfig } = require('../config');
 const { postJSONWithTimeout } = require('./aiClient');
+const haiGateway = require('../utils/haiGateway');
 const { flattenModelIds, pickModelId } = require('./modelId');
 const seedance2AssetGuards = require('../utils/seedance2AssetGuards');
 
@@ -99,6 +100,7 @@ function inferProtocol(provider, model) {
   if (p === 'kling' || p === 'klingai') return 'kling';
   if (/^kling-/i.test(model || '')) return 'kling';
   if (p === 'agnes' || /agnes-image|apihub\.agnes-ai\.com/i.test(String(model || ''))) return 'agnes';
+  if (p === 'migu' || p === 'hai') return 'hai';
   return 'openai';
 }
 
@@ -1447,6 +1449,89 @@ async function callGeminiImageApi(db, config, log, opts) {
 }
 
 /**
+ * MIGU 私有网关（HAI）生图：MinimaxH3ImageEdit，文生图 + 参考图锁一致性。
+ * 上传参考图 → POST /generate → 轮询 /result → 下载产物（可选 ffmpeg 裁底部水印）→ data URL 返回。
+ * Key/BaseURL：环境变量 HAI_API_KEY / HAI_API_BASE 优先（不落盘），AI 配置兜底。
+ */
+async function callHaiImageApi(config, log, opts) {
+  const { prompt, size, image_gen_id, reference_image_urls, files_base_url, storage_local_path } = opts;
+  const conf = haiGateway.haiImageConf(config);
+  if (!conf.key) {
+    return { error: 'HAI 网关未配置 API Key：请设置环境变量 HAI_API_KEY，或在 AI 配置中填写 Key' };
+  }
+  try {
+    // ① 上传参考图（本地路径 / localhost URL / 公网 URL 统一转 Buffer 后 multipart 上传）
+    const rawRefs = Array.isArray(reference_image_urls) ? reference_image_urls.filter(Boolean) : [];
+    const refFilenames = [];
+    for (const ref of rawRefs.slice(0, 10)) {
+      const resolved = await haiGateway.resolveRefToBuffer(ref, files_base_url, storage_local_path);
+      if (!resolved) {
+        log.warn('[HAI图生] 参考图解析失败，跳过', { image_gen_id, ref: String(ref).slice(0, 120) });
+        continue;
+      }
+      refFilenames.push(await haiGateway.uploadHaiImage(conf, resolved.buffer, 'ig_' + (image_gen_id || 'ref') + '_' + refFilenames.length + '.png', log));
+    }
+
+    // ② 构造 modifications：有参考图 → 画布跟随参考图，不传宽高；纯文生图 → 宽高 32 取整
+    const finalPrompt = refFilenames.length && conf.refPrefix ? conf.refPrefix + (prompt || '') : (prompt || '');
+    const canvas = haiGateway.normalizeHaiImageSize(size);
+    let modifications = {
+      prompt: finalPrompt,
+      megapixels: conf.megapixels,
+      steps: conf.steps,
+      enable_pe: false,
+    };
+    if (refFilenames.length) {
+      modifications.ref_images = refFilenames;
+    } else if (canvas) {
+      modifications.width = canvas.width;
+      modifications.height = canvas.height;
+    }
+
+    // ③ 提交 + 轮询；纯文生图被网关要求显式宽高时按 megapixels 兜 16:9 画布重试一次
+    const retryWithCanvas = async (reason) => {
+      const c = haiGateway.haiMegapixelCanvas(conf.megapixels);
+      log.warn('[HAI图生] 按兆像素兜 16:9 画布重试', { image_gen_id, reason: String(reason).slice(0, 200), width: c.width, height: c.height });
+      const mods = { ...modifications, width: c.width, height: c.height };
+      return haiGateway.submitAndPollHaiTask(conf, {
+        modifier: conf.modifier, modifications: mods, log, label: 'HAI图生', videoGenId: image_gen_id,
+      });
+    };
+    let task = await haiGateway.submitAndPollHaiTask(conf, {
+      modifier: conf.modifier, modifications, log, label: 'HAI图生', videoGenId: image_gen_id,
+    });
+    if ((task.status === 'failed' || task.status === 'error') && !refFilenames.length
+      && /width|height/i.test(String(task.message || ''))) {
+      task = await retryWithCanvas(task.message);
+    }
+    if (task.status !== 'completed') {
+      return { error: 'HAI 图生任务未完成: ' + task.status + ' ' + String(task.message || '').slice(0, 300) };
+    }
+
+    // ④ 下载产物 →（可选）裁底部水印 → data URL 返回，由 imageService 落盘
+    const downloadUrl = haiGateway.extractHaiImageUrl(task);
+    if (!downloadUrl) {
+      return { error: 'HAI 图生任务完成但无图片输出: ' + JSON.stringify(task.output || []).slice(0, 300) };
+    }
+    let buf = await haiGateway.downloadHaiFile(conf, downloadUrl);
+    if (conf.cropWatermarkPx > 0) {
+      buf = haiGateway.cropImageBottomPx(buf, conf.cropWatermarkPx, log) || buf;
+    }
+    log.info('[HAI图生] 完成', {
+      image_gen_id,
+      ref_count: refFilenames.length,
+      request_id: task.request_id,
+      bytes: buf.length,
+      cropped: conf.cropWatermarkPx > 0,
+    });
+    return { image_url: 'data:image/png;base64,' + buf.toString('base64') };
+  } catch (e) {
+    log.error('[HAI图生] 异常', { image_gen_id, error: e.message });
+    return { error: 'HAI 图生失败: ' + e.message };
+  }
+}
+
+/**
  * 调用提供商图片生成 API（OpenAI /images/generations 风格 或 通义万象 multimodal-generation）
  * @param {object} db - database
  * @param {object} log - logger
@@ -1542,6 +1627,15 @@ async function callImageApi(db, log, opts) {
 
   if (protocol === 'kling') {
     return callKlingImageApi(config, log, {
+      prompt: effectivePrompt, model, size, image_gen_id,
+      reference_image_urls: opts.reference_image_urls,
+      files_base_url: opts.files_base_url,
+      storage_local_path: opts.storage_local_path,
+    });
+  }
+
+  if (protocol === 'hai') {
+    return callHaiImageApi(config, log, {
       prompt: effectivePrompt, model, size, image_gen_id,
       reference_image_urls: opts.reference_image_urls,
       files_base_url: opts.files_base_url,
