@@ -48,8 +48,10 @@ function createAgentHandlers(db, log, runtime) {
     const parsed = validateChatBody(db, req.body || {});
     if (!parsed.ok) return response.badRequest(res, parsed.message);
     const { resolveTextModel } = await import('../mastra/model.mjs');
-    const model = resolveTextModel(db);
-    if (!model.ok) return response.badRequest(res, model.error);
+    try {
+      const model = resolveTextModel(db);
+      if (!model.ok) return response.badRequest(res, model.error);
+    } catch (error) { return response.badRequest(res, error.message); }
     beginSse(res);
     try {
       await api.streamChat({
@@ -72,10 +74,14 @@ function createAgentHandlers(db, log, runtime) {
     const pending = history && Array.isArray(history.pendingApprovals) ? history.pendingApprovals : [];
     const owned = pending.some((item) => item.runId === body.runId && item.toolCallId === body.toolCallId);
     if (!owned) return response.notFound(res, '找不到这次确认');
+    const { resolveEpisode } = await import('../mastra/context.mjs');
+    const episode = body.episodeId == null ? null : resolveEpisode(db, dramaId, Number(body.episodeId));
+    if (episode && !episode.ok) return response.badRequest(res, episode.error);
     beginSse(res);
     try {
       await api.resumeApproval({
         dramaId,
+        episodeId: episode?.episodeId,
         runId: body.runId,
         toolCallId: body.toolCallId,
         approved,

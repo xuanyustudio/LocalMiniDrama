@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import request from '../utils/request.js'
 
 export const propAPI = {
   get(id) {
@@ -21,8 +21,8 @@ export const propAPI = {
     if (body.model == null && body.style == null) return request.post(`/props/${id}/generate`)
     return request.post(`/props/${id}/generate`, body)
   },
-  extractFromScript(episodeId) {
-    return request.post(`/episodes/${episodeId}/props/extract`)
+  extractFromScript(episodeId, requestConfig) {
+    return request.post(`/episodes/${episodeId}/props/extract`, {}, requestConfig)
   },
   delete(id) {
     return request.delete(`/props/${id}`)

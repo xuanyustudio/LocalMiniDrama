@@ -4,6 +4,7 @@ const aiClient = require('./aiClient');
 const promptI18n = require('./promptI18n');
 const sceneService = require('./sceneService');
 const { safeParseAIJSON, extractFirstArray } = require('../utils/safeJson');
+const { stripStyleWords } = require('./pipelineRules');
 
 function normalizeLanguage(language) {
   const lang = (language || '').toString().trim().toLowerCase();
@@ -35,10 +36,13 @@ async function translatePromptToChinese(db, log, model, prompt) {
   return (text || '').toString().trim();
 }
 
-async function extractBackgroundsFromScript(db, cfg, log, scriptContent, dramaId, model, style) {
+async function extractBackgroundsFromScript(db, cfg, log, scriptContent, dramaId, model, style, episodeId = null) {
   if (!scriptContent || !scriptContent.trim()) return [];
   const systemPrompt = promptI18n.getSceneExtractionPrompt(cfg, style);
-  const prompt = (promptI18n.getLanguage(cfg) === 'en' ? '[Script Content]\n' : '【剧本内容】\n') + scriptContent;
+  let prompt =(promptI18n.getLanguage(cfg) === 'en' ? '[Script Content]\n' : '【剧本内容】\n') + scriptContent;
+  // 底层规范 B：提取场景读“档案地点 + 已有场景 + 本集原著章节”
+  const context = require('./productionContext').contextFor(db, episodeId, 'scenes', dramaId);
+  if (context.text) prompt += `\n\n${context.text}`;
   console.log('systemPrompt', systemPrompt);
   console.log('prompt', prompt);
   const text = await aiClient.generateText(db, log, 'text', prompt, systemPrompt, { scene_key: 'scene_extraction', model: model || undefined, temperature: 0.7 });
@@ -52,7 +56,7 @@ async function extractBackgroundsFromScript(db, cfg, log, scriptContent, dramaId
   return list.map((b) => ({
     location: b.location || '',
     time: b.time || '',
-    prompt: b.prompt || '',
+    prompt: stripStyleWords(b.prompt || ''),
     atmosphere: b.atmosphere,
   }));
 }
@@ -111,7 +115,8 @@ async function processBackgroundExtraction(db, cfg, log, taskID, episodeId, mode
       String(scriptContent),
       episode.drama_id,
       model,
-      style  // 作为 prompt 追加（extractBackgroundsFromScript 内部会用到）
+      style,  // 作为 prompt 追加（extractBackgroundsFromScript 内部会用到）
+      episode.id
     );
   } catch (err) {
     log.error('Background extraction AI failed', { error: err.message, task_id: taskID });

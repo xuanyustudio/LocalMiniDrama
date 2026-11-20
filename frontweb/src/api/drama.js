@@ -47,13 +47,14 @@ export const dramaAPI = {
     } else {
        body = options || {};
     }
-    return request.post(`/episodes/${episodeId}/storyboards`, body)
+    const { requestConfig, ...data } = body
+    return request.post(`/episodes/${episodeId}/storyboards`, data, requestConfig)
   },
   finalizeEpisode(episodeId, data) {
     return request.post(`/episodes/${episodeId}/finalize`, data || {})
   },
-  extractBackgrounds(episodeId, body) {
-    return request.post(`/images/episode/${episodeId}/backgrounds/extract`, body || {})
+  extractBackgrounds(episodeId, body, requestConfig) {
+    return request.post(`/images/episode/${episodeId}/backgrounds/extract`, body || {}, requestConfig)
   },
   extractEpisodeCharacters(episodeId) {
     return request.post(`/episodes/${episodeId}/characters/extract`)

@@ -6,6 +6,13 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { getFfmpegPath, getFfprobePath } = require('../utils/ffmpegPath');
 
+function ffmpegInputInfo(filePath) {
+  const r = spawnSync(getFfmpegPath(), ['-hide_banner', '-i', filePath], {
+    encoding: 'utf8', maxBuffer: 1024 * 1024, windowsHide: true,
+  });
+  return String(r.stderr || '');
+}
+
 function ffprobeDurationSec(filePath) {
   const probe = getFfprobePath();
   const r = spawnSync(
@@ -13,7 +20,12 @@ function ffprobeDurationSec(filePath) {
     ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', filePath],
     { encoding: 'utf8', maxBuffer: 1024 * 1024 }
   );
-  if (r.status !== 0) return null;
+  if (r.status !== 0) {
+    const match = /Duration:\s+(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(ffmpegInputInfo(filePath));
+    if (!match) return null;
+    const duration = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+    return duration > 0 ? duration : null;
+  }
   const d = parseFloat(String(r.stdout || '').trim());
   return Number.isFinite(d) && d > 0 ? d : null;
 }
@@ -275,18 +287,29 @@ async function runMergedEpisodePostProcess(db, log, opts) {
             }
           } else {
             const segRaw = path.join(tempRoot, `narr_raw_${i}.mp3`);
-            let synth;
-            try {
-              synth = await ttsService.synthesize(db, log, {
-                text: narrText,
-                storyboard_id: null,
-                storage_base: storageRoot,
-              });
-            } catch (e) {
-              log.warn('merged post: narration TTS failed', { segment: i, error: e.message });
-              return { ok: false, error: `解说旁白 TTS 失败：${e.message}` };
+            const savedPath = row?.narration_audio_local_path && path.resolve(storageRoot, row.narration_audio_local_path);
+            const savedRel = savedPath && path.relative(path.resolve(storageRoot), savedPath);
+            let narrAbs = savedRel && savedRel !== '..' && !savedRel.startsWith(`..${path.sep}`) &&
+              !path.isAbsolute(savedRel) && fs.existsSync(savedPath) ? savedPath : null;
+            if (!narrAbs) {
+              const ttsConfig = ttsService.getTtsConfig(db);
+              if (require('./productionProviders').isManaged(ttsConfig)) {
+                return { ok: false, error: `分镜 ${i + 1} 缺少旁白音频，请先生成旁白，再点合成。` };
+              }
+              try {
+                const synth = await ttsService.synthesize(db, log, {
+                  text: narrText,
+                  storyboard_id: null,
+                  storage_base: storageRoot,
+                  config: ttsConfig,
+                  tts_kind: 'narration',
+                });
+                narrAbs = path.join(storageRoot, synth.local_path.replace(/\//g, path.sep));
+              } catch (e) {
+                log.warn('merged post: narration TTS failed', { segment: i, error: e.message });
+                return { ok: false, error: `解说旁白 TTS 失败：${e.message}` };
+              }
             }
-            const narrAbs = path.join(storageRoot, synth.local_path.replace(/\//g, path.sep));
             if (!fs.existsSync(narrAbs)) {
               return { ok: false, error: `旁白 TTS 文件不存在` };
             }
@@ -437,7 +460,8 @@ function ffprobeHasAudio(filePath) {
     ['-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=index', '-of', 'csv=p=0', filePath],
     { encoding: 'utf8', maxBuffer: 1024 * 1024 }
   );
-  return r.status === 0 && String(r.stdout || '').trim().length > 0;
+  if (r.status !== 0) return /Stream #.*Audio:/.test(ffmpegInputInfo(filePath));
+  return String(r.stdout || '').trim().length > 0;
 }
 
 module.exports = {

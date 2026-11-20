@@ -11,6 +11,7 @@ function normalizeApiKeyForService(serviceType, apiKey) {
 }
 const { applyDeepSeekConnectivityOptions } = require('./deepseekConfig');
 const { flattenModelIds, pickModelId, remapArkModelId, remapArkModelList, isOfficialArkBase } = require('./modelId');
+const { STUDIO_TEXT_KEY_REF, resolveStudioTextKey, applyStudioTextOptions, redactStudioTextError } = require('./studioTextCredentials');
 function modelToDb(model) {
   if (model == null) return null;
   const ids = flattenModelIds(model);
@@ -259,6 +260,23 @@ function rowToConfig(r) {
  * @returns Promise<void> 成功 resolve，失败 reject(error)
  */
 async function testConnection(opts) {
+  if (require('./productionProviders').isManaged(opts)) {
+    throw new Error('制作服务由项目页管理。启用后请在项目页生成一个样本，查看账号、模型与生成结果。');
+  }
+  if (opts.api_key !== STUDIO_TEXT_KEY_REF) return testConnectionImpl(opts);
+  if (String(opts.service_type || '').toLowerCase() !== 'text' || String(opts.provider || 'openai').toLowerCase() !== 'openai') {
+    throw new Error('本地文字模型密钥仅用于智谱文本服务');
+  }
+  const base = (opts.base_url || '').replace(/\/$/, '');
+  const endpoint = opts.endpoint || '/chat/completions';
+  const url = base + (endpoint.startsWith('/') ? endpoint : '/' + endpoint);
+  const model = flattenModelIds(opts.model)[0] || '';
+  const key = resolveStudioTextKey(opts, model, url);
+  try { return await testConnectionImpl({ ...opts, api_key: key, studioTextKeyRef: true }); }
+  catch (error) { throw redactStudioTextError(error, key, true); }
+}
+
+async function testConnectionImpl(opts) {
   const base = (opts.base_url || '').replace(/\/$/, '');
   if (!base) throw new Error('base_url 必填');
   if (!opts.api_key) throw new Error('api_key 必填');
@@ -452,6 +470,7 @@ async function testConnection(opts) {
     { provider, base_url: base, settings: opts.settings },
     body
   );
+  if (opts.studioTextKeyRef) body = applyStudioTextOptions({ api_key: STUDIO_TEXT_KEY_REF }, body);
   console.log('[testConnection] 文本/chat 服务', { url, serviceType, model });
   const res = await fetch(url, {
     method: 'POST',
@@ -460,6 +479,7 @@ async function testConnection(opts) {
       Authorization: 'Bearer ' + (opts.api_key || ''),
     },
     body: JSON.stringify(body),
+    ...(opts.studioTextKeyRef ? { redirect: 'error' } : {}),
   });
   if (!res.ok) {
     const text = await res.text();

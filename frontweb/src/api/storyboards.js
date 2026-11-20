@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import request, { approveProductionRequest } from '@/utils/request'
 
 /**
  * @param {string} url
@@ -6,10 +6,11 @@ import request from '@/utils/request'
  * @param {(delta: string) => void} [onDelta]
  * @returns {Promise<{ universal_segment_text: string }>}
  */
-function postUniversalSegmentNdjsonStream(url, body, onDelta) {
+async function postUniversalSegmentNdjsonStream(url, body, onDelta, requestConfig) {
+  const approval = requestConfig?.productionCostApproved === true ? requestConfig.headers : await approveProductionRequest(url, body)
   return fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
+    headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson', ...approval },
     body: JSON.stringify(body || {}),
   }).then(async (res) => {
     if (!res.ok) {
@@ -79,8 +80,8 @@ export const storyboardsAPI = {
   delete(id) {
     return request.delete(`/storyboards/${id}`)
   },
-  generateFramePrompt(id, data) {
-    return request.post(`/storyboards/${id}/frame-prompt`, data)
+  generateFramePrompt(id, data, requestConfig) {
+    return request.post(`/storyboards/${id}/frame-prompt`, data, requestConfig)
   },
   getFramePrompts(id) {
     return request.get(`/storyboards/${id}/frame-prompts`)
@@ -108,11 +109,12 @@ export const storyboardsAPI = {
    * 流式润色全能片段：NDJSON 行 {type:'delta',text} / {type:'done',universal_segment_text} / {type:'error',message}
    * body.draft_universal_segment_text 为当前编辑区全文；可选 duration、force_without_reference_images
    */
-  polishUniversalSegmentPromptStream(id, body, onDelta) {
+  polishUniversalSegmentPromptStream(id, body, onDelta, requestConfig) {
     return postUniversalSegmentNdjsonStream(
       `/api/v1/storyboards/${id}/universal-segment-polish-stream`,
       body,
-      onDelta
+      onDelta,
+      requestConfig
     )
   },
   insertBefore(id) {

@@ -56,17 +56,29 @@ function setupRouter(cfg, db, log) {
   r.get('/dramas/:id/export', drama.exportDrama);
   const multer = require('multer');
   const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 500 * 1024 * 1024 } });
+  const adaptation = require('./novelAdaptation').registerNovelAdaptation(r, db, log, cfg);
+  require('../services/productionContext').registerSourceReader(adaptation);
+  require('./storyBible').registerStoryBible(r, db, log, adaptation);
+  r.use('/production-profile', require('./productionProfile')(db, log, adaptation));
   r.post('/dramas/import', importUpload.single('file'), drama.importDrama);
   r.post('/dramas/import-novel', importUpload.single('file'), async (req, res) => {
     try {
       const novelImportService = require('../services/novelImportService');
       let text = '';
       if (req.file && req.file.buffer) {
-        text = req.file.buffer.toString('utf8');
+        try {
+          text = new TextDecoder('utf-8', { fatal: true }).decode(req.file.buffer);
+        } catch {
+          try {
+            text = new TextDecoder('gb18030', { fatal: true }).decode(req.file.buffer);
+          } catch {
+            return response.badRequest(res, '无法识别文件编码，请上传 UTF-8 或 GBK 文本');
+          }
+        }
       } else if (req.body && req.body.text) {
         text = req.body.text;
       }
-      if (!text.trim()) return response.badRequest(res, '请上传小说文本文件或提供 text 参数');
+      if (typeof text !== 'string' || !text.trim()) return response.badRequest(res, '请上传小说文本文件或提供 text 参数');
       const title = req.body?.title || '';
       const maxChapters = Number(req.body?.max_chapters) || 20;
       const aiSummarize = req.body?.ai_summarize === 'true' || req.body?.ai_summarize === true;
@@ -218,6 +230,22 @@ function setupRouter(cfg, db, log) {
   r.get('/episodes/:episode_id/storyboards', storyboards.episodeStoryboardsGet);
   r.post('/episodes/:episode_id/finalize', drama.finalizeEpisode);
   r.get('/episodes/:episode_id/download', drama.downloadEpisodeVideo);
+  r.get('/episodes/:episode_id/jianying-package', async (req, res) => {
+    try {
+      const id = Number(req.params.episode_id);
+      if (!Number.isSafeInteger(id) || id < 1) return response.badRequest(res, '剧集编号无效');
+      const archive = await require('../services/jianyingPackage').buildPackage(db, cfg, id);
+      if (!archive) return response.notFound(res, '剧集不存在');
+      const cleanUp = () => archive.cleanup().catch(error => log.warn('剪映素材包临时文件清理失败', { error: error.code }));
+      if (res.destroyed) return cleanUp();
+      res.download(archive.filename, `episode-${id}-jianying.zip`, error => {
+        void cleanUp();
+        if (error && !res.headersSent && !res.destroyed) response.internalError(res, '剪映素材包下载失败');
+      });
+    } catch (error) {
+      response.internalError(res, error.message);
+    }
+  });
 
   // ---------- tasks ----------
   r.get('/tasks/:task_id', task.getTaskStatus);

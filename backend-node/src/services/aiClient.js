@@ -2,6 +2,8 @@
 const aiConfigService = require('./aiConfigService');
 const { applyDeepSeekChatOptions } = require('./deepseekConfig');
 const { flattenModelIds, pickModelId, remapArkModelId } = require('./modelId');
+const { STUDIO_TEXT_KEY_REF, resolveStudioTextKey, applyStudioTextOptions, redactStudioTextError } = require('./studioTextCredentials');
+const production = require('./productionProviders');
 const https = require('https');
 const http = require('http');
 
@@ -164,11 +166,13 @@ function postJSONStream(url, headers, body, silenceTimeoutMs = 60000, onProgress
       let accumulated = '';
       let sseBuffer = '';
       let firstToken = true;
+      let finishReason;
+      res.setEncoding('utf8');
       resetSilenceTimer();
 
       res.on('data', (chunk) => {
         resetSilenceTimer();
-        sseBuffer += chunk.toString('utf-8');
+        sseBuffer += chunk;
         // 按行解析 SSE
         const lines = sseBuffer.split('\n');
         sseBuffer = lines.pop(); // 保留不完整的最后一行
@@ -179,7 +183,9 @@ function postJSONStream(url, headers, body, silenceTimeoutMs = 60000, onProgress
           if (data === '[DONE]') continue;
           try {
             const evt = JSON.parse(data);
-            const delta = evt.choices?.[0]?.delta?.content;
+            const choice = evt.choices?.[0];
+            finishReason = choice?.finish_reason || finishReason;
+            const delta = choice?.delta?.content;
             if (delta) {
               if (firstToken) {
                 firstToken = false;
@@ -194,7 +200,7 @@ function postJSONStream(url, headers, body, silenceTimeoutMs = 60000, onProgress
 
       res.on('end', () => {
         clearTimeout(silenceTimer);
-        resolve({ status: statusCode, body: accumulated });
+        resolve({ status: statusCode, body: accumulated, finishReason });
       });
       res.on('error', (e) => { clearTimeout(silenceTimer); reject(e); });
     });
@@ -249,6 +255,8 @@ function resolveArkTextModel(config, model) {
  */
 function applyVolcChatOptions(config, body) {
   if (!body || typeof body !== 'object') return body;
+  if (config.api_key === production.BAILIAN_REF) return { ...body, enable_thinking: false };
+  if (config.api_key === production.BYTEPLUS_REF) return { ...body, thinking: { type: 'disabled' } };
   const model = resolveArkTextModel(config, body.model);
   if (!isOfficialArkConfig(config)) {
     return model === body.model ? body : { ...body, model };
@@ -453,7 +461,12 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
     ...(finalMaxTokens != null ? { max_tokens: finalMaxTokens } : {}),
     ...(json_mode ? { response_format: { type: 'json_object' } } : {}),
   };
-  body = applyVolcChatOptions(config, applyDeepSeekChatOptions(config, body));
+  body = applyStudioTextOptions(config, applyVolcChatOptions(config, applyDeepSeekChatOptions(config, body)));
+  const localChat = scene_key === 'novel_import' && require('../utils/localOllama').localOllamaChatUrl(config.base_url);
+  if (localChat) {
+    return generateLocalNovelDraft(localChat, log, body, options.local_stop);
+  }
+  const apiKey = production.isManaged(config) ? production.generationKey(config, url, 'text') : resolveStudioTextKey(config, model, url);
   const startMs = Date.now();
   log.info('AI generateText request', { url: url.slice(0, 60), model, max_tokens: finalMaxTokens ?? '(model default)', json_mode, stream: true });
   const onProgress = (receivedLen, event, accumulated) => {
@@ -466,8 +479,10 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
     // 调用者提供的流式回调（如分镜增量解析），传入当前已积累的完整文本
     if (streamCallback && accumulated) streamCallback(accumulated);
   };
-  const send = (b) =>
-    postJSONStream(url, { Authorization: 'Bearer ' + (config.api_key || '') }, b, 60000, onProgress);
+  const send = async (b) => {
+    try { return await postJSONStream(url, { Authorization: 'Bearer ' + apiKey }, b, options.silence_timeout_ms ?? 60000, onProgress); }
+    catch (error) { throw redactStudioTextError(error, apiKey, production.isManaged(config) || config.api_key === STUDIO_TEXT_KEY_REF); }
+  };
   let res;
   try {
     res = await send(body);
@@ -477,6 +492,9 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
     res = await retryTextAfterMaxTokensError({ log, tag: 'AI generateText', model, error: e, body, send });
   }
   // 流式模式下 res.body 已是拼接好的完整文本内容（非 JSON）
+  if (options.require_complete && res.finishReason === 'length') {
+    throw new Error('生成的剧本没有写完，请换用更短的原文片段或更强的文字模型重试');
+  }
   const content = res.body;
   const elapsedMs = Date.now() - startMs;
   if (!content) {
@@ -484,6 +502,27 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
   }
   log.info('AI raw response received', { model, text_length: content.length, elapsed_ms: elapsedMs, text_preview: content.slice(0, 200) });
   return content;
+}
+
+async function generateLocalNovelDraft(url, log, body, stop) {
+  const started = Date.now();
+  log.info('本地小说改写开始', { model: body.model });
+  const { statusCode, raw } = await postJSONWithTimeout(url, {}, {
+    model: body.model,
+    messages: body.messages,
+    stream: false,
+    options: { temperature: stop ? 0.25 : body.temperature, num_predict: body.max_tokens,
+      repeat_penalty: stop ? 1.18 : 1.12, ...(stop ? { stop: [stop] } : {}) },
+  }, 360000);
+  const result = JSON.parse(raw);
+  if (statusCode !== 200 || result.error) {
+    throw new Error(result.error || `Ollama 返回 HTTP ${statusCode}`);
+  }
+  if (result.done_reason === 'length') {
+    throw new Error('生成的剧本没有写完，请换用更短的原文片段重试');
+  }
+  log.info('本地小说改写返回', { model: body.model, elapsed_ms: Date.now() - started });
+  return result.message?.content;
 }
 
 /**
@@ -559,7 +598,8 @@ async function streamGenerateText(db, log, serviceType, userPrompt, systemPrompt
     ...(finalMaxTokens != null ? { max_tokens: finalMaxTokens } : {}),
     ...(json_mode ? { response_format: { type: 'json_object' } } : {}),
   };
-  body = applyVolcChatOptions(config, applyDeepSeekChatOptions(config, body));
+  body = applyStudioTextOptions(config, applyVolcChatOptions(config, applyDeepSeekChatOptions(config, body)));
+  const apiKey = production.isManaged(config) ? production.generationKey(config, url, 'text') : resolveStudioTextKey(config, model, url);
   const silenceMs = options.silence_timeout_ms != null ? Number(options.silence_timeout_ms) : 120000;
   const startMs = Date.now();
   log.info('AI streamGenerateText request', {
@@ -579,8 +619,10 @@ async function streamGenerateText(db, log, serviceType, userPrompt, systemPrompt
     lastLen = accumulated.length;
     if (onDelta && delta) onDelta(delta);
   };
-  const send = (b) =>
-    postJSONStream(url, { Authorization: 'Bearer ' + (config.api_key || '') }, b, silenceMs, onProgress);
+  const send = async (b) => {
+    try { return await postJSONStream(url, { Authorization: 'Bearer ' + apiKey }, b, silenceMs, onProgress); }
+    catch (error) { throw redactStudioTextError(error, apiKey, production.isManaged(config) || config.api_key === STUDIO_TEXT_KEY_REF); }
+  };
   let res;
   try {
     res = await send(body);
@@ -726,7 +768,7 @@ async function generateTextWithVision(db, log, serviceType, userPrompt, systemPr
   let res;
   try {
     // 使用非流式请求：视觉分析响应短，且流式对推理模型（o1/o3/o4）和部分代理兼容性差
-    res = await postJSONNonStream(url, { Authorization: 'Bearer ' + (config.api_key || '') }, requestBody, 120000);
+    res = await postJSONNonStream(url, { Authorization: 'Bearer ' + production.generationKey(config, url, 'text') }, requestBody, 120000);
   } catch (httpErr) {
     log.error('[Vision] HTTP 请求失败', { model, url: url.slice(0, 80), error: httpErr.message });
     throw httpErr;
@@ -834,6 +876,7 @@ module.exports = {
   getDefaultConfig,
   getConfigForModel,
   getConfigFromModelMap,
+  getModelFromConfig,
   generateText,
   streamGenerateText,
   generateTextWithVision,

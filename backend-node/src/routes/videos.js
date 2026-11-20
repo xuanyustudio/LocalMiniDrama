@@ -1,6 +1,7 @@
 const response = require('../response');
 const videoService = require('../services/videoService');
 const taskService = require('../services/taskService');
+const pipelineGate = require('../services/pipelineGate');
 const { normalizeAspectRatioForApi } = require('../services/videoClient');
 
 function routes(db, log) {
@@ -18,6 +19,7 @@ function routes(db, log) {
     create: (req, res) => {
       try {
         const body = req.body || {};
+        pipelineGate.assertShotReady(db, body, '视频');
         const task = taskService.createTask(db, log, 'video_generation', String(body.drama_id || ''));
         const now = new Date().toISOString();
         const dramaId = Number(body.drama_id) || 0;
@@ -72,6 +74,7 @@ function routes(db, log) {
         const item = videoService.getById(db, videoGenId);
         response.created(res, item || { id: videoGenId, task_id: task.id, status: 'processing' });
       } catch (err) {
+        if (err instanceof pipelineGate.PipelineGateError) return response.badRequest(res, err.message);
         log.error('videos create', { error: err.message });
         response.internalError(res, err.message);
       }

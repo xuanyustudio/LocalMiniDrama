@@ -24,8 +24,10 @@
           <p v-if="message.summary" class="summary">{{ message.summary }}</p>
           <img v-if="thumb(message)" :src="thumb(message)" alt="" />
           <div v-if="message.approval && message.approval.pending" class="approval">
-            <span>删除{{ message.approval.label || '这一项' }}？</span>
-            <el-button size="small" type="danger" @click="decide(message, true)">允许</el-button>
+            <span>{{ message.approval.toolName?.startsWith('generate_') ? '助手请求生成素材' : '删除' + (message.approval.label || '这一项') + '？' }}</span>
+            <el-button size="small" :type="message.approval.toolName?.startsWith('generate_') ? 'primary' : 'danger'" @click="decide(message, true)">
+              {{ message.approval.toolName?.startsWith('generate_') ? '查看费用' : '允许' }}
+            </el-button>
             <el-button size="small" @click="decide(message, false)">拒绝</el-button>
           </div>
         </article>
@@ -144,6 +146,7 @@ function onEvent(event) {
         pending: true,
         runId: event.runId,
         toolCallId: event.toolCallId,
+        toolName: event.toolName,
         label: event.label || '',
       },
     })
@@ -203,7 +206,7 @@ async function loadHistory() {
       messages.value.push({
         role: 'assistant',
         text: '',
-        approval: { pending: true, runId: pending.runId, toolCallId: pending.toolCallId, label: pending.label || '' },
+        approval: { pending: true, runId: pending.runId, toolCallId: pending.toolCallId, toolName: pending.toolName, label: pending.label || '' },
       })
     }
     scrollDown()

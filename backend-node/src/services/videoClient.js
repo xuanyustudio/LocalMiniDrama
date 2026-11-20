@@ -1653,6 +1653,33 @@ async function callDashScopeVideoApi(config, log, opts) {
   } = opts;
   const base = (config.base_url || '').replace(/\/$/, '');
   const model = modelName || 'wan2.2-kf2v-flash';
+  const production = require('./productionProviders');
+  if (config.api_key === production.BAILIAN_REF) {
+    const { minSeconds, maxSeconds, defaultSeconds } = production.videoDurationLimits(config);
+    const dur = duration ? Number(duration) : defaultSeconds;
+    if (!Number.isInteger(dur) || dur < minSeconds || dur > maxSeconds) {
+      return { error: `百炼万相每镜支持 ${minSeconds} 至 ${maxSeconds} 秒的整数时长` };
+    }
+    let frame = production.resolveReference(first_frame_url || image_url, storage_local_path);
+    if (!frame) return { error: '试拍需要一张首帧图，请生成或上传后重试' };
+    // Wan's first-frame endpoint requires PNGs without an alpha channel.
+    const pngPrefix = 'data:image/png;base64,';
+    if (sharp && frame.startsWith(pngPrefix)) {
+      const image = sharp(Buffer.from(frame.slice(pngPrefix.length), 'base64'));
+      if ((await image.metadata()).hasAlpha) {
+        const jpeg = await image.flatten({ background: '#ffffff' }).jpeg({ quality: 92 }).toBuffer();
+        frame = `data:image/jpeg;base64,${jpeg.toString('base64')}`;
+      }
+    }
+    const url = base + config.endpoint;
+    const data = await production.submitBailian(config, url, {
+      model,
+      input: { prompt: String(prompt || '').slice(0, 1500), img_url: frame },
+      parameters: { resolution: '720P', duration: dur, audio: false, shot_type: 'single', prompt_extend: true, watermark: false },
+    }, true);
+    const taskId = data.output?.task_id;
+    return taskId ? { task_id: taskId, status: 'processing' } : { error: '百炼未返回视频任务编号' };
+  }
   const dur = duration ? Number(duration) : 10;
   const baseUrl = (files_base_url || '').replace(/\/$/, '');
   const isLocalhost = baseUrl && /localhost|127\.0\.0\.1/i.test(baseUrl);
@@ -4069,6 +4096,7 @@ async function callMinimaxH3VideoApi(config, log, opts) {
  * @returns {Promise<{ task_id?: string, video_url?: string, error?: string }>}
  */
 async function callVideoApi(db, log, opts) {
+  const production = require('./productionProviders');
   const {
     prompt,
     model: preferredModel,
@@ -4094,14 +4122,15 @@ async function callVideoApi(db, log, opts) {
   const model = normalizeVolcModel(getModelFromConfig(config, preferredModel), config);
   const provider = (config.provider || '').toLowerCase();
   const protocol = resolveVideoProtocol(config, preferredModel);
-  if (db && opts.drama_id && VIDEO_PROTOCOLS_SUPPORT_SD2_ASSET_SCHEME.has(protocol)) {
+  const managed = config.api_key === production.BYTEPLUS_REF;
+  if (!production.isManaged(config) && db && opts.drama_id && VIDEO_PROTOCOLS_SUPPORT_SD2_ASSET_SCHEME.has(protocol)) {
     opts = applySeedance2CertifiedAssetUrlsToVideoOpts(db, log, opts);
   }
 
   // Seedance 2.0 自动注入角色音色参考（模型为 SD2 家族，或协议为 volcengine_omni；未显式指定 voice_reference_url 时）
   const isSeedance2 =
     isSeedance2FamilyModel(model) || protocol === 'volcengine_omni';
-  if (isSeedance2 && db && opts.drama_id && !opts.voice_reference_url) {
+  if (!managed && isSeedance2 && db && opts.drama_id && !opts.voice_reference_url) {
     const voiceMap = collectActiveCharacterVoiceRefs(db, opts.drama_id);
     if (voiceMap.size > 0) {
       // 优先使用分镜显式指定的角色（如果有），否则取第一个
@@ -4271,7 +4300,7 @@ async function callVideoApi(db, log, opts) {
 
   // 标准「火山引擎」协议 + Seedance 2.x 家族模型 + 参考图：按方舟全能协议发送，
   // 否则多图参考会被经典首尾帧链路丢弃（issue #49）
-  if (shouldUseVolcOmniMultiReference(protocol, model, opts.reference_urls)) {
+  if (!managed && shouldUseVolcOmniMultiReference(protocol, model, opts.reference_urls)) {
     log.info('[VolcOmni] Seedance 2.x 多图参考：经典协议改走全能实现', {
       video_gen_id: opts.video_gen_id,
       model,
@@ -4370,10 +4399,12 @@ async function callVideoApi(db, log, opts) {
   const rawLast = (last_frame_url || last_frame_local_path || '').toString().trim();
 
   // 使用新 helper 解析（自动处理 localhost → base64、asset:// 直传、公网 URL）
-  const firstForApi = await resolveVolcClassicImage(rawFirst, files_base_url || opts.files_base_url, storage_local_path || opts.storage_local_path, log, video_gen_id, 'first_frame');
+  const firstForApi = managed ? production.resolveReference(rawFirst, storage_local_path)
+    : await resolveVolcClassicImage(rawFirst, files_base_url, storage_local_path, log, video_gen_id, 'first_frame');
   let lastForApi = null;
   if (rawLast) {
-    lastForApi = await resolveVolcClassicImage(rawLast, files_base_url || opts.files_base_url, storage_local_path || opts.storage_local_path, log, video_gen_id, 'last_frame');
+    lastForApi = managed ? production.resolveReference(rawLast, storage_local_path)
+      : await resolveVolcClassicImage(rawLast, files_base_url, storage_local_path, log, video_gen_id, 'last_frame');
   }
 
   // 去重：如果 first 和 last 指向同一资源，只保留 first（极少见）
@@ -4427,7 +4458,7 @@ async function callVideoApi(db, log, opts) {
   }
 
   // 向后兼容：没有任何 first/last 字段时，单张 image_url 仍按老逻辑作为 first_frame（i2v）
-  if (!hasAnyFrame && image_url && image_url.trim()) {
+  if (!managed && !hasAnyFrame && image_url && image_url.trim()) {
     // 极少数兜底（正常流程不会走到这里，因为 rawFirst 已包含 image_url）
     const legacy = await resolveVolcClassicImage(image_url, files_base_url || opts.files_base_url, storage_local_path || opts.storage_local_path, log, video_gen_id, 'image_url_fallback');
     if (legacy) {
@@ -4448,6 +4479,26 @@ async function callVideoApi(db, log, opts) {
     }
   }
 
+  if (managed) {
+    const { minSeconds, maxSeconds } = production.videoDurationLimits(config);
+    delete body.task_type;
+    delete body.aspect_ratio;
+    delete body.camera_fixed;
+    body.resolution = '720p';
+    body.generate_audio = false;
+    body.duration = Math.round(dur);
+    if (!Number.isInteger(body.duration) || body.duration < minSeconds || body.duration > maxSeconds) {
+      throw new Error(`Seedance 2.0 Fast 每段支持 ${minSeconds}–${maxSeconds} 秒，请先调整分镜时长`);
+    }
+    if (!firstForApi) {
+      if (lastForApi) throw new Error('请先为此镜头准备首帧；尾帧须与首帧配合使用');
+      for (const ref of (opts.reference_urls || []).slice(0, 9)) {
+        const refUrl = production.resolveReference(ref, storage_local_path);
+        if (refUrl) body.content.push({ type: 'image_url', image_url: { url: refUrl }, role: 'reference_image' });
+      }
+    }
+  }
+
   logVideoPostRequest(log, 'Video', url, body, video_gen_id, {
     model,
     task_type: body.task_type,
@@ -4459,9 +4510,10 @@ async function callVideoApi(db, log, opts) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + (config.api_key || ''),
+      Authorization: 'Bearer ' + production.generationKey(config, url, 'video'),
     },
     body: JSON.stringify(body),
+    ...(managed ? { redirect: 'error', signal: AbortSignal.timeout(90000) } : {}),
   });
   const raw = await res.text();
   log.info('Video API raw response', { video_gen_id, status: res.status, raw: raw.slice(0, 1000) });
@@ -4504,6 +4556,8 @@ async function callVideoApi(db, log, opts) {
  * ??????????????????/ChatFire ? ???? DashScope?
  */
 async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 300, intervalMs = 10000) {
+  const production = require('./productionProviders');
+  const managed = production.isManaged(config);
   const provider = (config.provider || '').toLowerCase();
   const protocol = resolveVideoProtocol(config);
   const isDashScope = protocol === 'dashscope';
@@ -4611,13 +4665,13 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
         headers = { Authorization: (isOfficialVidu ? 'Token ' : 'Bearer ') + (config.api_key || '') };
       } else {
         url = queryUrl();
-        headers = { Authorization: 'Bearer ' + (config.api_key || '') };
+        headers = { Authorization: 'Bearer ' + production.resolveKey(config, url) };
       }
       const pollRound = attempt + 1;
       log.info('[poll] 发起查询', { video_gen_id: videoGenId, round: pollRound, url });
       const res = isCheapSeedance2Provider(provider)
         ? await ipv4Request(url, { method: 'GET', headers, timeoutMs: 30000 })
-        : await fetch(url, { method: 'GET', headers });
+        : await fetch(url, { method: 'GET', headers, ...(managed ? { redirect: 'error', signal: AbortSignal.timeout(30000) } : {}) });
       const raw = await res.text();
       const bodyLogged =
         pollLogBodyMax === Infinity
@@ -4937,6 +4991,7 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
 
 module.exports = {
   getDefaultVideoConfig,
+  getModelFromConfig,
   callVideoApi,
   pollVideoTask,
   buildVideoUrl,

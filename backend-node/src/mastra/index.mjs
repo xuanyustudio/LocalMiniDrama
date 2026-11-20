@@ -67,7 +67,7 @@ function generationDeps() {
 }
 
 function tool(id, description, inputSchema, execute, extra) {
-  return createTool({ id, description, inputSchema, execute, ...extra });
+  return createTool({ id, description, inputSchema, execute, requireApproval: id.startsWith('generate_'), ...extra });
 }
 
 function buildTools() {
@@ -179,7 +179,7 @@ async function emitStream(output, dramaId, writeEvent) {
   for await (const chunk of stream) {
     const event = toAgentSseEvent(chunk);
     if (!event) continue;
-    if (event.type === 'tool-call-approval') {
+    if (event.type === 'tool-call-approval' && event.toolName === 'delete_item') {
       const guard = guardDeleteApproval(appDb, dramaId, { type: event.itemType, id: event.id });
       if (guard.action === 'ask') event.label = guard.label;
     }
@@ -254,15 +254,15 @@ export async function streamChat({ dramaId, episodeId, message, writeEvent }) {
   await emitStream(output, dramaId, writeEvent);
 }
 
-export async function resumeApproval({ dramaId, runId, toolCallId, approved, writeEvent }) {
+export async function resumeApproval({ dramaId, episodeId, runId, toolCallId, approved, writeEvent }) {
   if (!ready) throw new Error('助手未就绪');
   const requestContext = new RequestContext();
   requestContext.set('dramaId', Number(dramaId));
-  requestContext.set('episodeId', null);
+  requestContext.set('episodeId', episodeId ?? null);
   const options = { runId, toolCallId, ...threadOptions(dramaId, requestContext) };
   const output = approved
     ? await agent.approveToolCall(options)
-    : await agent.declineToolCall({ ...options, reason: '用户拒绝了这次删除' });
+    : await agent.declineToolCall({ ...options, reason: '用户拒绝了本次操作' });
   await emitStream(output, dramaId, writeEvent);
 }
 
@@ -294,6 +294,7 @@ export async function getHistory(dramaId) {
             toolName: call.toolName,
             type: args.type,
             id: args.id,
+            quad: args.view === 'four',
             label: guard.action === 'ask' ? guard.label : '',
           });
         }

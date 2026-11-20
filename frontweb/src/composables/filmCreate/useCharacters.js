@@ -332,14 +332,14 @@ export function useCharacters(deps) {
     }
   }
 
-  async function onGenerateCharacterImage(char) {
+  async function onGenerateCharacterImage(char, requestConfig) {
     char.errorMsg = ''
     char.error_msg = ''
     const meta = buildCharImageMeta(char)
     generatingCharIds.add(char.id)
     genStore.markRunning(meta)
     try {
-      const res = await characterAPI.generateImage(char.id, undefined, getSelectedStyle())
+      const res = await characterAPI.generateImage(char.id, undefined, getSelectedStyle(), requestConfig)
       const taskId = res?.image_generation?.task_id ?? res?.task_id
       if (taskId) {
         const pollRes = await pollTask(taskId, () => loadDrama(), meta)

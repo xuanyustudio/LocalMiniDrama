@@ -10,7 +10,7 @@
     "migrate:07": "node scripts/run-migration-07.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "dependencies": {
     "@mastra/core": "^1.78.0",
@@ -18,7 +18,7 @@
     "@mastra/memory": "^1.38.0",
     "@volcengine/openapi": "^1.36.1",
     "adm-zip": "^0.5.16",
-    "better-sqlite3": "^11.6.0",
+    "better-sqlite3": "13.0.3",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "js-yaml": "^4.1.0",

@@ -531,14 +531,17 @@ async function processVideoGeneration(db, log, videoGenId) {
       } catch (_) {}
     }
     const rowForAspect = { ...row, aspect_ratio: aspectForVideo || row.aspect_ratio };
-    const hasOmniRefs = !!(reference_urls && reference_urls.length > 0);
-    if (row.task_id && hasOmniRefs) {
+    const { BAILIAN_REF } = require('./productionProviders');
+    const useOmniRefs = config.api_key !== BAILIAN_REF && Boolean(reference_urls?.length);
+    if (row.task_id && useOmniRefs) {
       taskService.updateTaskStatus(
         db,
         row.task_id,
         'processing',
         5,
-        `正在上传 ${reference_urls.length} 张参考图到图床…`
+        config.api_key === 'env:BYTEPLUS_ARK_API_KEY'
+          ? `正在准备 ${reference_urls.length} 张参考图…`
+          : `正在上传 ${reference_urls.length} 张参考图到图床…`
       );
     }
     const result = await videoClient.callVideoApi(db, log, {
@@ -553,9 +556,9 @@ async function processVideoGeneration(db, log, videoGenId) {
       provider: row.provider,
       drama_id: row.drama_id,
       storyboard_id: row.storyboard_id || undefined,
-      image_url: hasOmniRefs ? undefined : row.image_url,
-      first_frame_url: hasOmniRefs ? undefined : row.first_frame_url,
-      last_frame_url: hasOmniRefs ? undefined : row.last_frame_url,
+      image_url: useOmniRefs ? undefined : row.image_url,
+      first_frame_url: useOmniRefs ? undefined : row.first_frame_url,
+      last_frame_url: useOmniRefs ? undefined : row.last_frame_url,
       reference_urls,
       files_base_url: filesBaseUrl,
       storage_local_path: storageLocalPath,

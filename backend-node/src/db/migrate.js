@@ -124,6 +124,8 @@ function ensureAllColumns(database) {
     { name: 'duration',       type: 'INTEGER DEFAULT 0' },
     { name: 'video_url',      type: 'TEXT' },
     { name: 'thumbnail',      type: 'TEXT' },
+    // 小说改编：本集来自原著第几章（PIPELINE-SPEC.md 工位 2）
+    { name: 'source_chapter', type: 'INTEGER' },
     { name: 'status',         type: 'TEXT DEFAULT \'draft\'' },
     { name: 'created_at',     type: 'TEXT' },
     { name: 'updated_at',     type: 'TEXT' },

@@ -29,3 +29,6 @@ node_modules
 ohos_hap
 证书
 exports
+/runtime-node-test/
+/deliverables/
+/backend-node/*.log

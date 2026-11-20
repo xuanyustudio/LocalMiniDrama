@@ -1,3 +1,4 @@
+const { stripStyleWords, composeAppearance, findBibleCharacter } = require('./pipelineRules');
 
 const taskService = require('./taskService');
 const aiClient = require('./aiClient');
@@ -63,7 +64,10 @@ async function processCharacterGeneration(db, cfg, log, taskID, req) {
       dramaRow.genre || ''
     );
   }
-  const userPrompt = promptI18n.formatUserPrompt(effectiveCfg, 'character_request', outlineText);
+  // 底层规范 B：提取角色读“故事档案 + 本集原著章节”，不再只凭单集剧本猜
+  const context = require('./productionContext').contextFor(db, req.episode_id, 'characters', dramaRow.id);
+  let userPrompt = promptI18n.formatUserPrompt(effectiveCfg, 'character_request', outlineText);
+  if (context.text) userPrompt += `\n\n${context.text}`;
   const systemPrompt = promptI18n.getCharacterExtractionPrompt(effectiveCfg);
   const temperature = req.temperature != null ? req.temperature : 0.7;
 
@@ -123,9 +127,17 @@ async function processCharacterGeneration(db, cfg, log, taskID, req) {
 
   const characters = [];
 
+  // 底层规范：档案里有的人物以档案外貌为准；AI 给的外貌去掉画风词（画风只在项目设置里）
+  const bible = require('./storyBibleService').getBible(db, dramaId).bible;
   for (const char of result) {
-    const name = (char.name || '').trim();
-    if (!name) continue;
+    const aiName = (char.name || '').trim();
+    if (!aiName) continue;
+    // 别名、称呼统一成档案里的正式姓名，避免“老欧”“欧阳卓”变成两个人
+    const bibleChar = findBibleCharacter(bible, aiName);
+    const name = bibleChar?.name || aiName;
+    char.appearance = composeAppearance(bibleChar) || stripStyleWords(char.appearance || '') || null;
+    if (bibleChar?.personality) char.personality = bibleChar.personality;
+    if (characters.some((c) => c.name === name)) continue;
     const existing = db.prepare('SELECT id, name FROM characters WHERE drama_id = ? AND name = ? AND deleted_at IS NULL').get(dramaId, name);
     if (existing) {
       characters.push({

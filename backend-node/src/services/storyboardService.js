@@ -1,3 +1,4 @@
+const { normalizeCharacterRefs } = require('./pipelineRules');
 // 分镜：create, update, delete；帧提示词 get/save
 
 /**
@@ -85,8 +86,12 @@ function createStoryboard(db, log, req) {
 }
 
 function updateStoryboard(db, log, id, req) {
-  const row = db.prepare('SELECT id FROM storyboards WHERE id = ? AND deleted_at IS NULL').get(Number(id));
+  const row = db.prepare('SELECT * FROM storyboards WHERE id = ? AND deleted_at IS NULL').get(Number(id));
   if (!row) return null;
+  // 文字改了，已生成的配音就过期了：清空音频路径，避免合成时念旧稿（同一请求显式写入音频路径时以请求为准）
+  const textChanged = (key) => req[key] !== undefined && String(req[key] ?? '').trim() !== String(row[key] ?? '').trim();
+  if (textChanged('dialogue') && req.audio_local_path === undefined) req = { ...req, audio_local_path: null };
+  if (textChanged('narration') && req.narration_audio_local_path === undefined) req = { ...req, narration_audio_local_path: null };
   const allowed = ['title', 'description', 'location', 'time', 'duration', 'dialogue', 'narration', 'action', 'result', 'atmosphere', 'image_prompt', 'polished_prompt', 'video_prompt', 'scene_id', 'characters', 'composed_image', 'image_url', 'local_path', 'main_panel_idx', 'video_url', 'audio_local_path', 'narration_audio_local_path', 'status', 'shot_type', 'angle', 'angle_h', 'angle_v', 'angle_s', 'movement', 'segment_index', 'segment_title', 'creation_mode', 'universal_segment_text', 'layout_description', 'first_frame_image_id', 'last_frame_image_id', 'last_frame_image_url', 'last_frame_local_path'];
   const updates = [];
   const params = [];
@@ -95,9 +100,12 @@ function updateStoryboard(db, log, id, req) {
   let parsedDramaCharIdsForSync = null;
   if (charactersValue !== undefined) {
     updates.push('characters = ?');
-    const jsonStr = Array.isArray(charactersValue) ? JSON.stringify(charactersValue) : (typeof charactersValue === 'string' ? charactersValue : '[]');
-    params.push(jsonStr);
-    parsedDramaCharIdsForSync = parseDramaCharacterIds(charactersValue) ?? [];
+    // 底层规范：统一存本剧人物 id 数组（名字、{id,name} 对象都会换成 id）
+    const dramaChars = db.prepare(`SELECT c.id, c.name FROM characters c JOIN episodes e ON e.drama_id = c.drama_id
+      WHERE e.id = ? AND c.deleted_at IS NULL`).all(row.episode_id);
+    const ids = normalizeCharacterRefs(charactersValue, dramaChars).ids;
+    params.push(JSON.stringify(ids));
+    parsedDramaCharIdsForSync = ids;
   }
   for (const key of allowed) {
     if (key === 'characters') continue;

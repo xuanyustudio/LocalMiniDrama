@@ -911,6 +911,19 @@ async function callDashScopeImageApi(config, log, opts) {
   const { prompt, model, size, image_gen_id, reference_image_urls, files_base_url, storage_local_path, negative_prompt } = opts;
   const base = (config.base_url || '').replace(/\/$/, '');
   const url = base + (config.endpoint || '/api/v1/services/aigc/multimodal-generation/generation');
+  const production = require('./productionProviders');
+  if (config.api_key === production.BAILIAN_REF) {
+    const refs = (reference_image_urls || []).filter(Boolean).slice(0, 9)
+      .map(ref => production.resolveReference(ref, storage_local_path))
+      .map(image => ({ image }));
+    const data = await production.submitBailian(config, url, {
+      model,
+      input: { messages: [{ role: 'user', content: [...refs, { text: String(prompt || '').slice(0, 5000) }] }] },
+      parameters: { n: 1, size: dashScopeSize(size), watermark: false },
+    });
+    const imageUrl = parseDashScopeImageUrl(data);
+    return imageUrl ? { image_url: imageUrl } : { error: '百炼未返回图片地址' };
+  }
   if (!url.includes('dashscope')) {
     return { error: '通义万象 base_url 需为 https://dashscope.aliyuncs.com' };
   }
@@ -1454,6 +1467,7 @@ async function callGeminiImageApi(db, config, log, opts) {
  * @returns {Promise<{ image_url?: string, error?: string }>}
  */
 async function callImageApi(db, log, opts) {
+  const production = require('./productionProviders');
   const {
     prompt,
     model: preferredModel,
@@ -1560,13 +1574,16 @@ async function callImageApi(db, log, opts) {
   }
 
   const url = buildImageUrl(config);
+  const managed = config.api_key === production.BYTEPLUS_REF;
   const isVolc = protocol === 'volcengine';
   const isAgnes = isAgnesImageConfig(config, model);
   // doubao-seedream 系列模型（含通过自定义代理使用的场景）：使用 volcengine 图片 API 规范
   const isSeedream = isVolc || /seedream|doubao/i.test(model);
   // 解析参考图：本地路径/localhost URL → base64，公网 URL → 直接传
   const rawRefs = Array.isArray(reference_image_urls) ? reference_image_urls.filter(Boolean) : [];
-  const resolvedRefs = rawRefs.map((r) => resolveImageRef(r, files_base_url, storage_local_path)).filter(Boolean);
+  const resolvedRefs = rawRefs.map((r) => managed
+    ? production.resolveReference(r, storage_local_path)
+    : resolveImageRef(r, files_base_url, storage_local_path)).filter(Boolean);
   if (resolvedRefs.length > 0) {
     log.info('Image API request with reference images', {
       url: url.slice(0, 60), model, image_gen_id,
@@ -1591,12 +1608,13 @@ async function callImageApi(db, log, opts) {
     ...(!isSeedream && !isAgnes ? { n: 1 } : {}),
     ...(effectiveSize ? { size: effectiveSize } : {}),
     ...(isAgnes && agnesSizeSpec ? { ratio: agnesSizeSpec.ratio } : {}),
-    ...(!isAgnes && quality ? { quality } : {}),
+    ...(!managed && !isAgnes && quality ? { quality } : {}),
     // volcengine 原生或 doubao-seedream 模型均需关闭水印（默认为 true）
     ...((isVolc || isSeedream) ? { watermark: false } : {}),
     // 多张参考图时加 negative_prompt，防止模型把参考图拼成左右分割的合图
     // Doubao/Seedream 原生支持；通用 OpenAI-compat 接口大多也会接受该字段（不支持的会忽略）
-    ...(mergedNegativePrompt ? { negative_prompt: mergedNegativePrompt } : {}),
+    ...(!managed && mergedNegativePrompt ? { negative_prompt: mergedNegativePrompt } : {}),
+    ...(managed ? { response_format: 'url', sequential_image_generation: 'disabled' } : {}),
     // 参考图字段：volcengine doubao-seedream API 规范使用 image（数组），见官方文档
     ...(resolvedRefs.length > 0 && !isAgnes ? { image: resolvedRefs } : {}),
     // Agnes Image 2.x：response_format 必须放 extra_body；参考图走 extra_body.image
@@ -1619,7 +1637,7 @@ async function callImageApi(db, log, opts) {
   });
   const openaiCompatHeaders = {
     'Content-Type': 'application/json',
-    Authorization: 'Bearer ' + (config.api_key || ''),
+    Authorization: 'Bearer ' + production.generationKey(config, url, 'image'),
   };
   let raw;
   let httpStatus;
@@ -1979,6 +1997,7 @@ function refListHasCanonical(list, ref) {
 
 module.exports = {
   getDefaultImageConfig,
+  getModelFromConfig,
   callImageApi,
   createAndGenerateImage,
   resolveAssetUserNegativeForApi,
