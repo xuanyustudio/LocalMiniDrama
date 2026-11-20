@@ -49,6 +49,16 @@ test('Seedance 2.x on classic volcengine protocol is omni-capable (issue #49)', 
   assert.equal(canUseUniversalOmniVideoApi(cfg), true)
 })
 
+test('MIGU / HAI 网关 R2V 支持多图参考（含音频驱动口型）', () => {
+  assert.equal(canUseUniversalOmniVideoApi({ provider: 'migu', model: 'VideoMinimaxH3R2v' }), true)
+  assert.equal(canUseUniversalOmniVideoApi({ api_protocol: 'hai', model: 'VideoMinimaxH3R2v' }), true)
+  assert.equal(canUseUniversalOmniVideoApi({ provider: 'hai' }), true)
+  assert.equal(
+    canUseUniversalOmniVideoApi({ provider: '', base_url: 'http://x/hai/api/v1', model: 'VideoMinimaxH3I2v' }),
+    true
+  )
+})
+
 test('kling_omni / volcengine_omni / agnes / cheap_seedance2 stay omni-capable', () => {
   assert.equal(canUseUniversalOmniVideoApi({ api_protocol: 'kling_omni' }), true)
   assert.equal(canUseUniversalOmniVideoApi({ api_protocol: 'volcengine_omni' }), true)
@@ -58,10 +68,7 @@ test('kling_omni / volcengine_omni / agnes / cheap_seedance2 stay omni-capable',
     true
   )
   assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'yk-seedance-mini' }), true)
-  assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'mb-minimax-h3-f-fast-480p' }), true)
-  assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'doubao-seedance-2-0-mini-480p' }), true)
-  assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'seedance2.5-full-480p' }), true)
-  assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'mb-seedance2.5-480p' }), true)
+  assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'minimax-h3-1080p-15s' }), true)
 })
 
 test('explicit supports_universal_omni setting still enables omni', () => {

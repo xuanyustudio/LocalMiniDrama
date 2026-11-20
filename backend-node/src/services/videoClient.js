@@ -19,6 +19,7 @@ const {
   unsafeDecodeKlingJwtPayload,
   jwtPartLengths,
 } = require('./klingJwt');
+const haiGateway = require('../utils/haiGateway');
 
 /**
  * ?? provider ??????????api_protocol ??????????
@@ -36,28 +37,26 @@ function inferVideoProtocol(provider) {
   if (p === 'xai' || p === 'grok') return 'xai';
   if (p === 'agnes') return 'agnes';
   if (p === 'minimax_h3') return 'minimax_h3';
+  if (p === 'migu' || p === 'hai') return 'hai';
   return 'openai';
+}
+
+/** MIGU 私有网关（HAI）厂商判定：provider migu/hai，或 base_url 含 /hai/api 路径 */
+function isHaiVideoProvider(providerOrConfig) {
+  if (!providerOrConfig) return false;
+  if (typeof providerOrConfig === 'object') {
+    const c = providerOrConfig;
+    const p = String(c.provider || '').toLowerCase();
+    if (p === 'migu' || p === 'hai') return true;
+    const proto = String(c.api_protocol || '').toLowerCase();
+    return proto === 'hai' || /\/hai\/api/i.test(String(c.base_url || ''));
+  }
+  const p = String(providerOrConfig).trim().toLowerCase();
+  return p === 'migu' || p === 'hai';
 }
 
 function isCheapSeedance2Provider(provider) {
   return String(provider || '').trim().toLowerCase() === 'cheap_seedance2';
-}
-
-function isWorkbenchOhmybbHost(baseUrl) {
-  return String(baseUrl || '').toLowerCase().includes('workbench.ohmybb.xyz');
-}
-
-/** 工作台已下架的模型 ID → 当前仍可用的替代模型 */
-const CHEAP_SEEDANCE2_RETIRED_MODELS = {
-  'wb-seedance-2.5': 'wb-seedance-2-fast',
-  'wb-seedance-2.5-30s': 'wb-seedance-2-fast',
-  'minimax-h3-1080p-15s': 'mb-minimax-h3-f-fast-480p',
-};
-
-function remapRetiredCheapSeedance2Model(model) {
-  const raw = String(model || '').trim();
-  if (!raw) return raw;
-  return CHEAP_SEEDANCE2_RETIRED_MODELS[raw.toLowerCase()] || raw;
 }
 
 /** AI 配置 settings.supports_universal_omni 或低价 Seedance2 */
@@ -73,73 +72,58 @@ function configSupportsUniversalOmni(config) {
   return s.supports_universal_omni === true || s.supports_universal_omni === 1 || s.supports_universal_omni === 'true';
 }
 
-/**
- * ohmybb 当前模型时长档（与 /docs/api 第六节一致）。
- * wb-seedance-2-fast：4–10，默认 10；
- * mb-minimax-h3-f-fast-480p / doubao-seedance-2-0-mini-480p：4–15，默认 5；
- * seedance2.5-full-480p：4–30，默认 4；mb-seedance2.5-480p：4–30，默认 5。
- */
-function cheapSeedance2DurationSpec(model) {
-  const m = String(remapRetiredCheapSeedance2Model(model) || '').toLowerCase();
-  if (m === 'wb-seedance-2-15s') return { min: 15, max: 15, fallback: 15 };
-  if (m === 'wb-seedance-2-fast') return { min: 4, max: 10, fallback: 10 };
-  if (/seedance2\.5/.test(m)) {
-    return { min: 4, max: 30, fallback: m === 'seedance2.5-full-480p' ? 4 : 5 };
-  }
-  return { min: 4, max: 15, fallback: 5 };
+/** ohmybb 按次/按秒模型：4–15 秒逐秒可选，默认 5 秒 */
+function isCheapSeedance2FlexibleDurationModel(model) {
+  const m = String(model || '').toLowerCase();
+  return m === 'yk-seedance-mini'
+    || m === 'yk-seedance2.0-fast'
+    || m === 'yk-seedance2.0'
+    || m === 'minimax-h3-1080p-15s';
 }
 
 /**
+ * ohmybb 时长档。
+ * wb-seedance-2-fast 仅 5/10（默认 10）；yk / minimax-h3-1080p-15s 为 4–15 逐秒（默认 5）。
  * @returns {string} seconds 字符串
  */
 function normalizeCheapSeedance2Duration(duration, model) {
-  const spec = cheapSeedance2DurationSpec(model);
   const raw = duration == null || duration === '' ? NaN : Number(duration);
-  if (!Number.isFinite(raw) || raw <= 0) return String(spec.fallback);
-  const n = Math.round(raw);
-  if (n < spec.min) return String(spec.min);
-  if (n > spec.max) return String(spec.max);
-  return String(n);
+  if (isCheapSeedance2FlexibleDurationModel(model)) {
+    if (!Number.isFinite(raw) || raw <= 0) return '5';
+    const n = Math.round(raw);
+    if (n < 4) return '4';
+    if (n > 15) return '15';
+    return String(n);
+  }
+  if (!Number.isFinite(raw) || raw <= 0) return '10';
+  return raw <= 5 ? '5' : '10';
 }
 
-/** ohmybb 参考图上限。Seedance 2.5 480p 最多 30 张，其余当前预设最多 9 张。 */
+/** ohmybb 参考图上限。minimax-h3-1080p-15s 只收 1 张，其余最多 9 张。 */
 function cheapSeedance2MaxImages(model) {
-  const m = String(remapRetiredCheapSeedance2Model(model) || '').toLowerCase();
-  if (/seedance2\.5/.test(m)) return 30;
-  return 9;
+  return String(model || '').toLowerCase() === 'minimax-h3-1080p-15s' ? 1 : 9;
 }
-
-const CHEAP_SEEDANCE2_720_SIZES = {
-  '16:9': '1280x720',
-  '9:16': '720x1280',
-  '1:1': '1024x1024',
-  '4:3': '960x720',
-  '3:4': '720x960',
-  '21:9': '1680x720',
-};
-const CHEAP_SEEDANCE2_480_SIZES = {
-  '16:9': '854x480',
-  '9:16': '480x854',
-  '1:1': '480x480',
-  '4:3': '640x480',
-  '3:4': '480x640',
-  '21:9': '1120x480',
-};
 
 /**
- * ohmybb size。480p 模型用 480 档；mb-minimax-h3-f-fast-480p 只有 16:9 / 9:16。
+ * ohmybb size。fast 与 yk 的 1:1 不同；minimax-h3-1080p-15s 只有 1920x1080 / 1080x1920。
  */
 function normalizeCheapSeedance2Size(aspectRatio, model) {
   const ratio = String(aspectRatio || '').trim();
-  const m = String(remapRetiredCheapSeedance2Model(model) || '').toLowerCase();
-  if (/^mb-minimax[-_]?h3/.test(m)) {
-    return ratio === '9:16' ? '480x854' : '854x480';
+  const m = String(model || '').toLowerCase();
+  if (m === 'minimax-h3-1080p-15s') {
+    if (ratio === '9:16' || ratio === '3:4') return '1080x1920';
+    return '1920x1080';
   }
-  const use480 = /480p/.test(m);
   const yk = m === 'yk-seedance-mini' || m === 'yk-seedance2.0-fast' || m === 'yk-seedance2.0';
-  if (!use480 && yk && ratio === '1:1') return '720x720';
-  const sizeMap = use480 ? CHEAP_SEEDANCE2_480_SIZES : CHEAP_SEEDANCE2_720_SIZES;
-  return sizeMap[ratio] || (use480 ? '854x480' : '1280x720');
+  const sizeMap = {
+    '16:9': '1280x720',
+    '9:16': '720x1280',
+    '1:1': yk ? '720x720' : '1024x1024',
+    '4:3': '960x720',
+    '3:4': '720x960',
+    '21:9': '1680x720',
+  };
+  return sizeMap[ratio] || '1280x720';
 }
 
 /** 完成态无直链时，拼 Sora 兼容 content 下载地址 */
@@ -151,13 +135,10 @@ function buildCheapSeedance2ContentUrl(config, taskId) {
   return `${base}/v1/videos/${encodeURIComponent(id)}/content`;
 }
 
-/**
- * 官方模型 ID：MiniMax-H3（Video Generation V2）。
- * 工作台别名（mb-minimax-h3-*、minimax-h3-480p 等）不是官方接口，不能改写成 MiniMax-H3。
- */
+/** 官方模型 ID：MiniMax-H3（Video Generation V2） */
 function isMinimaxH3Model(name) {
   const m = String(name || '').trim().toLowerCase();
-  return m === 'minimax-h3' || m === 'minimax_h3';
+  return m === 'minimax-h3' || m === 'minimax_h3' || /^minimax[-_]?h3\b/.test(m);
 }
 
 /**
@@ -180,13 +161,7 @@ function resolveVideoProtocol(config, modelHint) {
     if (/api\.x\.ai(\/|$)/.test(baseLower)) protocol = 'xai';
     else if (/grok-imagine|grok.*video/.test(modelLower)) protocol = 'xai';
     else if (provider === 'agnes' || /agnes-video|apihub\.agnes-ai\.com/i.test(baseLower)) protocol = 'agnes';
-  }
-  // 低价 Seedance2 / ohmybb：始终走 Sora 兼容。模型名里的 minimax 不是官方 MiniMax-H3，
-  // 误选 minimax_h3 会把工作台密钥打到官方接口，返回 401（错误码 1004）。
-  if (isCheapSeedance2Provider(provider) || isWorkbenchOhmybbHost(config?.base_url)) {
-    const ex = explicit.toLowerCase();
-    if (!ex || ex === 'openai' || ex === 'minimax_h3' || protocol === 'minimax_h3') return 'sora';
-    return protocol;
+    else if (/\/hai\/api/i.test(baseLower)) protocol = 'hai';
   }
   if ((!explicit || protocol === 'openai') && (provider === 'minimax_h3' || isMinimaxH3Model(modelCand))) {
     protocol = 'minimax_h3';
@@ -1203,6 +1178,7 @@ function buildQueryUrl(config, taskId, extras = {}) {
   if (isVolc) return getVolcVideoBase(config) + VOLC_VIDEO_QUERY_PATH + '/' + encodeURIComponent(taskId);
   if (proto === 'agnes') return buildAgnesPollUrl(config, taskId, extras.model);
   if (proto === 'minimax_h3') return buildMinimaxH3PollUrl(config, taskId);
+  if (proto === 'hai') return haiGateway.resolveHaiBase(config) + '/result/' + encodeURIComponent(taskId);
   const base = (config.base_url || '').replace(/\/$/, '');
   let defaultEp;
   if (isSora) defaultEp = '/v1/videos/{taskId}';
@@ -2945,7 +2921,7 @@ async function callAgnesVideoApi(db, config, log, opts) {
 /**
  * Sora (api_protocol = 'sora')
  * 默认 multipart：model, prompt, seconds, size, input_reference
- * 低价 Seedance2 多图：JSON + images[]（2.5 最多 30 张，其余最多 9 张，https 或 data URL）
+ * 低价 Seedance2 多图：JSON + images[]（最多 9 张，https 或 data URL）
  */
 async function resolveSoraImageToDataUrl(rawUrl, storage_local_path, log, video_gen_id, index) {
   const raw = String(rawUrl || '').trim();
@@ -3037,7 +3013,7 @@ async function callSoraVideoApi(config, log, opts) {
   }
 
   // 支持全能多图：低价 Seedance2，或配置勾选 supports_universal_omni → JSON images[]
-  // Seedance 2.5 最多 30 张，其余当前预设最多 9 张
+  // minimax-h3-1080p-15s 上游只收 1 张，其余最多 9 张
   const refList = Array.isArray(reference_urls) ? reference_urls.filter(Boolean).map(String) : [];
   const useOmniMultiImages = configSupportsUniversalOmni(config) && (refList.length > 0 || (image_url || '').trim());
   if (useOmniMultiImages) {
@@ -4107,6 +4083,128 @@ async function callMinimaxH3VideoApi(config, log, opts) {
 }
 
 /**
+ * MIGU 私有网关（HAI）视频生成：VideoMinimaxH3I2v / VideoMinimaxH3R2v。
+ * 上传首帧/尾帧/参考图 → POST /generate → 返回 task_id（网关 request_id），由 pollVideoTask 轮询 /result/{request_id}。
+ * 路由：有参考图 → R2V（多模态参考，首帧并入 <Picture 1>）；仅首帧/纯文生视频 → I2V；HAI_VIDEO_MODIFIER 可强制。
+ * 时长：整数秒、宁长勿短，下限 5（太短被服务端拒）；上游实际输出略长（5 → ~5.17s），下游拼接阶段截断。
+ */
+async function callHaiVideoApi(config, log, opts) {
+  const {
+    prompt,
+    duration,
+    aspect_ratio,
+    image_url,
+    first_frame_url,
+    first_frame_local_path,
+    last_frame_url,
+    last_frame_local_path,
+    reference_urls,
+    voice_reference_url,
+    files_base_url,
+    storage_local_path,
+    video_gen_id,
+  } = opts;
+  const conf = haiGateway.haiVideoConf(config, duration);
+  if (!conf.key) {
+    return { error: 'HAI 网关未配置 API Key：请设置环境变量 HAI_API_KEY，或在 AI 配置中填写 Key' };
+  }
+  try {
+    // ① 上传首帧（可选，缺省即纯文生视频）与尾帧（可选）
+    const rawFirst = (first_frame_url || first_frame_local_path || image_url || '').toString().trim();
+    const rawLast = (last_frame_url || last_frame_local_path || '').toString().trim();
+    let firstFrame = null;
+    let lastFrame = null;
+    if (rawFirst) {
+      const r = await haiGateway.resolveRefToBuffer(rawFirst, files_base_url, storage_local_path);
+      if (!r) return { error: 'HAI 首帧解析失败: ' + String(rawFirst).slice(0, 160) };
+      firstFrame = await haiGateway.uploadHaiImage(conf, r.buffer, 'vg_' + (video_gen_id || 'f') + '_first.png', log);
+    }
+    if (rawLast) {
+      const r = await haiGateway.resolveRefToBuffer(rawLast, files_base_url, storage_local_path);
+      if (r) {
+        lastFrame = await haiGateway.uploadHaiImage(conf, r.buffer, 'vg_' + (video_gen_id || 'f') + '_last.png', log);
+      } else {
+        log.warn('[HAI视频] 尾帧解析失败，忽略尾帧', { video_gen_id, raw: String(rawLast).slice(0, 120) });
+      }
+    }
+
+    // ② 上传多模态参考图（≤9 张，多出截断）
+    const rawRefs = (Array.isArray(reference_urls) ? reference_urls : []).filter(Boolean);
+    const refFilenames = [];
+    for (const ref of rawRefs.slice(0, 9)) {
+      const resolved = await haiGateway.resolveRefToBuffer(ref, files_base_url, storage_local_path);
+      if (!resolved) {
+        log.warn('[HAI视频] 参考图解析失败，跳过', { video_gen_id, ref: String(ref).slice(0, 120) });
+        continue;
+      }
+      refFilenames.push(await haiGateway.uploadHaiImage(conf, resolved.buffer, 'vg_' + (video_gen_id || 'f') + '_ref' + refFilenames.length + '.png', log));
+    }
+    if (rawRefs.length > 9) {
+      log.warn('[HAI视频] 参考图超过 9 张上限，已截断', { video_gen_id, total: rawRefs.length });
+    }
+
+    // ③ 上传角色音色参考（R2V 音频驱动：模型以该音色生成口型同步语音；走 /upload/file）
+    const rawVoice = (voice_reference_url || '').toString().trim();
+    let voiceFilename = null;
+    if (rawVoice) {
+      const vr = await haiGateway.resolveRefToBuffer(rawVoice, files_base_url, storage_local_path);
+      if (vr) {
+        const extM = rawVoice.split('?')[0].match(/\.(mp3|wav|m4a|aac|ogg|flac)$/i);
+        voiceFilename = await haiGateway.uploadHaiFile(
+          conf,
+          vr.buffer,
+          'vg_' + (video_gen_id || 'f') + '_voice.' + (extM ? extM[1] : 'mp3'),
+          log
+        );
+      } else {
+        log.warn('[HAI视频] 音色参考解析失败，忽略音频参考', { video_gen_id, raw: String(rawVoice).slice(0, 120) });
+      }
+    }
+
+    // ④ 组装 modifier + modifications（I2V/R2V 路由：有参考图或音色 → R2V 音频驱动）并提交
+    const { modifier, modifications } = haiGateway.buildHaiVideoRequest({
+      prompt,
+      duration,
+      aspectRatio: aspect_ratio,
+      firstFrame,
+      lastFrame,
+      refImages: refFilenames,
+      refAudios: voiceFilename ? [voiceFilename] : [],
+      conf,
+    });
+
+    log.info('[HAI视频] 提交生成', {
+      video_gen_id,
+      modifier,
+      duration_seconds: modifications.duration_seconds,
+      aspect_ratio: modifications.aspect_ratio,
+      has_first_frame: !!firstFrame,
+      has_last_frame: !!lastFrame,
+      ref_count: (modifications.ref_images || []).length,
+      ref_audio_count: (modifications.ref_audios || []).length,
+      estimate_seconds: conf.estimateSeconds,
+      base_url: conf.base,
+    });
+    const task = await haiGateway.submitAndPollHaiTask(conf, {
+      modifier,
+      modifications,
+      requestId: 'vg-' + (video_gen_id || Date.now().toString(36)) + '-' + Math.random().toString(16).slice(2, 12),
+      log,
+      label: 'HAI视频',
+      videoGenId: video_gen_id,
+    });
+    // 提交成功即返回 task_id；轮询统一走 pollVideoTask（支持重启恢复与「继续查询」）
+    if (task && task.request_id) {
+      return { task_id: task.request_id };
+    }
+    return { error: 'HAI 视频提交未返回 request_id: ' + JSON.stringify(task || {}).slice(0, 300) };
+  } catch (e) {
+    log.error('[HAI视频] 提交异常', { video_gen_id, error: e.message });
+    return { error: 'HAI 视频生成失败: ' + e.message };
+  }
+}
+
+/**
  * ?????? API?ChatFire/?? ? ?????
  * @returns {Promise<{ task_id?: string, video_url?: string, error?: string }>}
  */
@@ -4133,28 +4231,18 @@ async function callVideoApi(db, log, opts) {
   if (!config) {
     throw new Error('???????????AI ?????? video ?????????');
   }
+  const model = normalizeVolcModel(getModelFromConfig(config, preferredModel), config);
   const provider = (config.provider || '').toLowerCase();
-  let model = normalizeVolcModel(getModelFromConfig(config, preferredModel), config);
-  if (isCheapSeedance2Provider(provider) || isWorkbenchOhmybbHost(config.base_url)) {
-    const remapped = remapRetiredCheapSeedance2Model(model);
-    if (remapped && remapped !== model) {
-      log.info('[视频] 低价 Seedance2 停用模型已替换', {
-        from: model,
-        to: remapped,
-        video_gen_id: opts.video_gen_id,
-      });
-      model = remapped;
-    }
-  }
-  const protocol = resolveVideoProtocol(config, model);
+  const protocol = resolveVideoProtocol(config, preferredModel);
   if (db && opts.drama_id && VIDEO_PROTOCOLS_SUPPORT_SD2_ASSET_SCHEME.has(protocol)) {
     opts = applySeedance2CertifiedAssetUrlsToVideoOpts(db, log, opts);
   }
 
-  // Seedance 2.0 自动注入角色音色参考（模型为 SD2 家族，或协议为 volcengine_omni；未显式指定 voice_reference_url 时）
+  // 自动注入角色音色参考（SD2 家族 / volcengine_omni / HAI 网关 R2V 音频驱动；未显式指定 voice_reference_url 时）
   const isSeedance2 =
     isSeedance2FamilyModel(model) || protocol === 'volcengine_omni';
-  if (isSeedance2 && db && opts.drama_id && !opts.voice_reference_url) {
+  const isHaiVoiceDrive = protocol === 'hai';
+  if ((isSeedance2 || isHaiVoiceDrive) && db && opts.drama_id && !opts.voice_reference_url) {
     const voiceMap = collectActiveCharacterVoiceRefs(db, opts.drama_id);
     if (voiceMap.size > 0) {
       // 优先使用分镜显式指定的角色（如果有），否则取第一个
@@ -4177,20 +4265,22 @@ async function callVideoApi(db, log, opts) {
       }
       if (chosen) {
         opts.voice_reference_url = chosen;
-        log.info('[视频][SD2][全能] 自动为 Seedance 2.0 注入角色音色参考（来自角色 seedance2_voice_asset）', {
+        log.info('[视频][音色参考] 自动注入角色音色（来自角色 seedance2_voice_asset）', {
           video_gen_id,
+          protocol,
           storyboard_id: opts.storyboard_id,
           voice_ref_url: String(chosen).slice(0, 100)
         });
       } else {
-        log.info('[视频][SD2][全能] 检测到活跃音色参考但未匹配到当前分镜角色', {
+        log.info('[视频][音色参考] 检测到活跃音色参考但未匹配到当前分镜角色', {
           video_gen_id,
+          protocol,
           storyboard_id: opts.storyboard_id,
           available_voice_char_ids: Array.from(voiceMap.keys())
         });
       }
     } else {
-      log.info('[视频][SD2][全能] Seedance 2.0 模型但本剧暂无 active 音色参考', { video_gen_id, drama_id: opts.drama_id });
+      log.info('[视频][音色参考] 协议支持音色注入但本剧暂无 active 音色参考', { video_gen_id, protocol, drama_id: opts.drama_id });
     }
   }
   log.info('[视频] 路由协议', {
@@ -4390,6 +4480,27 @@ async function callVideoApi(db, log, opts) {
     });
   }
 
+  // MIGU 私有网关（HAI）：VideoMinimaxH3I2v / VideoMinimaxH3R2v（含音频驱动口型同步）
+  if (protocol === 'hai') {
+    return callHaiVideoApi(config, log, {
+      prompt,
+      model,
+      duration: opts.duration,
+      aspect_ratio,
+      resolution: opts.resolution,
+      image_url: opts.image_url,
+      first_frame_url: opts.first_frame_url,
+      first_frame_local_path: opts.first_frame_local_path,
+      last_frame_url: opts.last_frame_url,
+      last_frame_local_path: opts.last_frame_local_path,
+      reference_urls: opts.reference_urls,
+      voice_reference_url: opts.voice_reference_url,
+      files_base_url: opts.files_base_url,
+      storage_local_path: opts.storage_local_path,
+      video_gen_id: opts.video_gen_id,
+    });
+  }
+
   // MiniMax H3 Video Generation V2
   if (protocol === 'minimax_h3') {
     return callMinimaxH3VideoApi(config, log, {
@@ -4565,6 +4676,7 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
   const isSora = protocol === 'sora';
   const isAgnes = protocol === 'agnes';
   const isMinimaxH3 = protocol === 'minimax_h3';
+  const isHai = protocol === 'hai';
   const isKling = protocol === 'kling';
   const isKlingOmni = protocol === 'kling_omni' || (typeof taskId === 'string' && taskId.startsWith('omni:'));
   const isVeo3 = protocol === 'veo3';
@@ -4649,6 +4761,10 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
         headers = bt
           ? { Authorization: bt.startsWith('Bearer ') ? bt : `Bearer ${bt}` }
           : {};
+      } else if (isHai) {
+        // HAI 网关：GET {base}/result/{request_id}，鉴权头 x-api-key（base 可被 HAI_API_BASE 环境变量覆盖）
+        url = queryUrl();
+        headers = { 'x-api-key': haiGateway.resolveHaiApiKey(config) };
       } else if (isGemini) {
         const base = (config.base_url || 'https://generativelanguage.googleapis.com').replace(/\/$/, '');
         url = `${base}/v1beta/${taskId}`;
@@ -4686,6 +4802,20 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
         body: bodyLogged,
       });
       if (!res.ok) {
+        // HAI 网关把终态映射到 HTTP 码：cancelled=499，failed 上游连通性=502，其余 failed=500
+        // 收到这些码说明任务已结束，必须终止轮询而不是继续等待
+        if (isHai) {
+          let failedData = null;
+          try { failedData = JSON.parse(raw); } catch (_) {}
+          const haiSt = failedData ? haiGateway.extractHaiPollStatus(failedData) : '';
+          if (haiSt === 'failed' || haiSt === 'error' || haiSt === 'cancelled' || res.status === 499) {
+            const msg = String((failedData && failedData.message) || ('HTTP ' + res.status)).slice(0, 400);
+            log.warn('[HAI poll] 任务终态异常', { video_gen_id: videoGenId, status: haiSt || res.status, msg });
+            return { error: 'HAI 视频生成失败: ' + msg };
+          }
+          log.warn('[HAI poll] 查询非 2xx（未到终态），继续', { video_gen_id: videoGenId, http_status: res.status });
+          continue;
+        }
         log.warn('[poll] 查询非 2xx', {
           video_gen_id: videoGenId,
           round: pollRound,
@@ -4704,6 +4834,27 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
           error: parseErr.message,
           body_head: raw.slice(0, 800),
         });
+        continue;
+      }
+
+      if (isHai) {
+        // HAI 网关轮询响应：{ status, message, output: [{ media_type, download_url }] }
+        const haiStatus = haiGateway.extractHaiPollStatus(data);
+        log.info('[HAI poll] 状态', { video_gen_id: videoGenId, attempt, status: haiStatus, task_id: taskId });
+        if (haiStatus === 'failed' || haiStatus === 'error' || haiStatus === 'cancelled') {
+          const msg = String(data.message || '任务失败').slice(0, 400);
+          log.warn('[HAI poll] 任务失败', { video_gen_id: videoGenId, status: haiStatus, msg });
+          return { error: 'HAI 视频生成失败: ' + msg };
+        }
+        const videoUrlHai = haiGateway.extractHaiPollVideoUrl(data, haiGateway.resolveHaiBase(config));
+        if (videoUrlHai) {
+          log.info('[HAI poll] 完成', { video_gen_id: videoGenId, video_url: videoUrlHai });
+          return { video_url: videoUrlHai };
+        }
+        if (haiStatus === 'completed') {
+          return { error: 'HAI 任务完成但无视频输出: ' + JSON.stringify(data.output || []).slice(0, 300) };
+        }
+        // queued / running → 继续轮询
         continue;
       }
 
@@ -5013,14 +5164,14 @@ module.exports = {
   shouldUseVolcOmniMultiReference,
   normalizeVolcengineDuration,
   isMinimaxH3Model,
-  resolveVideoProtocol,
-  remapRetiredCheapSeedance2Model,
   getMinimaxApiRoot,
   buildMinimaxH3PollUrl,
   extractMinimaxH3VideoUrl,
   normalizeMinimaxH3Duration,
   normalizeMinimaxH3Resolution,
   isCheapSeedance2Provider,
+  isHaiVideoProvider,
+  callHaiVideoApi,
   configSupportsUniversalOmni,
   normalizeCheapSeedance2Duration,
   normalizeCheapSeedance2Size,

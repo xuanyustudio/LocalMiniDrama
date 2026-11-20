@@ -348,7 +348,7 @@
         >
           <template #title>
             <span>
-              适合练手与流水剧制作。当前预设都支持全能多图；价格以工作台为准（H3 Fast 约 0.02 元/秒，2.0 Fast 约 1 元/次）。
+              适合练手与流水剧制作，价格便宜，一次约 1 元，不按秒计费。
               官网：
               <a href="https://workbench.ohmybb.xyz/" target="_blank" rel="noopener noreferrer" class="cheap-seedance2-link">workbench.ohmybb.xyz</a>
             </span>
@@ -373,6 +373,7 @@
             <el-option label="可灵 Omni-Video（官方 api-beijing / ffir 中转，O1 全能）" value="kling_omni" />
             <el-option label="xAI Grok Imagine（官方 prompt + aspect_ratio，/v1/videos/generations）" value="xai" />
             <el-option label="MiniMax H3（官方 V2：/v2/video_generation，模型 MiniMax-H3）" value="minimax_h3" />
+            <el-option label="MIGU HAI 私有网关（MinimaxH3ImageEdit 生图 / VideoMinimaxH3I2v 生视频）" value="hai" />
             <el-option label="NanoBanana" value="nano_banana" />
           </el-select>
         </el-form-item>
@@ -419,12 +420,12 @@
               <el-collapse-item name="cheap-seedance2-vid">
                 <template #title><span class="ph-tag ph-tag-vid">视频</span> 低价 Seedance2 — Sora 兼容（ohmybb）</template>
                 <div class="ph-body">
-                  <b>适用场景：</b>练手、流水剧制作。下列模型都走全能多图（JSON <code>images</code>）。<br>
+                  <b>适用场景：</b>练手、流水剧制作；按次计费（约 1 元/次），不按秒计费。<br>
                   <b>厂商：</b>选择「低价 Seedance2」即可自动填好 Base URL / 协议 / 模型，并默认勾选「确认支持全能模式」。<br>
                   <b>Base URL：</b><code>https://workbench.ohmybb.xyz/api/openai</code><br>
-                  <b>接口规范：</b><code>sora</code>（多图参考时用 JSON <code>images</code>；不要改成 MiniMax H3，否则会 401）<br>
+                  <b>接口规范：</b><code>sora</code>（multipart/form-data；多图参考时用 JSON <code>images</code> 数组，最多 9 张）<br>
                   <b>默认 Endpoint：</b><code>POST /v1/videos</code>，查询 <code>GET /v1/videos/{taskId}</code>；成片需带 Key 下载 <code>/v1/videos/{id}/content</code>（本系统会自动处理）。<br>
-                  <b>模型：</b><code>mb-minimax-h3-f-fast-480p</code>（4–15 秒，最多 9 图）、<code>doubao-seedance-2-0-mini-480p</code>（4–15 秒，最多 9 图）、<code>wb-seedance-2-fast</code>（4–10 秒，最多 9 图）、<code>seedance2.5-full-480p</code> / <code>mb-seedance2.5-480p</code>（4–30 秒，最多 30 图）。已下架的 <code>wb-seedance-2.5</code>、<code>minimax-h3-1080p-15s</code> 会自动改送到仍可用的模型。<br>
+                  <b>模型：</b><code>wb-seedance-2-fast</code>（5/10 秒）、<code>yk-seedance-mini</code> / <code>yk-seedance2.0-fast</code> / <code>yk-seedance2.0</code>（4–15 秒）、<code>minimax-h3-1080p-15s</code>（4–15 秒，仅 1 张参考图）<br>
                   <b>官网 / 充值：</b><a href="https://workbench.ohmybb.xyz/" target="_blank" rel="noopener noreferrer">https://workbench.ohmybb.xyz/</a>
                 </div>
               </el-collapse-item>
@@ -919,7 +920,7 @@ input_reference = (图片文件，可选)</pre>
         <div class="one-key-section">
           <div class="one-key-section-title">📋 将自动创建以下配置</div>
           <ul class="one-key-list">
-            <li><b>视频生成</b>：低价 Seedance2（mb-minimax-h3-f-fast-480p / doubao-seedance-2-0-mini-480p / wb-seedance-2-fast / seedance2.5-full-480p / mb-seedance2.5-480p，以及仍在售的 yk-seedance-mini / yk-seedance2.0-fast / yk-seedance2.0），均支持全能模式</li>
+            <li><b>视频生成</b>：低价 Seedance2（wb-seedance-2-fast / yk-seedance-mini / yk-seedance2.0-fast / yk-seedance2.0 / minimax-h3-1080p-15s）</li>
           </ul>
           <p class="one-key-note">会设为视频服务的默认配置；Base URL / 协议 / 端点自动填好。</p>
         </div>
@@ -1414,10 +1415,12 @@ const providerConfigs = {
     { id: 'openai', name: 'OpenAI', models: ['dall-e-3', 'dall-e-2'] },
     { id: 'dashscope', name: '通义万象', models: ['wan2.6-image', 'qwen-image-edit-plus-2026-01-09', 'qwen-image-edit-plus', 'qwen-image-edit-max'] },
     { id: 'qwen_image', name: '通义千问', models: ['qwen-image-3.0', 'qwen-image-3.0-pro'] },
+    { id: 'migu', name: 'MIGU（私有化 HAI 网关）', models: ['MinimaxH3ImageEdit'] },
     { id: 'agnes', name: 'Agnes AI', models: ['agnes-image-2.5-flash', 'agnes-image-2.1-flash', 'agnes-image-2.0-flash'] }
   ],
   storyboard_image: [
     { id: 'dashscope', name: '通义万象', models: ['wan2.6-image', 'qwen-image-edit-plus-2026-01-09', 'qwen-image-edit-plus', 'qwen-image-edit-max'] },
+    { id: 'migu', name: 'MIGU（私有化 HAI 网关）', models: ['MinimaxH3ImageEdit'] },
     { id: 'volcengine', name: '火山引擎', models: ['doubao-seedream-5-0-flash-260915', 'doubao-seedream-5-0-pro-260628', 'doubao-seedream-4-5-251128'] },
     { id: 'kling', name: '可灵 Kling', models: ['kling-image', 'kling-omni-image'] },
     { id: 'nano_banana', name: 'NanoBanana', models: ['nano-banana-2', 'nano-banana-pro', 'nano-banana'] },
@@ -1430,7 +1433,7 @@ const providerConfigs = {
     {
       id: 'cheap_seedance2',
       name: '低价 Seedance2',
-      models: ['mb-minimax-h3-f-fast-480p', 'doubao-seedance-2-0-mini-480p', 'wb-seedance-2-fast', 'seedance2.5-full-480p', 'mb-seedance2.5-480p', 'yk-seedance-mini', 'yk-seedance2.0-fast', 'yk-seedance2.0'],
+      models: ['wb-seedance-2-fast', 'yk-seedance-mini', 'yk-seedance2.0-fast', 'yk-seedance2.0', 'minimax-h3-1080p-15s'],
     },
     { id: 'klingai', name: '可灵官方 Omni (api-beijing.klingai.com)', models: ['kling-video-o1', 'kling-v3-omni'] },
     { id: 'ffir', name: '飞儿API / 可灵 Omni-Video (ffir.cn)', models: ['kling-video-o1', 'kling-v3-omni'] },
@@ -1439,6 +1442,7 @@ const providerConfigs = {
     { id: 'volces', name: '火山引擎', models: ['doubao-seedance-2-0-fast-260128', 'doubao-seedance-2-0-260128', 'doubao-seedance-2-5-260628', 'doubao-seedance-1-0-pro-250528', 'doubao-seedance-1-0-pro-fast-251015'] },
     // { id: 'chatfire', name: 'Chatfire', models: ['doubao-seedance-1-5-pro-251215', 'doubao-seedance-1-0-lite-i2v-250428', 'doubao-seedance-1-0-lite-t2v-250428', 'doubao-seedance-1-0-pro-250528', 'doubao-seedance-1-0-pro-fast-251015', 'sora-2', 'sora-2-pro'] },
     { id: 'minimax_h3', name: 'MiniMax H3', models: ['MiniMax-H3'] },
+    { id: 'migu', name: 'MIGU（私有化 HAI 网关）', models: ['VideoMinimaxH3I2v'] },
     { id: 'minimax', name: 'MiniMax 海螺', models: ['MiniMax-Hailuo-2.3', 'MiniMax-Hailuo-2.3-Fast', 'MiniMax-Hailuo-02'] },
     { id: 'gemini', name: 'Google Gemini (Veo)', models: ['veo-3.1-generate-preview', 'veo-3.0-generate-preview', 'veo-3.0-fast-generate-preview'] },
     { id: 'dashscope', name: '通义万相', models: ['wan2.6-r2v-flash', 'wan2.6-t2v', 'wan2.2-kf2v-flash', 'wan2.6-i2v-flash', 'wanx2.1-vace-plus'] },
@@ -1484,6 +1488,7 @@ const providerProtocolMap = {
   vidu: 'vidu',
   xai: 'xai',
   grok: 'xai',
+  migu: 'hai',
   minimax: 'openai',
   minimax_h3: 'minimax_h3',
   openai: 'openai',
@@ -1502,6 +1507,7 @@ function getBaseUrlForProvider(provider) {
   const p = String(provider).toLowerCase()
   if (p === 'gemini' || p === 'google') return 'https://generativelanguage.googleapis.com'
   if (p === 'minimax_h3') return 'https://api.minimaxi.com'
+  if (p === 'migu') return 'http://36.138.206.92:60788/mgpu-node3-prod/hai/api/v1'
   if (p === 'minimax') return 'https://api.minimaxi.com/v1'
   if (p === 'volces' || p === 'volcengine') return 'https://ark.cn-beijing.volces.com/api/v3'
   if (p === 'openai') return 'https://api.openai.com/v1'
@@ -1601,6 +1607,17 @@ const endpointPreviewInfo = computed(() => {
   }
 
   if (!base && !proto && !p) return null
+
+  if (proto === 'hai') {
+    // MIGU HAI 网关：提交 /generate，轮询 /result/{request_id}
+    const root = base || '(请填写网关 URL)'
+    return {
+      submit: `${root}/generate`,
+      query: root.startsWith('(') ? null : `${root}/result/{request_id}`,
+      isAuto: true,
+      isHai: true,
+    }
+  }
 
   let submitPath = '', queryPath = ''
 
@@ -1789,6 +1806,11 @@ function onProviderChange(providerId) {
     form.value.endpoint = '/video_generation'
     form.value.query_endpoint = '/query/video_generation?task_id={taskId}'
   }
+  if (providerId === 'migu') {
+    // HAI 网关自包含协议：无需 endpoint / query_endpoint，只配 Key 和 BaseURL
+    form.value.endpoint = ''
+    form.value.query_endpoint = ''
+  }
   if (!editingId.value) {
     form.value.name = (p.name || providerId) + ' ' + serviceTypeLabel(st)
   }
@@ -1813,7 +1835,7 @@ const CHEAP_SEEDANCE2_CONFIGS = [
     base_url: 'https://workbench.ohmybb.xyz/api/openai',
     endpoint: '/v1/videos',
     query_endpoint: '/v1/videos/{taskId}',
-    model: ['mb-minimax-h3-f-fast-480p', 'doubao-seedance-2-0-mini-480p', 'wb-seedance-2-fast', 'seedance2.5-full-480p', 'mb-seedance2.5-480p', 'yk-seedance-mini', 'yk-seedance2.0-fast', 'yk-seedance2.0'],
+    model: ['wb-seedance-2-fast', 'yk-seedance-mini', 'yk-seedance2.0-fast', 'yk-seedance2.0', 'minimax-h3-1080p-15s'],
     settings: JSON.stringify({ supports_universal_omni: true }),
   },
 ]
