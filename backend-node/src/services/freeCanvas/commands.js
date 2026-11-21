@@ -1,4 +1,5 @@
 const document = require('./document');
+const { layoutGraph } = require('./layout');
 
 const TYPE_LABELS = { script: '剧本', storyboard: '分镜', image: '图片' };
 const DEFAULT_NEXT = {
@@ -223,6 +224,13 @@ function applyAddNext(graph, op, idFactory, tempMap, receipt) {
   return { ok: true, graph: edged.graph };
 }
 
+function applyLayoutNodes(graph, op, tempMap) {
+  const onlyIds = Array.isArray(op.node_ids)
+    ? op.node_ids.map((id) => resolveId(tempMap, id))
+    : undefined;
+  return { ok: true, graph: layoutGraph(graph, onlyIds) };
+}
+
 function applyGroupNodes(graph, op, idFactory, tempMap, receipt) {
   const data = op.data || (op.title !== undefined ? { title: op.title } : {});
   const created = document.createNode(graph, { type: 'group', data, position: op.position }, idFactory);
@@ -258,6 +266,8 @@ function applyOp(graph, op, idFactory, tempMap, receipt) {
       return applyAddNext(graph, op, idFactory, tempMap, receipt);
     case 'group_nodes':
       return applyGroupNodes(graph, op, idFactory, tempMap, receipt);
+    case 'layout_nodes':
+      return applyLayoutNodes(graph, op, tempMap);
     case 'delete_node':
     case 'run_node':
       return fail('这一批不能删除或运行');
@@ -280,6 +290,9 @@ function applyOps(graph, command, idFactory) {
     const result = applyOp(working, op, idFactory, tempMap, receipt);
     if (!result.ok) return fail(result.error);
     working = result.graph;
+  }
+  if (working.nodes.some((node) => node.position === null)) {
+    working = layoutGraph(working);
   }
   receipt.summary = summarize(receipt.created);
   return { ok: true, graph: working, receipt };
