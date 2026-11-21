@@ -48,6 +48,7 @@ import { useRoute } from 'vue-router'
 import { agentAPI } from '@/api/agent'
 import { taskAPI } from '@/api/task'
 import { useAgentContext } from '@/stores/agentContext'
+import { createTaskWatcher } from '@/utils/taskWatcher'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -62,7 +63,9 @@ const draft = ref('')
 const busy = ref(false)
 const errorText = ref('')
 const logRef = ref(null)
-const timers = new Set()
+const taskWatcher = createTaskWatcher({
+  getTask: (taskId) => taskAPI.get(taskId),
+})
 const showEpisodePicker = computed(() => route.name === 'drama-detail')
 
 function thumb(message) {
@@ -93,29 +96,23 @@ function taskResult(data) {
 }
 
 function watchTask(taskId, message) {
-  const timer = setInterval(async () => {
-    try {
-      const task = await taskAPI.get(taskId)
-      const data = task?.data ?? task
-      if (!data || (data.status !== 'completed' && data.status !== 'failed')) return
-      clearInterval(timer)
-      timers.delete(timer)
-      const result = taskResult(data)
-      message.imageUrl = result.image_url || message.imageUrl
-      message.localPath = result.local_path || message.localPath
-      if (data.status === 'failed') {
-        message.summary = data.error || data.message || '生成失败'
-      } else if (result.count != null) {
-        message.summary = `已完成，共 ${result.count} 个`
-      } else {
-        message.summary = '已完成'
-      }
-      notifyChanged('generate_image')
-    } catch (_) {
-      /* 下一轮再查 */
+  taskWatcher.watch(taskId, ({ status, task }) => {
+    if (status === 'timeout') {
+      message.summary = '生成仍在后台进行，已停止自动查询；完成后可在媒体库查看结果'
+      return
     }
-  }, 3000)
-  timers.add(timer)
+    const result = taskResult(task)
+    message.imageUrl = result.image_url || message.imageUrl
+    message.localPath = result.local_path || message.localPath
+    if (status === 'failed') {
+      message.summary = task.error || task.message || '生成失败'
+    } else if (result.count != null) {
+      message.summary = `已完成，共 ${result.count} 个`
+    } else {
+      message.summary = '已完成'
+    }
+    notifyChanged('generate_image')
+  })
 }
 
 function onEvent(event) {
@@ -225,8 +222,7 @@ watch(() => props.dramaId, () => {
 })
 
 onBeforeUnmount(() => {
-  for (const timer of timers) clearInterval(timer)
-  timers.clear()
+  taskWatcher.stopAll()
 })
 </script>
 

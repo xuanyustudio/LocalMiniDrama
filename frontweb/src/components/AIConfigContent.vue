@@ -348,7 +348,7 @@
         >
           <template #title>
             <span>
-              适合练手与流水剧制作，价格便宜，一次约 1 元，不按秒计费。
+              适合练手与流水剧制作。当前预设都支持全能多图；价格以工作台为准（H3 Fast 约 0.02 元/秒，2.0 Fast 约 1 元/次）。
               官网：
               <a href="https://workbench.ohmybb.xyz/" target="_blank" rel="noopener noreferrer" class="cheap-seedance2-link">workbench.ohmybb.xyz</a>
             </span>
@@ -419,12 +419,12 @@
               <el-collapse-item name="cheap-seedance2-vid">
                 <template #title><span class="ph-tag ph-tag-vid">视频</span> 低价 Seedance2 — Sora 兼容（ohmybb）</template>
                 <div class="ph-body">
-                  <b>适用场景：</b>练手、流水剧制作；按次计费（约 1 元/次），不按秒计费。<br>
+                  <b>适用场景：</b>练手、流水剧制作。下列模型都走全能多图（JSON <code>images</code>）。<br>
                   <b>厂商：</b>选择「低价 Seedance2」即可自动填好 Base URL / 协议 / 模型，并默认勾选「确认支持全能模式」。<br>
                   <b>Base URL：</b><code>https://workbench.ohmybb.xyz/api/openai</code><br>
-                  <b>接口规范：</b><code>sora</code>（multipart/form-data；多图参考时用 JSON <code>images</code> 数组，最多 9 张）<br>
+                  <b>接口规范：</b><code>sora</code>（多图参考时用 JSON <code>images</code>；不要改成 MiniMax H3，否则会 401）<br>
                   <b>默认 Endpoint：</b><code>POST /v1/videos</code>，查询 <code>GET /v1/videos/{taskId}</code>；成片需带 Key 下载 <code>/v1/videos/{id}/content</code>（本系统会自动处理）。<br>
-                  <b>模型：</b><code>wb-seedance-2-fast</code>（5/10 秒）、<code>yk-seedance-mini</code> / <code>yk-seedance2.0-fast</code> / <code>yk-seedance2.0</code>（4–15 秒）、<code>minimax-h3-1080p-15s</code>（4–15 秒，仅 1 张参考图）<br>
+                  <b>模型：</b><code>mb-minimax-h3-f-fast-480p</code>（4–15 秒，最多 9 图）、<code>doubao-seedance-2-0-mini-480p</code>（4–15 秒，最多 9 图）、<code>wb-seedance-2-fast</code>（4–10 秒，最多 9 图）、<code>seedance2.5-full-480p</code> / <code>mb-seedance2.5-480p</code>（4–30 秒，最多 30 图）。已下架的 <code>wb-seedance-2.5</code>、<code>minimax-h3-1080p-15s</code> 会自动改送到仍可用的模型。<br>
                   <b>官网 / 充值：</b><a href="https://workbench.ohmybb.xyz/" target="_blank" rel="noopener noreferrer">https://workbench.ohmybb.xyz/</a>
                 </div>
               </el-collapse-item>
@@ -919,7 +919,7 @@ input_reference = (图片文件，可选)</pre>
         <div class="one-key-section">
           <div class="one-key-section-title">📋 将自动创建以下配置</div>
           <ul class="one-key-list">
-            <li><b>视频生成</b>：低价 Seedance2（wb-seedance-2-fast / yk-seedance-mini / yk-seedance2.0-fast / yk-seedance2.0 / minimax-h3-1080p-15s）</li>
+            <li><b>视频生成</b>：低价 Seedance2（mb-minimax-h3-f-fast-480p / doubao-seedance-2-0-mini-480p / wb-seedance-2-fast / seedance2.5-full-480p / mb-seedance2.5-480p，以及仍在售的 yk-seedance-mini / yk-seedance2.0-fast / yk-seedance2.0），均支持全能模式</li>
           </ul>
           <p class="one-key-note">会设为视频服务的默认配置；Base URL / 协议 / 端点自动填好。</p>
         </div>
@@ -1430,7 +1430,7 @@ const providerConfigs = {
     {
       id: 'cheap_seedance2',
       name: '低价 Seedance2',
-      models: ['wb-seedance-2-fast', 'yk-seedance-mini', 'yk-seedance2.0-fast', 'yk-seedance2.0', 'minimax-h3-1080p-15s'],
+      models: ['mb-minimax-h3-f-fast-480p', 'doubao-seedance-2-0-mini-480p', 'wb-seedance-2-fast', 'seedance2.5-full-480p', 'mb-seedance2.5-480p', 'yk-seedance-mini', 'yk-seedance2.0-fast', 'yk-seedance2.0'],
     },
     { id: 'klingai', name: '可灵官方 Omni (api-beijing.klingai.com)', models: ['kling-video-o1', 'kling-v3-omni'] },
     { id: 'ffir', name: '飞儿API / 可灵 Omni-Video (ffir.cn)', models: ['kling-video-o1', 'kling-v3-omni'] },
@@ -1813,7 +1813,7 @@ const CHEAP_SEEDANCE2_CONFIGS = [
     base_url: 'https://workbench.ohmybb.xyz/api/openai',
     endpoint: '/v1/videos',
     query_endpoint: '/v1/videos/{taskId}',
-    model: ['wb-seedance-2-fast', 'yk-seedance-mini', 'yk-seedance2.0-fast', 'yk-seedance2.0', 'minimax-h3-1080p-15s'],
+    model: ['mb-minimax-h3-f-fast-480p', 'doubao-seedance-2-0-mini-480p', 'wb-seedance-2-fast', 'seedance2.5-full-480p', 'mb-seedance2.5-480p', 'yk-seedance-mini', 'yk-seedance2.0-fast', 'yk-seedance2.0'],
     settings: JSON.stringify({ supports_universal_omni: true }),
   },
 ]

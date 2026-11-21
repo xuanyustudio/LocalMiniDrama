@@ -532,8 +532,16 @@ async function processVideoGeneration(db, log, videoGenId) {
     }
     const rowForAspect = { ...row, aspect_ratio: aspectForVideo || row.aspect_ratio };
     const { BAILIAN_REF } = require('./productionProviders');
-    const useOmniRefs = config.api_key !== BAILIAN_REF && Boolean(reference_urls?.length);
-    if (row.task_id && useOmniRefs) {
+    // 百炼托管配置不走参考图上传
+    const hasOmniRefs = config.api_key !== BAILIAN_REF && Boolean(reference_urls?.length);
+    // DashScope 各模型分支读帧/读参考图互不相交（kf2v/i2v 只读帧，vace/r2v 只读参考图），
+    // 传统模式下参考图列表就是分镜主图本身，不能因参考图非空而丢掉首帧/尾帧。
+    // 协议判定与 videoClient.resolveVideoProtocol/inferVideoProtocol 同口径（显式 api_protocol 优先）。
+    const explicitProtocol = String(config.api_protocol || '').trim().toLowerCase();
+    const dashscopeFrames = explicitProtocol
+      ? explicitProtocol === 'dashscope'
+      : String(config.provider || '').trim().toLowerCase() === 'dashscope';
+    if (row.task_id && hasOmniRefs) {
       taskService.updateTaskStatus(
         db,
         row.task_id,
@@ -556,9 +564,9 @@ async function processVideoGeneration(db, log, videoGenId) {
       provider: row.provider,
       drama_id: row.drama_id,
       storyboard_id: row.storyboard_id || undefined,
-      image_url: useOmniRefs ? undefined : row.image_url,
-      first_frame_url: useOmniRefs ? undefined : row.first_frame_url,
-      last_frame_url: useOmniRefs ? undefined : row.last_frame_url,
+      image_url: (hasOmniRefs && !dashscopeFrames) ? undefined : row.image_url,
+      first_frame_url: (hasOmniRefs && !dashscopeFrames) ? undefined : row.first_frame_url,
+      last_frame_url: (hasOmniRefs && !dashscopeFrames) ? undefined : row.last_frame_url,
       reference_urls,
       files_base_url: filesBaseUrl,
       storage_local_path: storageLocalPath,

@@ -14,6 +14,8 @@ describe('MiniMax H3 helpers', () => {
     assert.equal(isMinimaxH3Model('MiniMax-H3'), true);
     assert.equal(isMinimaxH3Model('minimax-h3'), true);
     assert.equal(isMinimaxH3Model('MiniMax-Hailuo-2.3'), false);
+    assert.equal(isMinimaxH3Model('mb-minimax-h3-f-fast-480p'), false);
+    assert.equal(isMinimaxH3Model('minimax-h3-1080p-15s'), false);
   });
 
   it('strips /v1 from base for V2 root', () => {

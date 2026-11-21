@@ -64,6 +64,17 @@ export function assertOwned(db, dramaId, type, id) {
   return { ok: false, error: '未知类型' };
 }
 
+// 对话入口的 episode 口径：没有指定就保持 null（不自动猜），
+// 指定了就必须属于当前项目。chat 与 approve/decline 恢复共用。
+export function resolveChatEpisode(db, dramaId, episodeId) {
+  if (episodeId == null || episodeId === '') return { ok: true, episodeId: null };
+  const episode = db.prepare(
+    'SELECT id FROM episodes WHERE id = ? AND drama_id = ? AND deleted_at IS NULL'
+  ).get(Number(episodeId), Number(dramaId));
+  if (!episode) return { ok: false, message: '这一集不属于当前项目' };
+  return { ok: true, episodeId: episode.id };
+}
+
 export function validateChatBody(db, body) {
   const message = body && typeof body.message === 'string' ? body.message.trim() : '';
   if (!message) return { ok: false, status: 400, message: '请输入内容' };
@@ -71,12 +82,7 @@ export function validateChatBody(db, body) {
   if (!Number.isInteger(dramaId) || dramaId <= 0) return { ok: false, status: 400, message: '项目不存在' };
   const drama = db.prepare('SELECT id FROM dramas WHERE id = ? AND deleted_at IS NULL').get(dramaId);
   if (!drama) return { ok: false, status: 400, message: '项目不存在' };
-  if (body.episodeId == null || body.episodeId === '') {
-    return { ok: true, dramaId, episodeId: null };
-  }
-  const episode = db.prepare(
-    'SELECT id FROM episodes WHERE id = ? AND drama_id = ? AND deleted_at IS NULL'
-  ).get(Number(body.episodeId), dramaId);
-  if (!episode) return { ok: false, status: 400, message: '这一集不属于当前项目' };
-  return { ok: true, dramaId, episodeId: episode.id };
+  const episode = resolveChatEpisode(db, dramaId, body.episodeId);
+  if (!episode.ok) return { ok: false, status: 400, message: episode.message };
+  return { ok: true, dramaId, episodeId: episode.episodeId };
 }

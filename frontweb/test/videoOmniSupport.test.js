@@ -58,7 +58,10 @@ test('kling_omni / volcengine_omni / agnes / cheap_seedance2 stay omni-capable',
     true
   )
   assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'yk-seedance-mini' }), true)
-  assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'minimax-h3-1080p-15s' }), true)
+  assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'mb-minimax-h3-f-fast-480p' }), true)
+  assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'doubao-seedance-2-0-mini-480p' }), true)
+  assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'seedance2.5-full-480p' }), true)
+  assert.equal(canUseUniversalOmniVideoApi({ provider: 'openai', model: 'mb-seedance2.5-480p' }), true)
 })
 
 test('explicit supports_universal_omni setting still enables omni', () => {

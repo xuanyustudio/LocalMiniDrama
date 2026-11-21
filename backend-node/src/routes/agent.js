@@ -70,18 +70,19 @@ function createAgentHandlers(db, log, runtime) {
     if (!(await api.isAgentReady())) return response.serviceUnavailable(res, '助手未就绪');
     const body = req.body || {};
     const dramaId = Number(body.dramaId);
+    // 恢复运行要带上用户当前选中的集，否则批准后的那一轮工具调用会丢 episode 作用域
+    const { resolveChatEpisode } = await import('../mastra/context.mjs');
+    const episode = resolveChatEpisode(db, dramaId, body.episodeId);
+    if (!episode.ok) return response.badRequest(res, episode.message);
     const history = await api.getHistory(dramaId);
     const pending = history && Array.isArray(history.pendingApprovals) ? history.pendingApprovals : [];
     const owned = pending.some((item) => item.runId === body.runId && item.toolCallId === body.toolCallId);
     if (!owned) return response.notFound(res, '找不到这次确认');
-    const { resolveEpisode } = await import('../mastra/context.mjs');
-    const episode = body.episodeId == null ? null : resolveEpisode(db, dramaId, Number(body.episodeId));
-    if (episode && !episode.ok) return response.badRequest(res, episode.error);
     beginSse(res);
     try {
       await api.resumeApproval({
         dramaId,
-        episodeId: episode?.episodeId,
+        episodeId: episode.episodeId,
         runId: body.runId,
         toolCallId: body.toolCallId,
         approved,

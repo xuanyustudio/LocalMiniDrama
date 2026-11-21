@@ -74,6 +74,40 @@ describe('agent routes', () => {
     assert.equal(listed.body.data.pendingApprovals[0].runId, 'run-1');
   });
 
+  it('passes a validated episodeId to resumeApproval on approve/decline', async () => {
+    const db = createAgentTestDb();
+    seedTwoDramas(db);
+    const seen = [];
+    const runtime = {
+      isAgentReady: async () => true,
+      getHistory: async () => ({ messages: [], pendingApprovals: [{ runId: 'run-1', toolCallId: 'call-1' }] }),
+      resumeApproval: async (args) => { seen.push(args); },
+    };
+    const handlers = createAgentHandlers(db, console, runtime);
+
+    const ok = mockRes();
+    await handlers.approve({ body: { dramaId: 1, episodeId: 11, runId: 'run-1', toolCallId: 'call-1' } }, ok);
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].dramaId, 1);
+    assert.equal(seen[0].episodeId, 11);
+
+    const foreign = mockRes();
+    await handlers.approve({ body: { dramaId: 1, episodeId: 13, runId: 'run-1', toolCallId: 'call-1' } }, foreign);
+    assert.equal(foreign.statusCode, 400);
+    assert.equal(foreign.body.error.message, '这一集不属于当前项目');
+    assert.equal(seen.length, 1);
+
+    const noEpisode = mockRes();
+    await handlers.approve({ body: { dramaId: 1, runId: 'run-1', toolCallId: 'call-1' } }, noEpisode);
+    assert.equal(seen.length, 2);
+    assert.equal(seen[1].episodeId, null);
+
+    const declined = mockRes();
+    await handlers.decline({ body: { dramaId: 1, episodeId: 11, runId: 'run-1', toolCallId: 'call-1' } }, declined);
+    assert.equal(seen.length, 3);
+    assert.equal(seen[2].episodeId, 11);
+  });
+
   it('ships the short-drama skill and copies the skills folder', () => {
     const skill = fs.readFileSync(path.join(__dirname, '../skills/short-drama/SKILL.md'), 'utf8');
     assert.match(skill, /name: short-drama/);

@@ -43,6 +43,23 @@ function isCheapSeedance2Provider(provider) {
   return String(provider || '').trim().toLowerCase() === 'cheap_seedance2';
 }
 
+function isWorkbenchOhmybbHost(baseUrl) {
+  return String(baseUrl || '').toLowerCase().includes('workbench.ohmybb.xyz');
+}
+
+/** 工作台已下架的模型 ID → 当前仍可用的替代模型 */
+const CHEAP_SEEDANCE2_RETIRED_MODELS = {
+  'wb-seedance-2.5': 'wb-seedance-2-fast',
+  'wb-seedance-2.5-30s': 'wb-seedance-2-fast',
+  'minimax-h3-1080p-15s': 'mb-minimax-h3-f-fast-480p',
+};
+
+function remapRetiredCheapSeedance2Model(model) {
+  const raw = String(model || '').trim();
+  if (!raw) return raw;
+  return CHEAP_SEEDANCE2_RETIRED_MODELS[raw.toLowerCase()] || raw;
+}
+
 /** AI 配置 settings.supports_universal_omni 或低价 Seedance2 */
 function configSupportsUniversalOmni(config) {
   if (isCheapSeedance2Provider(config?.provider)) return true;
@@ -56,58 +73,73 @@ function configSupportsUniversalOmni(config) {
   return s.supports_universal_omni === true || s.supports_universal_omni === 1 || s.supports_universal_omni === 'true';
 }
 
-/** ohmybb 按次/按秒模型：4–15 秒逐秒可选，默认 5 秒 */
-function isCheapSeedance2FlexibleDurationModel(model) {
-  const m = String(model || '').toLowerCase();
-  return m === 'yk-seedance-mini'
-    || m === 'yk-seedance2.0-fast'
-    || m === 'yk-seedance2.0'
-    || m === 'minimax-h3-1080p-15s';
+/**
+ * ohmybb 当前模型时长档（与 /docs/api 第六节一致）。
+ * wb-seedance-2-fast：4–10，默认 10；
+ * mb-minimax-h3-f-fast-480p / doubao-seedance-2-0-mini-480p：4–15，默认 5；
+ * seedance2.5-full-480p：4–30，默认 4；mb-seedance2.5-480p：4–30，默认 5。
+ */
+function cheapSeedance2DurationSpec(model) {
+  const m = String(remapRetiredCheapSeedance2Model(model) || '').toLowerCase();
+  if (m === 'wb-seedance-2-15s') return { min: 15, max: 15, fallback: 15 };
+  if (m === 'wb-seedance-2-fast') return { min: 4, max: 10, fallback: 10 };
+  if (/seedance2\.5/.test(m)) {
+    return { min: 4, max: 30, fallback: m === 'seedance2.5-full-480p' ? 4 : 5 };
+  }
+  return { min: 4, max: 15, fallback: 5 };
 }
 
 /**
- * ohmybb 时长档。
- * wb-seedance-2-fast 仅 5/10（默认 10）；yk / minimax-h3-1080p-15s 为 4–15 逐秒（默认 5）。
  * @returns {string} seconds 字符串
  */
 function normalizeCheapSeedance2Duration(duration, model) {
+  const spec = cheapSeedance2DurationSpec(model);
   const raw = duration == null || duration === '' ? NaN : Number(duration);
-  if (isCheapSeedance2FlexibleDurationModel(model)) {
-    if (!Number.isFinite(raw) || raw <= 0) return '5';
-    const n = Math.round(raw);
-    if (n < 4) return '4';
-    if (n > 15) return '15';
-    return String(n);
-  }
-  if (!Number.isFinite(raw) || raw <= 0) return '10';
-  return raw <= 5 ? '5' : '10';
+  if (!Number.isFinite(raw) || raw <= 0) return String(spec.fallback);
+  const n = Math.round(raw);
+  if (n < spec.min) return String(spec.min);
+  if (n > spec.max) return String(spec.max);
+  return String(n);
 }
 
-/** ohmybb 参考图上限。minimax-h3-1080p-15s 只收 1 张，其余最多 9 张。 */
+/** ohmybb 参考图上限。Seedance 2.5 480p 最多 30 张，其余当前预设最多 9 张。 */
 function cheapSeedance2MaxImages(model) {
-  return String(model || '').toLowerCase() === 'minimax-h3-1080p-15s' ? 1 : 9;
+  const m = String(remapRetiredCheapSeedance2Model(model) || '').toLowerCase();
+  if (/seedance2\.5/.test(m)) return 30;
+  return 9;
 }
+
+const CHEAP_SEEDANCE2_720_SIZES = {
+  '16:9': '1280x720',
+  '9:16': '720x1280',
+  '1:1': '1024x1024',
+  '4:3': '960x720',
+  '3:4': '720x960',
+  '21:9': '1680x720',
+};
+const CHEAP_SEEDANCE2_480_SIZES = {
+  '16:9': '854x480',
+  '9:16': '480x854',
+  '1:1': '480x480',
+  '4:3': '640x480',
+  '3:4': '480x640',
+  '21:9': '1120x480',
+};
 
 /**
- * ohmybb size。fast 与 yk 的 1:1 不同；minimax-h3-1080p-15s 只有 1920x1080 / 1080x1920。
+ * ohmybb size。480p 模型用 480 档；mb-minimax-h3-f-fast-480p 只有 16:9 / 9:16。
  */
 function normalizeCheapSeedance2Size(aspectRatio, model) {
   const ratio = String(aspectRatio || '').trim();
-  const m = String(model || '').toLowerCase();
-  if (m === 'minimax-h3-1080p-15s') {
-    if (ratio === '9:16' || ratio === '3:4') return '1080x1920';
-    return '1920x1080';
+  const m = String(remapRetiredCheapSeedance2Model(model) || '').toLowerCase();
+  if (/^mb-minimax[-_]?h3/.test(m)) {
+    return ratio === '9:16' ? '480x854' : '854x480';
   }
+  const use480 = /480p/.test(m);
   const yk = m === 'yk-seedance-mini' || m === 'yk-seedance2.0-fast' || m === 'yk-seedance2.0';
-  const sizeMap = {
-    '16:9': '1280x720',
-    '9:16': '720x1280',
-    '1:1': yk ? '720x720' : '1024x1024',
-    '4:3': '960x720',
-    '3:4': '720x960',
-    '21:9': '1680x720',
-  };
-  return sizeMap[ratio] || '1280x720';
+  if (!use480 && yk && ratio === '1:1') return '720x720';
+  const sizeMap = use480 ? CHEAP_SEEDANCE2_480_SIZES : CHEAP_SEEDANCE2_720_SIZES;
+  return sizeMap[ratio] || (use480 ? '854x480' : '1280x720');
 }
 
 /** 完成态无直链时，拼 Sora 兼容 content 下载地址 */
@@ -119,10 +151,13 @@ function buildCheapSeedance2ContentUrl(config, taskId) {
   return `${base}/v1/videos/${encodeURIComponent(id)}/content`;
 }
 
-/** 官方模型 ID：MiniMax-H3（Video Generation V2） */
+/**
+ * 官方模型 ID：MiniMax-H3（Video Generation V2）。
+ * 工作台别名（mb-minimax-h3-*、minimax-h3-480p 等）不是官方接口，不能改写成 MiniMax-H3。
+ */
 function isMinimaxH3Model(name) {
   const m = String(name || '').trim().toLowerCase();
-  return m === 'minimax-h3' || m === 'minimax_h3' || /^minimax[-_]?h3\b/.test(m);
+  return m === 'minimax-h3' || m === 'minimax_h3';
 }
 
 /**
@@ -145,6 +180,13 @@ function resolveVideoProtocol(config, modelHint) {
     if (/api\.x\.ai(\/|$)/.test(baseLower)) protocol = 'xai';
     else if (/grok-imagine|grok.*video/.test(modelLower)) protocol = 'xai';
     else if (provider === 'agnes' || /agnes-video|apihub\.agnes-ai\.com/i.test(baseLower)) protocol = 'agnes';
+  }
+  // 低价 Seedance2 / ohmybb：始终走 Sora 兼容。模型名里的 minimax 不是官方 MiniMax-H3，
+  // 误选 minimax_h3 会把工作台密钥打到官方接口，返回 401（错误码 1004）。
+  if (isCheapSeedance2Provider(provider) || isWorkbenchOhmybbHost(config?.base_url)) {
+    const ex = explicit.toLowerCase();
+    if (!ex || ex === 'openai' || ex === 'minimax_h3' || protocol === 'minimax_h3') return 'sora';
+    return protocol;
   }
   if ((!explicit || protocol === 'openai') && (provider === 'minimax_h3' || isMinimaxH3Model(modelCand))) {
     protocol = 'minimax_h3';
@@ -2930,7 +2972,7 @@ async function callAgnesVideoApi(db, config, log, opts) {
 /**
  * Sora (api_protocol = 'sora')
  * 默认 multipart：model, prompt, seconds, size, input_reference
- * 低价 Seedance2 多图：JSON + images[]（最多 9 张，https 或 data URL）
+ * 低价 Seedance2 多图：JSON + images[]（2.5 最多 30 张，其余最多 9 张，https 或 data URL）
  */
 async function resolveSoraImageToDataUrl(rawUrl, storage_local_path, log, video_gen_id, index) {
   const raw = String(rawUrl || '').trim();
@@ -3022,7 +3064,7 @@ async function callSoraVideoApi(config, log, opts) {
   }
 
   // 支持全能多图：低价 Seedance2，或配置勾选 supports_universal_omni → JSON images[]
-  // minimax-h3-1080p-15s 上游只收 1 张，其余最多 9 张
+  // Seedance 2.5 最多 30 张，其余当前预设最多 9 张
   const refList = Array.isArray(reference_urls) ? reference_urls.filter(Boolean).map(String) : [];
   const useOmniMultiImages = configSupportsUniversalOmni(config) && (refList.length > 0 || (image_url || '').trim());
   if (useOmniMultiImages) {
@@ -4119,9 +4161,20 @@ async function callVideoApi(db, log, opts) {
   if (!config) {
     throw new Error('???????????AI ?????? video ?????????');
   }
-  const model = normalizeVolcModel(getModelFromConfig(config, preferredModel), config);
   const provider = (config.provider || '').toLowerCase();
-  const protocol = resolveVideoProtocol(config, preferredModel);
+  let model = normalizeVolcModel(getModelFromConfig(config, preferredModel), config);
+  if (isCheapSeedance2Provider(provider) || isWorkbenchOhmybbHost(config.base_url)) {
+    const remapped = remapRetiredCheapSeedance2Model(model);
+    if (remapped && remapped !== model) {
+      log.info('[视频] 低价 Seedance2 停用模型已替换', {
+        from: model,
+        to: remapped,
+        video_gen_id: opts.video_gen_id,
+      });
+      model = remapped;
+    }
+  }
+  const protocol = resolveVideoProtocol(config, model);
   const managed = config.api_key === production.BYTEPLUS_REF;
   if (!production.isManaged(config) && db && opts.drama_id && VIDEO_PROTOCOLS_SUPPORT_SD2_ASSET_SCHEME.has(protocol)) {
     opts = applySeedance2CertifiedAssetUrlsToVideoOpts(db, log, opts);
@@ -5015,6 +5068,8 @@ module.exports = {
   shouldUseVolcOmniMultiReference,
   normalizeVolcengineDuration,
   isMinimaxH3Model,
+  resolveVideoProtocol,
+  remapRetiredCheapSeedance2Model,
   getMinimaxApiRoot,
   buildMinimaxH3PollUrl,
   extractMinimaxH3VideoUrl,
