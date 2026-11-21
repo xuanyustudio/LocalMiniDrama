@@ -36,6 +36,7 @@ const textTasks = {
   character_prompt: ['编写人物提示词', 'role_image_polish', 4000, 1700],
   scene_prompt: ['编写场景提示词', null, 4000, 1700],
   bible: ['整理故事档案', 'novel_import', 3000, 700],
+  bible_book: ['从全书整理故事档案', 'novel_import', 6000, 1300],
   review: ['剧本医生审阅', null, 2000, 1500],
 };
 
@@ -73,6 +74,9 @@ function quoteText(db, novel, item) {
     const source = kind === 'bible' && !(Number(data.text_chars) > 0) && data.chapter
       ? novel.chapterText(Number(id), data.chapter).length : Number(data.text_chars) || 0;
     calls = [{ characters: source + bibleLength + promptOverhead, outputTokens }];
+  } else if (kind === 'bible_book') {
+    calls = require('./bookBibleService').estimate(db, novel, Number(id), data)
+      .map((call) => ({ characters: call.characters + promptOverhead, outputTokens: call.outputTokens }));
   } else if (kind === 'novel_import') {
     const count = Math.min(500, Math.max(1, Math.trunc(Number(data.max_chapters) || 20)));
     calls = Array.from({ length: count }, () => ({ characters: Math.min(3000, Number(data.text_chars) || 3000) + promptOverhead, outputTokens }));
@@ -87,7 +91,7 @@ function quoteText(db, novel, item) {
     if (kind === 'polish') calls.push({ characters: 1800, outputTokens: 300 });
   }
   const countLabel = item.contingentCount ? `暂按 ${item.contingentCount} 次估算` :
-    kind === 'novel_import' ? `最多 ${calls.length} 章` : `${calls.length} 次文字生成`;
+    kind === 'novel_import' ? `最多 ${calls.length} 章` : kind === 'bible_book' ? `分 ${calls.length} 批阅读原著` : `${calls.length} 次文字生成`;
   const basis = `${sourceCharacters ? `本章 ${sourceCharacters} 字，` : ''}${countLabel}`;
   if (!calls.length) return entry(label, model, basis, 0, 0, '已完成的改写可从本机记录恢复');
   const tiers = (hostname === bailianHost && model.startsWith('qwen3.7-') || hostname === arkHost && model.startsWith('dola-seed-'))

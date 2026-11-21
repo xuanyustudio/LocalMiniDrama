@@ -178,6 +178,28 @@
         <el-button :loading="biblePending === 'import'" :disabled="Boolean(biblePending)" @click="importCharacters">从本剧角色导入（免费）</el-button>
         <span class="wizard-note">都会在现有内容的基础上补充，不会清空你写的部分。</span>
       </div>
+      <div v-if="chapters.length" class="wizard-book">
+        <strong>从全书整理</strong>
+        <p class="wizard-note">长篇小说按章节顺序分批读完，每批在上一批整理出的档案上补充修正，主角和人物身份按全书戏份判断。整理在后台进行，可以关掉窗口，回来再看进度。</p>
+        <div class="wizard-actions">
+          <span>第</span>
+          <el-input-number v-model="bookFrom" :min="1" :max="chapters.length" size="small" :disabled="bookRunning" />
+          <span>到</span>
+          <el-input-number v-model="bookTo" :min="1" :max="chapters.length" size="small" :disabled="bookRunning" />
+          <span>章（共 {{ chapters.length }} 章）</span>
+          <el-checkbox v-model="bookKeepExisting" :disabled="bookRunning">在现有档案基础上补充</el-checkbox>
+        </div>
+        <div class="wizard-actions">
+          <el-button v-if="!bookRunning" type="primary" :loading="biblePending === 'book'" :disabled="Boolean(biblePending)" @click="startBook(false)">开始整理</el-button>
+          <el-button v-if="bookJob?.status === 'failed' || bookJob?.status === 'cancelled'" :disabled="Boolean(biblePending)" @click="startBook(true)">接着整理（剩 {{ bookJob.total_batches - bookJob.done }} 批）</el-button>
+          <el-button v-if="bookRunning" @click="cancelBook">停止</el-button>
+          <el-button v-if="bookJob?.done && !bookRunning" @click="loadBookDraft">把整理结果填入下方</el-button>
+        </div>
+        <template v-if="bookJob">
+          <el-progress :percentage="bookPercent" :status="bookJob.status === 'done' ? 'success' : bookJob.status === 'failed' ? 'exception' : undefined" />
+          <p class="wizard-note">{{ bookStatusText }}</p>
+        </template>
+      </div>
       <div class="wizard-bible-form">
         <label>一句话故事<el-input v-model="bible.logline" :maxlength="300" placeholder="谁，想要什么，被什么阻挡" /></label>
         <div class="wizard-input">
@@ -404,6 +426,77 @@ function openBible() {
   bibleError.value = ''
   setBibleForm(savedBible.value)
   bibleDialog.value = true
+  if (chapters.value.length) {
+    if (!bookTo.value || bookTo.value > chapters.value.length) bookTo.value = chapters.value.length
+    loadBook()
+  }
+}
+
+// ---------- 从全书分批整理 ----------
+const bookJob = ref(null)
+const bookFrom = ref(1)
+const bookTo = ref(null)
+const bookKeepExisting = ref(false)
+let bookTimer = null
+const bookRunning = computed(() => bookJob.value?.status === 'running')
+const bookPercent = computed(() => {
+  const j = bookJob.value
+  return j?.total_batches ? Math.round((j.done / j.total_batches) * 100) : 0
+})
+const bookStatusText = computed(() => {
+  const j = bookJob.value
+  if (!j) return ''
+  const range = `第 ${j.from}–${j.to} 章，已完成 ${j.done}/${j.total_batches} 批`
+  const skipped = j.skipped?.length ? `；第 ${j.skipped.join('、')} 章超过 48000 字已跳过` : ''
+  if (j.status === 'running') return `正在整理${j.current ? `第 ${j.current.from}–${j.current.to} 章` : ''}…（${range}）${skipped}`
+  if (j.status === 'done') return `整理完成（${range}）${skipped}。点“把整理结果填入下方”，检查后保存。`
+  if (j.status === 'cancelled') return `已停止（${range}）。可以接着整理，或先把已整理的结果填入下方。`
+  return `${j.error || '整理失败'}（${range}）`
+})
+
+const bookPath = computed(() => biblePath.value + '/book')
+
+async function loadBook() {
+  clearTimeout(bookTimer)
+  try {
+    const { job: data } = await request.get(bookPath.value)
+    if (!alive) return
+    bookJob.value = data
+    if (data && !bookRunning.value) { bookFrom.value = data.from; bookTo.value = data.to }
+  } catch (e) {
+    bibleError.value = '无法读取整理进度。' + e.message
+  }
+  if (alive && bookRunning.value) bookTimer = setTimeout(loadBook, 3000)
+}
+
+async function startBook(resume) {
+  biblePending.value = 'book'
+  bibleError.value = ''
+  try {
+    const body = resume ? { resume: true } : { from: bookFrom.value, to: bookTo.value, fresh: !bookKeepExisting.value }
+    const { job: data } = await request.post(bookPath.value, body)
+    bookJob.value = data
+    loadBook()
+  } catch (e) {
+    if (e.code !== 'ERR_CANCELED') bibleError.value = e.message
+  } finally {
+    biblePending.value = ''
+  }
+}
+
+async function cancelBook() {
+  try {
+    await request.post(bookPath.value + '/cancel', {})
+    ElMessage.info('这一批读完后停止')
+  } catch (e) {
+    bibleError.value = e.message
+  }
+}
+
+function loadBookDraft() {
+  if (!bookJob.value?.draft) return
+  setBibleForm(bookJob.value.draft)
+  ElMessage.success('已填入整理结果，请检查后点“保存档案”')
 }
 
 function addCharacter() {
@@ -683,6 +776,7 @@ watch(() => props.episodeId, () => { speakerVoices.value = {} })
 onBeforeUnmount(() => {
   alive = false
   clearTimeout(timer)
+  clearTimeout(bookTimer)
 })
 refresh()
 loadProfile()
@@ -757,6 +851,7 @@ loadPipeline()
 .wizard-bible-form .wizard-input { margin: 0; }
 .wizard-bible-form .wizard-input > * { flex: 1 1 180px; }
 .wizard-bible-heading { display: flex; justify-content: space-between; align-items: center; }
+.wizard-book { display: grid; gap: 8px; margin: 12px 0; padding: 12px; border: 1px solid var(--el-border-color); border-radius: 8px; }
 .wizard-person { display: grid; gap: 6px; padding: 10px; border: 1px dashed var(--el-border-color); border-radius: 8px; }
 .wizard-doctor { margin-top: 14px; padding: 12px; border: 1px solid var(--el-border-color); border-radius: 8px; }
 .wizard-doctor .wizard-actions { margin-top: 0; }

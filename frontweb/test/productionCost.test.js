@@ -38,6 +38,12 @@ test('story bible drafts and AI script reviews are quoted; the free rule check i
   assert.deepEqual(productionCostItem('/dramas/4/story-bible/generate', { chapter: 2 }), {
     kind: 'bible', id: '4', data: { ...productionCostItem('/dramas/4/story-bible/generate', { chapter: 2 }).data, chapter: 2, text_chars: 0 } })
   assert.equal(productionCostItem('/dramas/4/story-bible/generate', { text: '一'.repeat(50) }).data.text_chars, 50)
+  // 从全书整理要报价；查进度和停止不报价
+  const bookItem = productionCostItem('/dramas/4/story-bible/book', { from: 1, to: 40, fresh: true })
+  assert.equal(bookItem.kind, 'bible_book')
+  assert.deepEqual([bookItem.data.from, bookItem.data.to, bookItem.data.resume], [1, 40, false])
+  assert.equal(productionCostItem('/dramas/4/story-bible/book', { resume: true }).data.resume, true)
+  assert.equal(productionCostItem('/dramas/4/story-bible/book/cancel', {}), null)
   assert.equal(productionCostItem('/dramas/4/script-review', { script: '林宁：走。', ai: false }), null)
   const review = productionCostItem('/dramas/4/script-review', { script: '林宁：走。', ai: true })
   assert.equal(review.kind, 'review')

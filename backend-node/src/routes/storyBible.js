@@ -2,6 +2,7 @@ const response = require('../response');
 const bibles = require('../services/storyBibleService');
 const pipeline = require('../services/pipelineService');
 const { AdaptationInputError } = require('../services/novelAdaptationService');
+const book = require('../services/bookBibleService');
 
 function registerStoryBible(r, db, log, adaptation) {
   function handle(action) {
@@ -12,7 +13,7 @@ function registerStoryBible(r, db, log, adaptation) {
       }
       try { response.success(res, await action(id, req.body || {})); }
       catch (err) {
-        if (err instanceof bibles.StoryBibleInputError || err instanceof AdaptationInputError) return response.badRequest(res, err.message);
+        if (err instanceof bibles.StoryBibleInputError || err instanceof AdaptationInputError || err instanceof book.BookBibleError) return response.badRequest(res, err.message);
         if (err.code === 'PRODUCTION_APPROVAL_REQUIRED') return response.forbidden(res, err.message);
         log.error('故事档案/剧本医生接口出错', { project_id: id, error: err.message });
         response.internalError(res, err.message || '处理失败，请重试。');
@@ -27,6 +28,10 @@ function registerStoryBible(r, db, log, adaptation) {
     const text = typeof body.text === 'string' && body.text.trim() ? body.text : adaptation.chapterText(id, body.chapter);
     return { draft: await bibles.generateBible(db, log, id, text) };
   }));
+  // 从全书分批整理档案（后台进行，计费）；GET 查进度，cancel 停止（免费）
+  r.get('/dramas/:id/story-bible/book', handle((id) => book.status(db, id)));
+  r.post('/dramas/:id/story-bible/book', handle((id, body) => book.start(db, log, adaptation, id, body)));
+  r.post('/dramas/:id/story-bible/book/cancel', handle((id) => book.cancel(db, id)));
   // 免费：合并本剧角色库到草稿（body.bible 为当前编辑中的内容）
   r.post('/dramas/:id/story-bible/import-characters', handle((id, body) => bibles.importCharacters(db, id, body.bible)));
   // ai: false 只做免费规则体检；ai: true 额外请剧本医生审阅（计费）

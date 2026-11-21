@@ -299,6 +299,6 @@ async function reviewScript(db, log, dramaId, script, seconds) {
 
 module.exports = {
   ROLE_LABELS, StoryBibleInputError, MAX_SOURCE_CHARS, MAX_SCRIPT_CHARS, REVIEW_CRITERIA,
-  normalizeBible, bibleText, bibleTextFor, getBible, saveBible, generateBible, importCharacters,
+  normalizeBible, isEmptyBible, bibleText, bibleTextFor, getBible, saveBible, generateBible, importCharacters,
   parseScript, checkScriptRules, normalizeReview, reviewScript,
 };

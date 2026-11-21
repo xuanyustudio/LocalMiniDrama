@@ -2,6 +2,7 @@ const routes = [
   [/^\/dramas\/(\d+)\/adaptation\/(rewrite|script)$/, match => ({ kind: match[2], id: match[1] })],
   [/^\/generation\/story$/, () => ({ kind: 'story' })],
   [/^\/dramas\/(\d+)\/story-bible\/generate$/, match => ({ kind: 'bible', id: match[1] })],
+  [/^\/dramas\/(\d+)\/story-bible\/book$/, match => ({ kind: 'bible_book', id: match[1] })],
   // 免费规则体检不计费，只有请 AI 剧本医生时才报价
   [/^\/dramas\/(\d+)\/script-review$/, (match, data) => data.ai === true ? { kind: 'review', id: match[1] } : null],
   [/^\/generation\/characters$/, (_m, data) => ({ kind: 'characters', id: data.episode_id })],
@@ -59,6 +60,7 @@ export function productionCostItem(path, body = {}) {
     }
     if (info.kind === 'tts') pricingData.text = data.text
     if (info.kind === 'bible' && !data.text) pricingData.chapter = data.chapter
+    if (info.kind === 'bible_book') Object.assign(pricingData, { from: data.from, to: data.to, resume: data.resume === true })
     if (info.kind === 'rewrite') Object.assign(pricingData, { chapter: data.chapter, rules: data.rules, character_rules: data.character_rules })
     if (info.kind === 'script') pricingData.rewritten = data.rewritten
     return { ...info, data: pricingData }
