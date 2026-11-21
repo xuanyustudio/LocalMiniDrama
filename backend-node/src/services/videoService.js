@@ -531,7 +531,9 @@ async function processVideoGeneration(db, log, videoGenId) {
       } catch (_) {}
     }
     const rowForAspect = { ...row, aspect_ratio: aspectForVideo || row.aspect_ratio };
-    const hasOmniRefs = !!(reference_urls && reference_urls.length > 0);
+    const { BAILIAN_REF } = require('./productionProviders');
+    // 百炼托管配置不走参考图上传
+    const hasOmniRefs = config.api_key !== BAILIAN_REF && Boolean(reference_urls?.length);
     // DashScope 各模型分支读帧/读参考图互不相交（kf2v/i2v 只读帧，vace/r2v 只读参考图），
     // 传统模式下参考图列表就是分镜主图本身，不能因参考图非空而丢掉首帧/尾帧。
     // 协议判定与 videoClient.resolveVideoProtocol/inferVideoProtocol 同口径（显式 api_protocol 优先）。
@@ -545,7 +547,9 @@ async function processVideoGeneration(db, log, videoGenId) {
         row.task_id,
         'processing',
         5,
-        `正在上传 ${reference_urls.length} 张参考图到图床…`
+        config.api_key === 'env:BYTEPLUS_ARK_API_KEY'
+          ? `正在准备 ${reference_urls.length} 张参考图…`
+          : `正在上传 ${reference_urls.length} 张参考图到图床…`
       );
     }
     const result = await videoClient.callVideoApi(db, log, {

@@ -48,8 +48,10 @@ function createAgentHandlers(db, log, runtime) {
     const parsed = validateChatBody(db, req.body || {});
     if (!parsed.ok) return response.badRequest(res, parsed.message);
     const { resolveTextModel } = await import('../mastra/model.mjs');
-    const model = resolveTextModel(db);
-    if (!model.ok) return response.badRequest(res, model.error);
+    try {
+      const model = resolveTextModel(db);
+      if (!model.ok) return response.badRequest(res, model.error);
+    } catch (error) { return response.badRequest(res, error.message); }
     beginSse(res);
     try {
       await api.streamChat({

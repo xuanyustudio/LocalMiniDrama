@@ -309,7 +309,7 @@ export function useScenes(deps) {
     }
   }
 
-  async function onGenerateSceneImage(scene, useQuadGrid = false) {
+  async function onGenerateSceneImage(scene, useQuadGrid = false, requestConfig) {
     scene.errorMsg = ''
     scene.error_msg = ''
     const meta = buildSceneImageMeta(scene)
@@ -321,7 +321,7 @@ export function useScenes(deps) {
         model: undefined,
         style: getSelectedStyle(),
         use_quad_grid: !!useQuadGrid
-      })
+      }, requestConfig)
       const taskId = res?.image_generation?.task_id ?? res?.task_id
       if (taskId) {
         const pollRes = await pollTask(taskId, () => loadDrama(), meta)

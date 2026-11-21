@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import request, { approveProductionRequest } from '@/utils/request'
 import { parseSseBlock } from '@/utils/agentStream'
 
 async function readError(response) {
@@ -11,9 +11,10 @@ async function readError(response) {
 }
 
 export async function streamAgent(path, body, onEvent) {
+  const approval = await approveProductionRequest(path, body)
   const response = await fetch(`/api/v1${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...approval },
     body: JSON.stringify(body),
   })
   if (!response.ok) throw new Error(await readError(response))

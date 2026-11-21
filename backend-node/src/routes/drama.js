@@ -24,6 +24,8 @@ function getDrama(db, cfg) {
   return (req, res) => {
     const drama = dramaService.getDrama(db, req.params.id, cfg?.storage?.base_url);
     if (!drama) return response.notFound(res, '剧本不存在');
+    // 制作页每次刷新都观察一次产出：新生成的照片/首帧/视频按当前上游记下输入指纹（用于过期提示）
+    try { require('../services/pipelineStamps').observe(db, drama.id); } catch (_) { /* 只是提示，不影响读取 */ }
     response.success(res, drama);
   };
 }

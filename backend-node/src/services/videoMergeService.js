@@ -185,7 +185,7 @@ function runFfmpegConcat(localPaths, outputPath, log) {
 }
 
 /**
- * 异步处理视频合成：优先使用 ffmpeg 真正合并多段视频；失败或无 ffmpeg 时用首段作为 merged_url。
+ * 异步处理视频合成。只有所有分镜均成功合成才标记为完成。
  */
 async function processVideoMerge(db, log, mergeId, baseUrl) {
   const r = db.prepare('SELECT * FROM video_merges WHERE id = ? AND deleted_at IS NULL').get(mergeId);
@@ -206,11 +206,9 @@ async function processVideoMerge(db, log, mergeId, baseUrl) {
     if (taskId) taskService.updateTaskError(db, taskId, '无有效视频片段');
     return;
   }
-  const first = scenes[0];
-  const mergedUrlFallback = first && first.video_url ? first.video_url : null;
-  if (!mergedUrlFallback) {
-    db.prepare('UPDATE video_merges SET status = ?, error_msg = ? WHERE id = ?').run('failed', '首段无视频地址', mergeId);
-    if (taskId) taskService.updateTaskError(db, taskId, '首段无视频地址');
+  if (scenes.some(scene => !scene.video_url)) {
+    db.prepare('UPDATE video_merges SET status = ?, error_msg = ? WHERE id = ?').run('failed', '有分镜缺少视频，请先补齐素材', mergeId);
+    if (taskId) taskService.updateTaskError(db, taskId, '有分镜缺少视频，请先补齐素材');
     return;
   }
 
@@ -246,7 +244,7 @@ async function processVideoMerge(db, log, mergeId, baseUrl) {
   });
 
   let mergedRelativePath = null;
-  if (localPaths.length > 0 && ffmpegAvailable && localPaths.length <= 100) {
+  if (localPaths.length === scenes.length && ffmpegAvailable && localPaths.length <= 100) {
     const projectSubdir = storageLayout.getProjectStorageSubdir(db, r.drama_id);
     const sub = projectSubdir && String(projectSubdir).trim();
     const mergedDir = sub
@@ -274,6 +272,7 @@ async function processVideoMerge(db, log, mergeId, baseUrl) {
     !!mergeOpts.burn_narration_subtitles
     || !!mergeOpts.burn_dialogue_audio
     || !!(mergeOpts.watermark_text && String(mergeOpts.watermark_text).trim());
+  let mergeError;
   if (mergedRelativePath && ffmpegAvailable && postNeed) {
     const mergedAbsPath = path.join(storageRoot, mergedRelativePath.replace(/\//g, path.sep));
     if (fs.existsSync(mergedAbsPath)) {
@@ -290,6 +289,7 @@ async function processVideoMerge(db, log, mergeId, baseUrl) {
         log.info('Video merge: merged episode post-process', { merge_id: mergeId, out: mergedRelativePath });
       } else if (post.error && post.error !== 'NO_POST_OPTS') {
         log.warn('Video merge: post-process skipped', { merge_id: mergeId, err: post.error });
+        mergeError = post.error;
       }
     }
   }
@@ -298,16 +298,20 @@ async function processVideoMerge(db, log, mergeId, baseUrl) {
     try { if (fs.existsSync(p)) fs.unlinkSync(p); } catch (_) {}
   }
 
-  const finalMergedUrl = mergedRelativePath || mergedUrlFallback;
+  if (!mergedRelativePath || mergeError) {
+    const reason = mergeError || (!ffmpegAvailable ? '未找到 FFmpeg，无法合成' :
+      localPaths.length !== scenes.length ? '有分镜视频无法读取，请补齐素材后重试' : '视频合成失败，请检查镜头格式后重试');
+    db.prepare('UPDATE video_merges SET status = ?, error_msg = ? WHERE id = ?').run('failed', reason, mergeId);
+    if (taskId) taskService.updateTaskError(db, taskId, reason);
+    return;
+  }
+  const finalMergedUrl = mergedRelativePath;
   db.prepare(
     'UPDATE video_merges SET status = ?, merged_url = ?, duration = ?, completed_at = ?, error_msg = ? WHERE id = ?'
   ).run('completed', finalMergedUrl, Math.round(totalDuration) || null, now, null, mergeId);
   db.prepare('UPDATE episodes SET video_url = ?, status = ?, updated_at = ? WHERE id = ?').run(finalMergedUrl, 'completed', now, episodeId);
   if (taskId) {
     taskService.updateTaskResult(db, taskId, { merge_id: mergeId, video_url: finalMergedUrl, duration: Math.round(totalDuration) });
-  }
-  if (!mergedRelativePath) {
-    log.info('Video merge completed (first-clip fallback)', { merge_id: mergeId, episode_id: episodeId });
   }
 }
 

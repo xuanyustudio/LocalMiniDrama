@@ -54,6 +54,7 @@ function createApp() {
   } catch (e) {
     console.warn('Static storage mount skipped:', e.message);
   }
+  app.use('/static', (_req, res) => res.status(404).type('text/plain').send('Not Found'));
 
   app.get('/health', (req, res) => {
     res.json({
@@ -63,7 +64,7 @@ function createApp() {
     });
   });
 
-  app.use('/api/v1', setupRouter(config, db, log));
+  app.use('/api/v1', require('./services/productionApproval').approvalContext, setupRouter(config, db, log));
 
   // 前端静态资源（sxy：web/dist）；Electron 打包时可设 WEB_DIST_PATH
   const webDist = process.env.WEB_DIST_PATH || path.join(process.cwd(), '..', 'frontweb', 'dist');

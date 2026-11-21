@@ -1,9 +1,9 @@
 /**
  * 小说/长文章节导入服务
- * 功能：上传 txt/docx 内容 → AI 识别章节分割 → 自动填充各集剧本
+ * 从文本识别章节并按需生成剧本初稿。
  */
 const aiClient = require('./aiClient');
-const { safeParseAIJSON } = require('../utils/safeJson');
+const MAX_ADAPTATION_CHARS = 3000;
 
 /**
  * 简单的章节检测（不调用 AI，基于规则）
@@ -31,7 +31,9 @@ function detectChaptersByRules(text) {
     if (isChapter) {
       if (i > currentStart) {
         const content = lines.slice(currentStart, i).join('\n').trim();
-        if (content.length > 20) {
+        // Some downloaded novels start with a site disclaimer, not story text.
+        const siteDisclaimer = chapters.length === 0 && currentTitle === '序章' && /^声明[：:]\s*本书为/.test(content);
+        if (content.length > 20 && !siteDisclaimer) {
           chapters.push({ title: currentTitle, content });
         }
       }
@@ -51,26 +53,39 @@ function detectChaptersByRules(text) {
  * 用 AI 将章节内容摘要为剧本形式
  */
 async function summarizeChapterToScript(db, log, chapterTitle, chapterContent, dramaTitle) {
-  const maxLen = 2000;
-  const truncated = chapterContent.length > maxLen ? chapterContent.slice(0, maxLen) + '...' : chapterContent;
-  const userPrompt = `小说名称：${dramaTitle || '未知'}
-章节标题：${chapterTitle}
+  const excerpt = chapterContent.slice(0, MAX_ADAPTATION_CHARS);
+  const userPrompt = `作品：${dramaTitle || '未命名'}
+章节：${chapterTitle}
 
-章节原文（部分）：
-${truncated}
+【原文】
+${excerpt}
+【原文结束】
 
-请将上述章节内容改写为短剧剧本格式，包含：场景描述、角色对话、动作说明。输出为中文纯文本，不需要 JSON 格式，长度200-500字。`;
+请写一段约45至60秒的中文短剧初稿，约180至260字。用“场景：”交代地点和时间，用“动作：”描述能拍到的情节，再用3到5句“人物名：台词”推进剧情。选取原文已有的悬念或行动收尾。省略人物介绍、分析和创作说明。`;
+  const systemPrompt = '你是短剧编剧。根据用户提供的小说原文改写。人物姓名、地点、事件、关系和已知结果须与原文一致，原文未交代的事保持未知。只输出剧本，动作和台词均不得反复。';
 
   try {
-    const result = await aiClient.generateText(db, log, 'text', userPrompt, null, {
+    const result = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
       scene_key: 'novel_import',
-      max_tokens: 800,
-      temperature: 0.7,
+      max_tokens: 520,
+      temperature: 0.3,
+      silence_timeout_ms: 120000,
+      require_complete: true,
     });
-    return result || chapterContent.slice(0, 500);
+    if (!result || !result.trim()) throw new Error('文字模型没有返回剧本');
+    const lineCounts = new Map();
+    for (const line of result.split(/\r?\n/)) {
+      const normalized = line.trim().replace(/\s+/g, '');
+      if (normalized.length < 10) continue;
+      const count = (lineCounts.get(normalized) || 0) + 1;
+      if (count >= 4) throw new Error('生成内容出现大量重复，请更换更强的文字模型后重试');
+      lineCounts.set(normalized, count);
+    }
+    return result;
   } catch (err) {
-    log.warn('[小说导入] AI改写章节失败，使用原文截断', { error: err.message });
-    return chapterContent.slice(0, 500);
+    log.warn('[小说导入] AI改写章节失败', { error: err.message });
+    const reason = err.code === 'ECONNREFUSED' ? '文字模型服务没有响应，请检查 Ollama 是否已启动，或检查 AI 配置中的服务地址' : err.message;
+    throw new Error(`“${chapterTitle}”改写失败：${reason}`);
   }
 }
 
@@ -79,7 +94,8 @@ ${truncated}
  * @returns {{ chapters: Array<{title, content, script}> }}
  */
 async function importNovel(db, log, { text, title, maxChapters, aiSummarize }) {
-  if (!text || !text.trim()) throw new Error('小说内容不能为空');
+  if (typeof text !== 'string' || !text.trim()) throw new Error('小说内容不能为空');
+  text = text.replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n');
 
   const chapters = detectChaptersByRules(text);
   if (chapters.length === 0) {

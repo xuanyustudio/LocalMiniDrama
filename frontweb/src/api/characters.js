@@ -4,8 +4,8 @@ export const characterAPI = {
   get(characterId) {
     return request.get(`/characters/${characterId}`)
   },
-  generateImage(characterId, model, style) {
-    return request.post(`/characters/${characterId}/generate-image`, { model, style })
+  generateImage(characterId, model, style, requestConfig) {
+    return request.post(`/characters/${characterId}/generate-image`, { model, style }, requestConfig)
   },
   generatePrompt(characterId, model, style) {
     return request.post(`/characters/${characterId}/generate-prompt`, { model, style })

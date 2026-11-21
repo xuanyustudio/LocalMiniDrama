@@ -1,6 +1,7 @@
 const response = require('../response');
 const imageService = require('../services/imageService');
 const taskService = require('../services/taskService');
+const pipelineGate = require('../services/pipelineGate');
 const backgroundExtractionService = require('../services/backgroundExtractionService');
 
 function routes(db, cfg, log) {
@@ -18,9 +19,11 @@ function routes(db, cfg, log) {
     create: (req, res) => {
       try {
         const body = req.body || {};
+        pipelineGate.assertShotReady(db, body, '首帧画面');
         const rec = imageService.create(db, log, body);
         response.created(res, rec);
       } catch (err) {
+        if (err instanceof pipelineGate.PipelineGateError) return response.badRequest(res, err.message);
         log.error('images create', { error: err.message });
         response.internalError(res, err.message);
       }

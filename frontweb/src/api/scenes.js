@@ -13,8 +13,8 @@ export const sceneAPI = {
   create(data) {
     return request.post('/scenes', data)
   },
-  generateImage(data) {
-    return request.post('/scenes/generate-image', data)
+  generateImage(data, requestConfig) {
+    return request.post('/scenes/generate-image', data, requestConfig)
   },
   update(sceneId, data) {
     return request.put(`/scenes/${sceneId}`, data)

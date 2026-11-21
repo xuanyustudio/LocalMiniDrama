@@ -1,6 +1,8 @@
 import { createRequire } from 'module';
 
-const { flattenModelIds, pickModelId, remapArkModelId } = createRequire(import.meta.url)('../services/modelId.js');
+const require = createRequire(import.meta.url);
+const { flattenModelIds, pickModelId, remapArkModelId } = require('../services/modelId.js');
+const production = require('../services/productionProviders.js');
 
 function chooseModelName(row) {
   const models = flattenModelIds(row.model);
@@ -29,7 +31,7 @@ export function resolveTextModel(db) {
     model: {
       id: `custom/${modelName}`,
       url,
-      apiKey: row.api_key || '',
+      apiKey: production.isManaged(row) ? production.generationKey(row, `${url}/chat/completions`, 'agent') : (row.api_key || ''),
       api: 'chat',
     },
   };

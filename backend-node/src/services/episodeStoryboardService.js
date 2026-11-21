@@ -1,4 +1,5 @@
 // 与 Go StoryboardService.GenerateStoryboard + processStoryboardGeneration 对齐
+const { normalizeCharacterRefs, matchScene } = require('./pipelineRules');
 const taskService = require('./taskService');
 const aiClient = require('./aiClient');
 const promptI18n = require('./promptI18n');
@@ -437,8 +438,15 @@ function deriveStoryboardFieldsFromAi(sb, style, videoRatio, opts = {}) {
     style,
     videoRatio
   );
-  const sceneId = sb.scene_id != null ? Number(sb.scene_id) : null;
-  const charactersJson = Array.isArray(sb.characters) ? JSON.stringify(sb.characters) : (sb.characters ? JSON.stringify([].concat(sb.characters)) : '[]');
+  // 底层规范：人物一律存本剧人物 id 数组；场景缺失时按地点+时间匹配本剧场景（PIPELINE-SPEC.md）
+  let sceneId = sb.scene_id != null && Number.isFinite(Number(sb.scene_id)) ? Number(sb.scene_id) : null;
+  if (Array.isArray(opts.dramaScenes)) {
+    if (sceneId != null && !opts.dramaScenes.some((s) => Number(s.id) === sceneId)) sceneId = null;
+    if (sceneId == null) sceneId = matchScene(sb.location, sb.time, opts.dramaScenes);
+  }
+  const charactersJson = Array.isArray(opts.dramaCharacters)
+    ? JSON.stringify(normalizeCharacterRefs(sb.characters, opts.dramaCharacters).ids)
+    : (Array.isArray(sb.characters) ? JSON.stringify(sb.characters) : (sb.characters ? JSON.stringify([].concat(sb.characters)) : '[]'));
   const propIds = Array.isArray(sb.props) ? sb.props.map(Number).filter(Number.isFinite) : [];
   let universalSegmentText = '';
   if (sb.universal_segment_text != null && String(sb.universal_segment_text).trim()) {
@@ -867,15 +875,18 @@ async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, mode
   const streamVideoRatio = cfg?.style?.default_video_ratio || '16:9';
   // 角色造型映射（#38）：流式增量入库同样需要，否则视频提示词丢失人物外貌
   const streamEpisode = db.prepare('SELECT drama_id FROM episodes WHERE id = ? AND deleted_at IS NULL').get(episodeIdNum);
-  const characterAppearances = streamEpisode?.drama_id
-    ? buildDramaCharacterAppearanceMap(
-        db.prepare('SELECT id, name, appearance FROM characters WHERE drama_id = ? AND deleted_at IS NULL ORDER BY name ASC').all(streamEpisode.drama_id)
-      )
-    : {};
+  const dramaCharacters = streamEpisode?.drama_id
+    ? db.prepare('SELECT id, name, appearance FROM characters WHERE drama_id = ? AND deleted_at IS NULL ORDER BY name ASC').all(streamEpisode.drama_id)
+    : [];
+  const characterAppearances = buildDramaCharacterAppearanceMap(dramaCharacters);
   const deriveOpts = {
     universalOmni: !!universalOmni,
     targetClipDuration: targetClipDurationSec != null && Number(targetClipDurationSec) > 0 ? Number(targetClipDurationSec) : null,
     characterAppearances,
+    ...(streamEpisode?.drama_id ? {
+      dramaCharacters,
+      dramaScenes: db.prepare('SELECT id, location, time FROM scenes WHERE drama_id = ? AND deleted_at IS NULL').all(streamEpisode.drama_id),
+    } : {}),
   };
   let streamThrottle = 0;
 
@@ -1081,7 +1092,7 @@ async function processStoryboardGeneration(db, log, cfg, taskId, episodeId, mode
 
     taskService.updateTaskStatus(db, taskId, 'processing', 90, '正在更新剧集时长...');
 
-    const durationMinutes = Math.ceil((totalDuration + 59) / 60);
+    const durationMinutes = Math.max(1, Math.ceil(totalDuration / 60));
     db.prepare('UPDATE episodes SET duration = ?, updated_at = ? WHERE id = ?').run(durationMinutes, new Date().toISOString(), Number(episodeId));
     log.info('Episode duration updated', { episode_id: episodeId, duration_seconds: totalDuration, duration_minutes: durationMinutes });
 
@@ -1255,8 +1266,12 @@ function generateStoryboard(db, log, episodeId, model, style, storyboardCount, v
   const propConstraint = promptI18n.formatUserPrompt(cfg, 'prop_constraint');
   const suffix = promptI18n.getStoryboardUserPromptSuffix(cfg, effectiveShotDuration);
 
+  // 底层规范 B：分镜也读故事档案和本集原著，别名能对上人物编号，事实不跑偏
+  const productionContext = require('./productionContext').contextFor(db, episode.id, 'boards', episode.drama_id).text;
+  const contextBlock = productionContext ? `\n\n${productionContext}` : '';
+
   let userPrompt =
-    `${scriptLabel}\n${scriptContent}\n\n${taskLabel}\n${taskInstruction}${extraConstraint}\n\n${charListLabel}\n${characterList}\n\n${charConstraint}\n\n${sceneListLabel}\n${sceneList}\n\n${sceneConstraint}\n\n${propListLabel}\n${propList}\n\n${propConstraint}\n\n${suffix}`;
+    `${scriptLabel}\n${scriptContent}${contextBlock}\n\n${taskLabel}\n${taskInstruction}${extraConstraint}\n\n${charListLabel}\n${characterList}\n\n${charConstraint}\n\n${sceneListLabel}\n${sceneList}\n\n${sceneConstraint}\n\n${propListLabel}\n${propList}\n\n${propConstraint}\n\n${suffix}`;
 
   const wantNarration = includeNarration === true || includeNarration === 1 || String(includeNarration).toLowerCase() === 'true';
   if (wantNarration) {
