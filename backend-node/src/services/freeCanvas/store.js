@@ -6,9 +6,8 @@ function emptyDocument() {
   };
 }
 
-function stringifyDocument(document) {
-  if (typeof document === 'string') return document;
-  return JSON.stringify(document);
+function isDocumentObject(value) {
+  return value != null && typeof value === 'object';
 }
 
 function parseDocument(value) {
@@ -32,13 +31,20 @@ function mapCanvas(row) {
   };
 }
 
-function conflictResult(db, id) {
-  const row = db.prepare('SELECT revision FROM free_canvases WHERE id = ?').get(id);
-  return {
-    ok: false,
-    error: '画布已被更新',
-    revision: row ? row.revision : null,
-  };
+function loadCanvasRow(db, id) {
+  return db.prepare('SELECT * FROM free_canvases WHERE id = ?').get(id);
+}
+
+function missingCanvasResult() {
+  return { ok: false, error: '画布不存在', revision: null };
+}
+
+function staleCanvasResult(revision) {
+  return { ok: false, error: '画布已被更新', revision };
+}
+
+function invalidDocumentResult(revision) {
+  return { ok: false, error: '文档必须是对象', revision };
 }
 
 function createCanvas(db, title) {
@@ -56,45 +62,57 @@ function listCanvases(db) {
 }
 
 function getCanvas(db, id) {
-  const row = db.prepare('SELECT * FROM free_canvases WHERE id = ?').get(id);
-  return mapCanvas(row);
+  return mapCanvas(loadCanvasRow(db, id));
 }
 
 function saveDocument(db, id, revision, document) {
+  const row = loadCanvasRow(db, id);
+  if (!row) return missingCanvasResult();
+  if (!isDocumentObject(document)) return invalidDocumentResult(row.revision);
+  if (row.revision !== revision) return staleCanvasResult(row.revision);
+
   const result = db.prepare(
     `UPDATE free_canvases
      SET document = ?, revision = revision + 1, updated_at = ?
      WHERE id = ? AND revision = ?`
-  ).run(stringifyDocument(document), new Date().toISOString(), id, revision);
-  if (result.changes === 0) return conflictResult(db, id);
+  ).run(JSON.stringify(document), new Date().toISOString(), id, revision);
+  if (result.changes === 0) {
+    const current = loadCanvasRow(db, id);
+    if (!current) return missingCanvasResult();
+    return staleCanvasResult(current.revision);
+  }
   return { ok: true, canvas: getCanvas(db, id) };
 }
 
+const WRITABLE_COLUMNS = ['title', 'aspect_ratio', 'materialized_drama_id', 'document'];
+
 function saveColumns(db, id, revision, columns) {
-  const src = columns || {};
+  const row = loadCanvasRow(db, id);
+  if (!row) return missingCanvasResult();
+
+  const src = columns && typeof columns === 'object' ? columns : {};
+  const hasDocument = Object.prototype.hasOwnProperty.call(src, 'document');
+  if (hasDocument && !isDocumentObject(src.document)) return invalidDocumentResult(row.revision);
+
+  const names = WRITABLE_COLUMNS.filter((name) => Object.prototype.hasOwnProperty.call(src, name));
+  if (names.length === 0) return { ok: true, canvas: mapCanvas(row) };
+  if (row.revision !== revision) return staleCanvasResult(row.revision);
+
   const sets = ['revision = revision + 1', 'updated_at = ?'];
   const params = [new Date().toISOString()];
-  if (Object.prototype.hasOwnProperty.call(src, 'title')) {
-    sets.push('title = ?');
-    params.push(src.title);
-  }
-  if (Object.prototype.hasOwnProperty.call(src, 'aspect_ratio')) {
-    sets.push('aspect_ratio = ?');
-    params.push(src.aspect_ratio);
-  }
-  if (Object.prototype.hasOwnProperty.call(src, 'materialized_drama_id')) {
-    sets.push('materialized_drama_id = ?');
-    params.push(src.materialized_drama_id);
-  }
-  if (Object.prototype.hasOwnProperty.call(src, 'document')) {
-    sets.push('document = ?');
-    params.push(stringifyDocument(src.document));
+  for (const name of names) {
+    sets.push(`${name} = ?`);
+    params.push(name === 'document' ? JSON.stringify(src.document) : src[name]);
   }
   params.push(id, revision);
   const result = db.prepare(
     `UPDATE free_canvases SET ${sets.join(', ')} WHERE id = ? AND revision = ?`
   ).run(...params);
-  if (result.changes === 0) return conflictResult(db, id);
+  if (result.changes === 0) {
+    const current = loadCanvasRow(db, id);
+    if (!current) return missingCanvasResult();
+    return staleCanvasResult(current.revision);
+  }
   return { ok: true, canvas: getCanvas(db, id) };
 }
 
