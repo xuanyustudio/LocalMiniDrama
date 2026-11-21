@@ -21,4 +21,25 @@ describe('free canvas layout', () => {
     assert.equal(board.position.x, 400);
     assert.ok(board.position.y >= script.position.y);
   });
+
+  it('keeps an explicit script position when a later batch only adds a group', () => {
+    const ids = createIdFactory();
+    const placed = applyCommand(emptyGraph(), {
+      name: 'apply_ops',
+      ops: [
+        { op: 'create_node', temp_id: 's', type: 'script', data: { title: '甲' }, position: { x: 10, y: 10 } },
+      ],
+    }, ids);
+    const script = placed.graph.nodes.find((node) => node.type === 'script');
+    const grouped = applyCommand(placed.graph, {
+      name: 'apply_ops',
+      ops: [
+        { op: 'group_nodes', node_ids: [script.id] },
+      ],
+    }, ids);
+    const kept = grouped.graph.nodes.find((node) => node.type === 'script');
+    const group = grouped.graph.nodes.find((node) => node.type === 'group');
+    assert.deepEqual(kept.position, { x: 10, y: 10 });
+    assert.equal(group.position, null);
+  });
 });

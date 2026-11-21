@@ -291,7 +291,7 @@ function applyOps(graph, command, idFactory) {
     if (!result.ok) return fail(result.error);
     working = result.graph;
   }
-  if (working.nodes.some((node) => node.position === null)) {
+  if (working.nodes.some((node) => node.type !== 'group' && node.position === null)) {
     working = layoutGraph(working);
   }
   receipt.summary = summarize(receipt.created);
