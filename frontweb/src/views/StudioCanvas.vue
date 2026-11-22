@@ -42,6 +42,8 @@
           :fit-view-on-init="flowNodes.length > 0"
           class="studio-vue-flow"
           @connect="onConnect"
+          @node-drag-start="onNodeDragStart"
+          @node-drag="onNodeDrag"
           @node-drag-stop="onNodeDragStop"
         >
           <Background pattern-color="#3f3f46" :gap="20" />
@@ -179,9 +181,44 @@ const flowEdges = computed(() => (document.value?.edges || []).map((edge) => ({
 let disposed = false
 let dragTimer = null
 let chain = Promise.resolve()
+// 指针还按着的坐标，以及松手后文档尚未确认的坐标。未拖过的 (0, 0) 占位不进这里。
+const draggingPositions = new Map()
+const pendingPositions = new Map()
 
 function hasRealPosition(node) {
   return !!node && node.position != null
+}
+
+function copyPosition(position) {
+  if (!position || position.x == null || position.y == null) return null
+  return { x: Number(position.x), y: Number(position.y) }
+}
+
+function savedPosition(node) {
+  if (!hasRealPosition(node)) return null
+  return copyPosition(node.position)
+}
+
+function samePosition(a, b) {
+  return !!a && !!b && a.x === b.x && a.y === b.y
+}
+
+function dragNodesFrom(payload) {
+  if (!payload) return []
+  if (Array.isArray(payload.nodes) && payload.nodes.length) return payload.nodes
+  if (payload.node && payload.node.id != null) return [payload.node]
+  if (payload.id != null && payload.position) return [payload]
+  return []
+}
+
+function rememberDrag(payload) {
+  if (loading.value || disposed) return
+  for (const node of dragNodesFrom(payload)) {
+    if (node?.id == null) continue
+    const pos = copyPosition(node.position)
+    if (!pos) continue
+    draggingPositions.set(node.id, pos)
+  }
 }
 
 function toFlowNode(node) {
@@ -198,20 +235,26 @@ function toFlowNode(node) {
 }
 
 function replaceDocument(nextDoc) {
-  const keepLocal = dragTimer != null
-  const localPositions = keepLocal
-    ? new Map(flowNodes.value.map((node) => [node.id, { x: node.position?.x, y: node.position?.y }]))
-    : null
-  document.value = nextDoc || { nodes: [], edges: [] }
-  const nextFlow = (document.value.nodes || []).map(toFlowNode)
-  if (localPositions) {
-    for (const node of nextFlow) {
-      const saved = (document.value.nodes || []).find((item) => item.id === node.id)
-      const local = localPositions.get(node.id)
-      if (!local || !saved || !hasRealPosition(saved)) continue
-      if (local.x == null || local.y == null) continue
-      node.position = { x: local.x, y: local.y }
+  const next = nextDoc || { nodes: [], edges: [] }
+  document.value = next
+  const savedById = new Map((next.nodes || []).map((node) => [node.id, node]))
+  for (const [id, pos] of pendingPositions) {
+    if (draggingPositions.has(id)) continue
+    const saved = savedPosition(savedById.get(id))
+    if (saved && samePosition(saved, pos)) pendingPositions.delete(id)
+  }
+  const nextFlow = (next.nodes || []).map(toFlowNode)
+  for (const node of nextFlow) {
+    const live = draggingPositions.get(node.id)
+    if (live) {
+      node.position = { x: live.x, y: live.y }
+      continue
     }
+    const pending = pendingPositions.get(node.id)
+    if (!pending) continue
+    const saved = savedPosition(savedById.get(node.id))
+    if (saved && samePosition(saved, pending)) continue
+    node.position = { x: pending.x, y: pending.y }
   }
   flowNodes.value = nextFlow
 }
@@ -253,16 +296,28 @@ function isStale(error) {
   return String(error?.message || '').includes('画布已被更新')
 }
 
+function latestDraggedPosition(id, savedNode) {
+  const dragged = draggingPositions.get(id) || pendingPositions.get(id)
+  if (dragged) return { x: dragged.x, y: dragged.y }
+  if (!hasRealPosition(savedNode)) return null
+  const flow = flowNodes.value.find((node) => node.id === id)
+  const flowPos = copyPosition(flow?.position)
+  if (flowPos) return flowPos
+  return savedPosition(savedNode)
+}
+
 function collectMoves() {
-  const saved = new Map((document.value?.nodes || []).map((node) => [node.id, node]))
+  const savedNodes = document.value?.nodes || []
   const moves = []
-  for (const node of flowNodes.value) {
-    const original = saved.get(node.id)
-    if (!original || !hasRealPosition(original)) continue
-    const x = node.position?.x
-    const y = node.position?.y
-    if (x == null || y == null) continue
-    moves.push({ id: node.id, position: { x, y } })
+  const seen = new Set()
+  for (const node of savedNodes) {
+    if (seen.has(node.id)) continue
+    const dragged = draggingPositions.has(node.id) || pendingPositions.has(node.id)
+    if (!hasRealPosition(node) && !dragged) continue
+    seen.add(node.id)
+    const pos = latestDraggedPosition(node.id, node)
+    if (!pos) continue
+    moves.push({ id: node.id, position: { x: pos.x, y: pos.y } })
   }
   return moves
 }
@@ -359,7 +414,7 @@ function onAspectChange(value) {
   })
 }
 
-function onNodeDragStop() {
+function scheduleMove() {
   clearTimeout(dragTimer)
   dragTimer = setTimeout(() => {
     dragTimer = null
@@ -372,15 +427,50 @@ function onNodeDragStop() {
   }, 400)
 }
 
-async function load() {
-  const id = route.params.id
+function onNodeDragStart(payload) {
+  if (loading.value || disposed) return
   clearTimeout(dragTimer)
   dragTimer = null
+  rememberDrag(payload)
+}
+
+function onNodeDrag(payload) {
+  rememberDrag(payload)
+}
+
+function onNodeDragStop(payload) {
+  if (loading.value || disposed) {
+    draggingPositions.clear()
+    return
+  }
+  for (const node of dragNodesFrom(payload)) {
+    if (node?.id == null) continue
+    const pos = copyPosition(node.position) || draggingPositions.get(node.id)
+    if (pos) pendingPositions.set(node.id, { x: pos.x, y: pos.y })
+  }
+  for (const [id, pos] of draggingPositions) {
+    if (!pendingPositions.has(id)) pendingPositions.set(id, { x: pos.x, y: pos.y })
+  }
+  draggingPositions.clear()
+  scheduleMove()
+}
+
+function clearDragTracking() {
+  clearTimeout(dragTimer)
+  dragTimer = null
+  draggingPositions.clear()
+  pendingPositions.clear()
+}
+
+async function load() {
+  const id = route.params.id
+  clearDragTracking()
   loading.value = true
   loadError.value = ''
   try {
     const canvas = await get(id)
     if (!isCurrentCanvas(id)) return
+    clearDragTracking()
     applyCanvas(canvas)
   } catch (error) {
     if (!isCurrentCanvas(id)) return
@@ -398,8 +488,7 @@ onMounted(load)
 
 onBeforeUnmount(() => {
   disposed = true
-  clearTimeout(dragTimer)
-  dragTimer = null
+  clearDragTracking()
 })
 </script>
 
