@@ -340,6 +340,8 @@ function setupRouter(cfg, db, log) {
   r.post('/free-canvases', freeCanvas.create);
   r.get('/free-canvases/:id', freeCanvas.get);
   r.post('/free-canvases/:id/commands', freeCanvas.command);
+  const canvasUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+  r.post('/free-canvases/:id/upload', canvasUpload.single('file'), freeCanvas.upload);
 
   return r;
 }

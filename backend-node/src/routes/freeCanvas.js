@@ -1,7 +1,9 @@
+const fs = require('fs');
+const path = require('path');
 const response = require('../response');
 const { getCanvas, listCanvases, createCanvas, saveDocument, saveColumns } = require('../services/freeCanvas/store');
 const { applyCommand } = require('../services/freeCanvas/commands');
-const { summarize, findNode, runtimeIdFactory } = require('../services/freeCanvas/document');
+const { summarize, findNode, runtimeIdFactory, clone } = require('../services/freeCanvas/document');
 
 const ASPECT_RATIOS = new Set(['9:16', '16:9', '1:1']);
 
@@ -18,6 +20,33 @@ function updateCanvas(db, canvas, body, res) {
   const saved = saveColumns(db, canvas.id, canvas.revision, columns);
   if (!saved.ok) return response.badRequest(res, saved.error);
   return response.success(res, { canvas: saved.canvas });
+}
+
+function getStorageRoot() {
+  const loadConfig = require('../config').loadConfig;
+  const cfg = loadConfig();
+  const stored = cfg.storage?.local_path || './data/storage';
+  return path.isAbsolute(stored) ? stored : path.join(process.cwd(), stored);
+}
+
+function sanitizeUploadFilename(filename) {
+  if (filename == null || filename === '') return '';
+  const base = path.basename(String(filename).replace(/\\/g, '/'));
+  const cleaned = base.replace(/[\\/]/g, '');
+  if (!cleaned || cleaned === '.' || cleaned === '..') return '';
+  return cleaned;
+}
+
+function uploadInput(req) {
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const file = req.file && typeof req.file === 'object' ? req.file : {};
+  const has = (key) => Object.prototype.hasOwnProperty.call(req, key);
+  return {
+    nodeId: has('node_id') ? req.node_id : body.node_id,
+    revision: has('revision') ? req.revision : body.revision,
+    filename: has('filename') ? req.filename : file.originalname,
+    buffer: has('buffer') ? req.buffer : file.buffer,
+  };
 }
 
 function routes(db, log) {
@@ -78,6 +107,56 @@ function routes(db, log) {
       } catch (err) {
         log.error('free canvas command', { error: err.message });
         response.internalError(res, '画布命令失败');
+      }
+    },
+    async upload(req, res, deps) {
+      const io = deps && typeof deps === 'object' ? deps : {};
+      const writeFile = io.writeFile || fs.promises.writeFile;
+      const mkdir = io.mkdir || fs.promises.mkdir;
+      try {
+        const canvas = getCanvas(db, req.params && req.params.id);
+        if (!canvas) return response.notFound(res, '画布不存在');
+
+        const { nodeId, revision, filename, buffer } = uploadInput(req);
+        const safeName = sanitizeUploadFilename(filename);
+        if (nodeId == null || nodeId === '') return response.badRequest(res, '缺少节点');
+        if (buffer == null) return response.badRequest(res, '缺少文件');
+        if (!safeName) return response.badRequest(res, '文件名无效');
+        if (Number(revision) !== canvas.revision) return response.badRequest(res, '画布已被更新');
+
+        const existing = findNode(canvas.document, nodeId);
+        if (!existing || existing.type !== 'upload') {
+          return response.badRequest(res, existing ? '只能写入上传节点' : '节点不存在');
+        }
+
+        const storageRoot = io.storageRoot || getStorageRoot();
+        const relativePath = `free-canvases/${canvas.id}/uploads/${existing.id}-${safeName}`;
+        const absPath = path.join(
+          storageRoot,
+          'free-canvases',
+          String(canvas.id),
+          'uploads',
+          `${existing.id}-${safeName}`
+        );
+        await mkdir(path.dirname(absPath), { recursive: true });
+        await writeFile(absPath, buffer);
+
+        const graph = clone(canvas.document);
+        const target = findNode(graph, existing.id);
+        target.data = {
+          ...(target.data || {}),
+          local_path: relativePath,
+          image_url: `/static/${relativePath}`,
+          source_file_name: safeName,
+        };
+        target.status = 'succeeded';
+
+        const saved = saveDocument(db, canvas.id, canvas.revision, graph);
+        if (!saved.ok) return response.badRequest(res, saved.error);
+        return response.success(res, { canvas: saved.canvas });
+      } catch (err) {
+        log.error('free canvas upload', { error: err.message });
+        response.internalError(res, '上传文件失败');
       }
     },
   };
