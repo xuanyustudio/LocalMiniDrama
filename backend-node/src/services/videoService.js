@@ -87,6 +87,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { randomUUID } = require('crypto');
 const videoClient = require('./videoClient');
+const haiGateway = require('../utils/haiGateway');
 const taskService = require('./taskService');
 const { ipv4Request, formatNetError } = require('../utils/ipv4Http');
 const storageLayout = require('./storageLayout');
@@ -105,7 +106,8 @@ function resolveVideosDir(storagePath, projectSubdir) {
 /**
  * 将远程 video_url 下载到本地
  * @param {object} [options]
- * @param {string} [options.apiKey] 需要鉴权下载时传入（如 cheap_seedance2）
+ * @param {string} [options.apiKey] 需要鉴权下载时传入（如 cheap_seedance2，Authorization Bearer）
+ * @param {object} [options.headers] 自定义鉴权头（如 HAI 网关 { 'x-api-key': ... }）
  * @returns {string|null} 相对 storage 根的路径，如 projects/.../videos/vg_1_xxx.mp4；无工程时为 videos/...
  */
 async function downloadVideoToLocal(storagePath, videoUrl, videoGenId, log, projectSubdir = null, options = null) {
@@ -117,18 +119,21 @@ async function downloadVideoToLocal(storagePath, videoUrl, videoGenId, log, proj
     const name = `vg_${videoGenId}_${randomUUID().slice(0, 8)}.${ext}`;
     const filePath = path.join(dir, name);
     const headers = {};
+    const extraHeaders = options && options.headers && typeof options.headers === 'object' ? options.headers : null;
+    if (extraHeaders) Object.assign(headers, extraHeaders);
     const apiKey = options && options.apiKey != null ? String(options.apiKey).trim() : '';
     if (apiKey) {
       headers.Authorization = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`;
     }
-    const res = apiKey
+    const useAuth = Boolean(apiKey || extraHeaders);
+    const res = useAuth
       ? await ipv4Request(videoUrl, { method: 'GET', headers, timeoutMs: 180000 })
       : await fetch(videoUrl, { method: 'GET', headers });
     if (!res.ok) {
       log.warn('Download video failed', { status: res.status, videoGenId, auth: !!apiKey });
       return null;
     }
-    const buf = apiKey ? res.buffer() : Buffer.from(await res.arrayBuffer());
+    const buf = useAuth ? res.buffer() : Buffer.from(await res.arrayBuffer());
     fs.writeFileSync(filePath, buf);
     const relativePath = `${relPrefix}/${name}`.replace(/\\/g, '/');
     log.info('Video saved to local', { videoGenId, local_path: relativePath, projectSubdir: projectSubdir || '(root)' });
@@ -231,10 +236,17 @@ function resolveStoragePath(cfg) {
 async function finalizeSuccessfulVideo(db, log, videoGenId, row, rowForAspect, videoUrl, logLabel, aiConfig = null) {
   const now = new Date().toISOString();
   let localPath = null;
-  const requireAuthDownload = videoClient.isCheapSeedance2Provider(aiConfig?.provider || row?.provider);
-  const downloadOpts = requireAuthDownload && aiConfig?.api_key
-    ? { apiKey: aiConfig.api_key }
-    : null;
+  const providerName = aiConfig?.provider || row?.provider;
+  const isHaiDownload = videoClient.isHaiVideoProvider(providerName) || videoClient.isHaiVideoProvider(aiConfig);
+  const requireAuthDownload = videoClient.isCheapSeedance2Provider(providerName) || isHaiDownload;
+  // HAI 网关：下载走 x-api-key（key 优先取环境变量 HAI_API_KEY，不落盘）；低价 Seedance2 走 Authorization Bearer
+  let downloadOpts = null;
+  if (isHaiDownload) {
+    const haiKey = haiGateway.resolveHaiApiKey(aiConfig || {});
+    if (haiKey) downloadOpts = { headers: { 'x-api-key': haiKey } };
+  } else if (requireAuthDownload && aiConfig?.api_key) {
+    downloadOpts = { apiKey: aiConfig.api_key };
+  }
   try {
     const cfg = require('../config').loadConfig();
     const storagePath = resolveStoragePath(cfg);
@@ -250,10 +262,10 @@ async function finalizeSuccessfulVideo(db, log, videoGenId, row, rowForAspect, v
     maybeNormalizeVideoAfterDownload(storagePath, localPath, rowForAspect, videoGenId, log);
   } catch (_) {}
 
-  // 低价 Seedance2：成片 URL 需鉴权，本地下载失败则不可标为可播成功
+  // 需鉴权下载的厂商（低价 Seedance2 / HAI 网关）：本地下载失败则不可标为可播成功
   if (requireAuthDownload && !localPath) {
-    const errMsg = '成片鉴权下载失败（请检查 API Key，或稍后重试继续查询）';
-    log.warn('cheap_seedance2 auth download failed', { videoGenId, video_url: videoUrl });
+    const errMsg = '成片鉴权下载失败（请检查 API Key / HAI_API_KEY，或稍后重试继续查询）';
+    log.warn('auth-required video download failed', { videoGenId, video_url: videoUrl, provider: providerName });
     setVideoGenFailed(db, videoGenId, errMsg, now);
     if (row.task_id) taskService.updateTaskError(db, row.task_id, errMsg);
     return { ok: false, error: errMsg };

@@ -269,6 +269,23 @@ async function testConnection(opts) {
   const serviceType = (opts.service_type || '').toLowerCase();
   let endpoint = opts.endpoint || '';
 
+  // --- MIGU HAI 私有网关：鉴权头是 x-api-key（不是 Bearer），不能用通用分支测 ---
+  // 探测 GET /result/test-connectivity：401/403 = key 无效，其他（404/200 等）= key 有效已联通
+  if (provider === 'migu' || provider === 'hai' || /\/hai\/api/i.test(base)) {
+    const url = base + '/result/test-connectivity';
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'x-api-key': opts.api_key || '' },
+    });
+    if (res.status === 401 || res.status === 403) {
+      const text = await res.text();
+      let errMsg = `API Key 无效 (${res.status})`;
+      try { const j = JSON.parse(text); errMsg = j.message || j.msg || errMsg; } catch {}
+      throw new Error(errMsg);
+    }
+    return;
+  }
+
   // --- NanoBanana ---
   if (provider === 'nano_banana') {
     // 用 record-info 查询一个不存在的 taskId：401/403=key 无效，404=key 有效已联通
