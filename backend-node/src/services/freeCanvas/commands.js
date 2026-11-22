@@ -341,7 +341,7 @@ function applyDeleteNodes(graph, command) {
 }
 
 function applyCommand(graph, command, idFactory) {
-  const ids = idFactory || document.createIdFactory();
+  const ids = idFactory || document.runtimeIdFactory();
   if (!command || typeof command.name !== 'string') return fail('不认识的命令');
   if (command.name === 'apply_ops') return applyOps(graph, command, ids);
   if (command.name === 'select_nodes') {

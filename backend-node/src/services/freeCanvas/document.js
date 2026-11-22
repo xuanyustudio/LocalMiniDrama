@@ -34,6 +34,30 @@ function createIdFactory() {
   let n = 0;
   return (kind) => `${kind}_${++n}`;
 }
+function runtimeIdFactory() {
+  return (kind) => `${kind}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+function summarizeNode(node) {
+  const data = node.data || {};
+  const summary = { id: node.id, type: node.type, status: node.status };
+  if (data.shot_number !== undefined && data.shot_number !== null) summary.shot_number = data.shot_number;
+  for (const key of Object.keys(data)) {
+    if (typeof data[key] !== 'string') continue;
+    const text = data[key];
+    summary[key] = text.length > 120 ? text.slice(0, 120) : text;
+  }
+  return summary;
+}
+function summarize(canvas) {
+  const graph = canvas.document || emptyGraph();
+  return {
+    title: canvas.title,
+    aspect_ratio: canvas.aspect_ratio,
+    revision: canvas.revision,
+    nodes: (graph.nodes || []).map(summarizeNode),
+    edges: graph.edges || [],
+  };
+}
 function clone(graph) {
   return JSON.parse(JSON.stringify(graph));
 }
@@ -116,5 +140,5 @@ function addEdge(graph, input, idFactory) {
 }
 
 module.exports = {
-  TYPES, WRITABLE, emptyGraph, createIdFactory, clone, findNode, createNode, addEdge, checkPatch, reaches,
+  TYPES, WRITABLE, emptyGraph, createIdFactory, runtimeIdFactory, summarize, clone, findNode, createNode, addEdge, checkPatch, reaches,
 };

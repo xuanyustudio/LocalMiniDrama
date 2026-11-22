@@ -334,6 +334,13 @@ function setupRouter(cfg, db, log) {
     console.warn('Failed to load prompt overrides:', e.message);
   }
 
+  const freeCanvasRoutes = require('./freeCanvas');
+  const freeCanvas = freeCanvasRoutes(db, log);
+  r.get('/free-canvases', freeCanvas.list);
+  r.post('/free-canvases', freeCanvas.create);
+  r.get('/free-canvases/:id', freeCanvas.get);
+  r.post('/free-canvases/:id/commands', freeCanvas.command);
+
   return r;
 }
 
