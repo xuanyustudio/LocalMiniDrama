@@ -233,8 +233,10 @@ async function confirmRun(graph, approved, deps, options = {}) {
         node.status = 'running';
       } else if (action === 'generate_video') {
         const built = prompts.promptForVideo(next, node.id);
-        // 与竞品/规格一致：有上游图片入边时作为画面输入（image_url + first_frame）
-        if (!built.imagePath) {
+        const imagePaths = Array.isArray(built.imagePaths) ? built.imagePaths.filter(Boolean) : [];
+        const primary = built.imagePath || imagePaths[0] || '';
+        // 与竞品一致：全部 media_input_for 作为参考图（首张作主图/首帧）
+        if (!primary) {
           const media = prompts.upstreamMedia(next, node.id);
           node.status = 'failed';
           node.error = media
@@ -251,14 +253,16 @@ async function confirmRun(graph, approved, deps, options = {}) {
         }
         node.data.prompt = built.prompt;
         node.data.duration = built.duration;
+        const refs = imagePaths.length > 1 ? imagePaths : (imagePaths.length === 1 ? imagePaths : [primary]);
         const created = await deps.createVideo({
           drama_id: 0,
           storyboard_id: null,
           prompt: built.prompt,
           duration: built.duration,
           aspect_ratio: options.aspectRatio || '9:16',
-          image_url: built.imagePath,
-          first_frame_url: built.imagePath,
+          image_url: primary,
+          first_frame_url: primary,
+          reference_image_urls: refs,
           model: node.data.model || undefined,
         });
         node.data.generation_id = created.id;

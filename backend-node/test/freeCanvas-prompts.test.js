@@ -46,5 +46,23 @@ describe('free canvas prompts', () => {
     assert.match(built.prompt, /小鸟飞/);
     assert.equal(built.duration, 8);
     assert.equal(built.imagePath, 'free/bird.png');
+    assert.deepEqual(built.imagePaths, ['free/bird.png']);
+  });
+
+  it('collects multiple media_input_for references in edge order', () => {
+    const withMedia = {
+      nodes: [
+        { id: 'i1', type: 'image', data: { image_url: '/static/a.png', local_path: 'a.png' } },
+        { id: 'u1', type: 'upload', data: { image_url: '/static/b.png', local_path: 'b.png' } },
+        { id: 'v', type: 'video', data: { prompt: '飞起来', duration: 5 } },
+      ],
+      edges: [
+        { source: 'i1', target: 'v', relation: 'media_input_for' },
+        { source: 'u1', target: 'v', relation: 'media_input_for' },
+      ],
+    };
+    const built = promptForVideo(withMedia, 'v');
+    assert.equal(built.imagePath, 'a.png');
+    assert.deepEqual(built.imagePaths, ['a.png', 'b.png']);
   });
 });

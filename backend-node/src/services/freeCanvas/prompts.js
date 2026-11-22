@@ -1,5 +1,6 @@
 const DURATIONS = new Set([3, 5, 8, 10]);
 const CONTEXT_TYPES = new Set(['character', 'scene', 'prop']);
+const MEDIA_TYPES = new Set(['image', 'upload']);
 
 function findNode(graph, id) {
   return (graph.nodes || []).find((node) => node.id === id) || null;
@@ -67,9 +68,24 @@ function promptForImage(graph, nodeId) {
   return assemble(graph, node);
 }
 
+/** 视频节点全部上游参考媒体（图片/上传），按连线顺序，最多 9 张 */
+function upstreamMediaList(graph, nodeId) {
+  const list = [];
+  const seen = new Set();
+  for (const edge of incoming(graph, nodeId, 'media_input_for')) {
+    const source = findNode(graph, edge.source);
+    if (!source || !MEDIA_TYPES.has(source.type)) continue;
+    if (seen.has(source.id)) continue;
+    seen.add(source.id);
+    list.push(source);
+    if (list.length >= 9) break;
+  }
+  return list;
+}
+
 function upstreamMedia(graph, nodeId) {
-  return firstOfType(graph, nodeId, 'media_input_for', 'image')
-    || firstOfType(graph, nodeId, 'media_input_for', 'upload');
+  const list = upstreamMediaList(graph, nodeId);
+  return list[0] || null;
 }
 
 function upstreamStoryboard(graph, nodeId, media) {
@@ -94,18 +110,17 @@ function withStyles(base, styles) {
 
 function promptForVideo(graph, nodeId) {
   const video = findNode(graph, nodeId);
-  const media = upstreamMedia(graph, nodeId);
+  const mediaList = upstreamMediaList(graph, nodeId);
+  const media = mediaList[0] || null;
   const storyboard = upstreamStoryboard(graph, nodeId, media);
   const styleNodes = [];
-  if (media) styleNodes.push(...collectStyles(graph, media.id));
+  for (const item of mediaList) styleNodes.push(...collectStyles(graph, item.id));
   styleNodes.push(...collectStyles(graph, nodeId));
 
   let prompt = '';
   if (nonEmpty(video?.data?.prompt)) {
-    // 节点自己的提示词优先；风格词接在后面（对齐规格）
     prompt = withStyles(video.data.prompt, styleNodes);
   } else if (media && media.type === 'image') {
-    // 无自有提示词时，沿上游图片拼分镜/上下文/风格（兼容既有测试）
     prompt = assemble(graph, media);
   } else if (storyboard && nonEmpty(storyboard.data?.prompt)) {
     prompt = withStyles(storyboard.data.prompt, styleNodes);
@@ -113,10 +128,13 @@ function promptForVideo(graph, nodeId) {
     prompt = withStyles('', styleNodes);
   }
 
+  const imagePaths = mediaList.map((item) => mediaPath(item.data)).filter(Boolean);
+
   return {
     prompt,
     duration: validDuration(video?.data?.duration) ?? validDuration(storyboard?.data?.duration) ?? 5,
-    imagePath: mediaPath(media?.data),
+    imagePath: imagePaths[0] || '',
+    imagePaths,
   };
 }
 
@@ -128,4 +146,4 @@ function spokenText(graph, nodeId) {
   return '';
 }
 
-module.exports = { promptForImage, promptForVideo, spokenText, upstreamMedia };
+module.exports = { promptForImage, promptForVideo, spokenText, upstreamMedia, upstreamMediaList };

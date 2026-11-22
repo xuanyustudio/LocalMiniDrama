@@ -3525,16 +3525,42 @@ async function callJimengAiApiVideo(config, log, opts) {
 
 function resolveXaiVideoResolution(resolution) {
   const s = String(resolution || '').toLowerCase();
-  if (s.includes('480')) return '480p';
-  if (s.includes('720')) return '720p';
+  if (s.includes('1080') || s.includes('1920')) return '1080p';
+  if (s.includes('960') || s.includes('1556')) return '960p';
+  if (s.includes('480') || s.includes('848')) return '480p';
+  if (s.includes('720') || s.includes('1280')) return '720p';
   return '720p';
 }
 
-/** grok-video-3 等官方示例：size 为 "720P" / "480P"（大写 P） */
+/** 中转 grok-video-3 等：size 为 "720P" / "480P"（大写 P） */
 function formatGrokVideo3Size(resolution) {
   const s = resolveXaiVideoResolution(resolution);
-  if (String(s).includes('480')) return '480P';
+  if (s === '480p') return '480P';
   return '720P';
+}
+
+/**
+ * 官方 api.x.ai / grok-imagine：size 仅允许
+ * 848x480 | 1556x960 | 1280x720 | 1920x1080
+ *（画幅仍由 aspect_ratio 控制，这里按清晰度档映射）
+ */
+function formatXaiOfficialSize(resolution) {
+  const tier = resolveXaiVideoResolution(resolution);
+  if (tier === '480p') return '848x480';
+  if (tier === '960p') return '1556x960';
+  if (tier === '1080p') return '1920x1080';
+  return '1280x720';
+}
+
+function isOfficialXaiHost(config) {
+  return /api\.x\.ai/i.test(String(config?.base_url || ''));
+}
+
+/** 官方 Imagine 或直连 api.x.ai：必须用 WxH，不能传 480P */
+function usesXaiOfficialPixelSize(config, modelName) {
+  const m = String(modelName || '').toLowerCase();
+  if (/grok-imagine/.test(m)) return true;
+  return isOfficialXaiHost(config);
 }
 
 function clampXaiDuration(d) {
@@ -3543,9 +3569,13 @@ function clampXaiDuration(d) {
   return Math.min(15, Math.max(1, n));
 }
 
-/** 模型名同时含 grok 与 video（不必相邻，如 grok-video-3、grok_imagine_1.0_video_apimart）→ images[] + size */
+/**
+ * 中转站 grok-video-*：images[] + size(480P/720P)。
+ * 官方 grok-imagine-* 不走此分支（即使名字里带 video）。
+ */
 function isXaiGrokVideoStyleModel(modelName) {
   const m = String(modelName || '').toLowerCase();
+  if (/grok-imagine/.test(m)) return false;
   return /grok/.test(m) && /video/.test(m);
 }
 
@@ -3561,8 +3591,8 @@ function mergeXaiVideoImageUrls(imageUrlForApi, resolvedRefStrings, max = 10) {
 
 /**
  * xAI 视频（官方两套）：
- * - grok + video 模型：images: string[]、size（720P）、aspect_ratio、duration（中转 grok-video-3 等同此）。
- * - 其余 grok-imagine：image.url、resolution、duration、reference_images（主图与额外参考图可同时存在）。
+ * - 中转 grok-video-*：images[] + size(480P/720P)。
+ * - 官方 grok-imagine-* / api.x.ai：image.url + size(WxH，如 848x480/1280x720)，禁止 480P。
  */
 async function callXaiVideoApi(config, log, opts) {
   const {
@@ -3588,6 +3618,10 @@ async function callXaiVideoApi(config, log, opts) {
   const reso = resolveXaiVideoResolution(resolution);
   const modelName = model || 'grok-imagine-video';
   const useGrokVideoImages = isXaiGrokVideoStyleModel(modelName);
+  const officialPixelSize = usesXaiOfficialPixelSize(config, modelName);
+  const sizeValue = officialPixelSize
+    ? formatXaiOfficialSize(resolution)
+    : formatGrokVideo3Size(resolution);
 
   let imageUrlForApi = '';
   const rawMain = (image_url || '').trim();
@@ -3623,7 +3657,7 @@ async function callXaiVideoApi(config, log, opts) {
       model: modelName,
       prompt: prompt || '',
       aspect_ratio: ratio,
-      size: formatGrokVideo3Size(resolution),
+      size: sizeValue,
       duration: dur,
     };
     if (mergedImages.length) body.images = mergedImages;
@@ -3638,8 +3672,10 @@ async function callXaiVideoApi(config, log, opts) {
       prompt: prompt || '',
       duration: dur,
       aspect_ratio: ratio,
-      resolution: reso,
+      // 官方只认 WxH size；resolution 字段不再传 480p，避免网关误映射成非法 size
+      size: sizeValue,
     };
+    if (!officialPixelSize) body.resolution = reso;
     if (imageUrlForApi) {
       body.image = { url: imageUrlForApi };
       const extraRefs = mergedImages.filter((u) => u !== imageUrlForApi);
@@ -3654,6 +3690,7 @@ async function callXaiVideoApi(config, log, opts) {
       has_image: !!body.image,
       ref_count: body.reference_images?.length || 0,
       total_unique_images: mergedImages.length,
+      size: body.size,
     };
   }
 
@@ -5033,6 +5070,10 @@ module.exports = {
   isCheapSeedance2Provider,
   isWorkbenchOhmybbHost,
   needsAuthenticatedVideoDownload,
+  formatXaiOfficialSize,
+  formatGrokVideo3Size,
+  usesXaiOfficialPixelSize,
+  isXaiGrokVideoStyleModel,
   configSupportsUniversalOmni,
   normalizeCheapSeedance2Duration,
   normalizeCheapSeedance2Size,

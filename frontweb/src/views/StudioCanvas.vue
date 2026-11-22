@@ -322,12 +322,17 @@ const StudioNode = markRaw(defineComponent({
       const videoSrc = mediaUrl(props.data, 'video_url')
       if (imageSrc) children.push(h('img', { class: 'studio-node-media', src: imageSrc, alt: '' }))
       if (videoSrc) children.push(h('video', { class: 'studio-node-media', src: videoSrc, controls: true }))
-      const refMedia = controls?.upstreamMedia?.(props.id) || null
-      const refSrc = refMedia ? mediaUrl(refMedia, 'image_url') : ''
-      if (!selected && props.type === 'video' && refSrc) {
+      const refList = controls?.upstreamMediaList?.(props.id) || []
+      const refSrcs = refList.map((item) => mediaUrl(item, 'image_url')).filter(Boolean)
+      if (!selected && props.type === 'video' && refSrcs.length) {
         children.push(h('div', { class: 'studio-node-ref' }, [
-          h('span', '参考图'),
-          h('img', { class: 'studio-node-ref-img', src: refSrc, alt: '' }),
+          h('span', `参考图 ×${refSrcs.length}`),
+          h('div', { class: 'studio-node-ref-grid' }, refSrcs.map((src, index) => h('img', {
+            key: `${src}-${index}`,
+            class: 'studio-node-ref-img',
+            src,
+            alt: '',
+          }))),
         ]))
       }
       if (selected && controls) {
@@ -337,10 +342,15 @@ const StudioNode = markRaw(defineComponent({
         const panelLocked = nodeBusy || status === 'awaiting_confirm' || Boolean(busy)
         if (props.type === 'video') {
           panel.push(h('div', { class: 'studio-node-ref-block nodrag nowheel' }, [
-            h('span', '参考图（上游图片）'),
-            refSrc
-              ? h('img', { class: 'studio-node-ref-img', src: refSrc, alt: '' })
-              : h('div', { class: 'studio-node-ref-empty' }, '请从图片/上传节点连到本节点'),
+            h('span', refSrcs.length ? `参考图（上游 ${refSrcs.length} 张）` : '参考图（上游图片）'),
+            refSrcs.length
+              ? h('div', { class: 'studio-node-ref-grid' }, refSrcs.map((src, index) => h('img', {
+                key: `${src}-${index}`,
+                class: 'studio-node-ref-img',
+                src,
+                alt: '',
+              })))
+              : h('div', { class: 'studio-node-ref-empty' }, '请从图片/上传节点连到本节点（可多张）'),
           ]))
         }
         for (const field of fieldsOf(props.type)) {
@@ -870,20 +880,30 @@ function onSend() {
   })
 }
 
-function upstreamMedia(nodeId) {
+function upstreamMediaList(nodeId) {
   const edges = document.value?.edges || []
+  const list = []
+  const seen = new Set()
   for (const edge of edges) {
     if (edge.target !== nodeId || edge.relation !== 'media_input_for') continue
     const source = (document.value?.nodes || []).find((item) => item.id === edge.source)
-    if (source && (source.type === 'image' || source.type === 'upload')) return source
+    if (!source || (source.type !== 'image' && source.type !== 'upload')) continue
+    if (seen.has(source.id)) continue
+    seen.add(source.id)
+    list.push(source)
+    if (list.length >= 9) break
   }
-  return null
+  return list
+}
+
+function upstreamMedia(nodeId) {
+  return upstreamMediaList(nodeId)[0] || null
 }
 
 function onRun(action) {
   const node = selected.value
   if (!node || busyKey.value) return
-  if (action === 'generate_video' && !upstreamMedia(node.id)) {
+  if (action === 'generate_video' && !upstreamMediaList(node.id).length) {
     ElMessage.warning('请先把图片或上传节点连到本视频节点作为参考图')
     return
   }
@@ -943,6 +963,7 @@ provide(STUDIO_NODE_KEY, {
   aiConfigs,
   busyKey,
   upstreamMedia,
+  upstreamMediaList,
   onSend,
   onRun,
   onDelete,
@@ -1201,6 +1222,11 @@ onBeforeUnmount(() => {
   gap: 6px;
   font-size: 11px;
   color: #a5b4fc;
+}
+.studio-node-ref-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 .studio-node-ref-img {
   width: 100%;

@@ -129,9 +129,13 @@ function addEdge(graph, input, idFactory) {
     const exists = graph.edges.some((edge) => edge.target === target.id && findNode(graph, edge.source)?.type === 'script');
     if (exists) return fail('一个分镜只能连一个剧本');
   }
-  if (input.relation === 'media_input_for' && target.type === 'video' && source.type === 'image') {
-    const exists = graph.edges.some((edge) => edge.relation === 'media_input_for' && edge.target === target.id && findNode(graph, edge.source)?.type === 'image');
-    if (exists) return fail('一条视频只能有一张上游图片');
+  if (input.relation === 'media_input_for' && target.type === 'video' && (source.type === 'image' || source.type === 'upload')) {
+    const mediaCount = graph.edges.filter((edge) => {
+      if (edge.relation !== 'media_input_for' || edge.target !== target.id) return false;
+      const from = findNode(graph, edge.source);
+      return from && (from.type === 'image' || from.type === 'upload');
+    }).length;
+    if (mediaCount >= 9) return fail('一条视频最多连 9 张参考图');
   }
   const next = clone(graph);
   const edge = { id: idFactory('edge'), source: input.source, target: input.target, relation: input.relation };
