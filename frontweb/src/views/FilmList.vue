@@ -59,6 +59,7 @@
                 <el-button type="primary" size="large" class="action-btn action-btn-new" @click="goNewProject">
                   <el-icon><Plus /></el-icon>新建短剧项目
                 </el-button>
+                <el-button size="large" class="action-btn" @click="$router.push('/studio')">自由画布</el-button>
                 <el-button size="large" class="action-btn action-btn-import" :loading="importing" @click="triggerImport">
                   <el-icon><Upload /></el-icon>导入短剧项目
                 </el-button>
@@ -1046,6 +1047,7 @@ html.light .btn-import {
 }
 .action-card-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   width: 100%;
   justify-content: center;

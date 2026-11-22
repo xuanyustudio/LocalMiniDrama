@@ -28,6 +28,18 @@ const router = createRouter({
       meta: { title: '画布模式' }
     },
     {
+      path: '/studio',
+      name: 'studio-list',
+      component: () => import('@/views/StudioList.vue'),
+      meta: { title: '自由画布' }
+    },
+    {
+      path: '/studio/:id',
+      name: 'studio',
+      component: () => import('@/views/StudioCanvas.vue'),
+      meta: { title: '自由画布' }
+    },
+    {
       path: '/ai-config',
       name: 'ai-config',
       component: () => import('@/views/AiConfig.vue'),
