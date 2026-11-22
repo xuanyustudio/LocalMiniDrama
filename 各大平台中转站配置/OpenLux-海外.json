@@ -1,0 +1,21 @@
+[
+  {
+       "service_type": "video",
+       "provider": "xy",
+       "api_protocol": "volcengine_omni",
+       "name": "OpenLux Seedance 2.0 视频（海外可注册）",
+       "base_url": "https://api.openlux.ai/api/v3",
+       "api_key": "sk-1234",
+       "model": [
+            "doubao-seedance-2-0-fast-260128",
+            "doubao-seedance-2-0-mini-260615"
+       ],
+       "default_model": "doubao-seedance-2-0-fast-260128",
+       "endpoint": "/contents/generations/tasks",
+       "query_endpoint": "/contents/generations/tasks/{task_id}",
+       "priority": 0,
+       "is_default": false,
+       "is_active": true,
+       "settings": null
+  }
+]
