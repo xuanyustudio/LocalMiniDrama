@@ -583,6 +583,16 @@ function create(db, log, req) {
 /**
  * 异步处理图片生成：与 Go ProcessImageGeneration 对齐，调用图生 API 并更新记录与任务
  */
+function notifyFreeCanvasImage(db, generationId, patch) {
+  try {
+    require('./freeCanvas/complete').noteFreeCanvasResult(db, {
+      generation_id: generationId,
+      kind: 'image',
+      ...patch,
+    });
+  } catch (_) {}
+}
+
 async function processImageGeneration(db, log, imageGenId) {
   const t0 = Date.now();
   const elapsed = () => `${Date.now() - t0}ms`;
@@ -700,6 +710,7 @@ async function processImageGeneration(db, log, imageGenId) {
       db.prepare('UPDATE image_generations SET status = ?, error_msg = ?, updated_at = ? WHERE id = ?').run(
         'failed', '未配置图片模型', new Date().toISOString(), imageGenId
       );
+      notifyFreeCanvasImage(db, imageGenId, { error: '未配置图片模型' });
       if (row.task_id) taskService.updateTaskError(db, row.task_id, '未配置图片模型');
       return;
     }
@@ -1387,6 +1398,7 @@ async function processImageGeneration(db, log, imageGenId) {
         'failed', (result.error || '').slice(0, 500), now2, imageGenId
       );
       if (row.task_id) taskService.updateTaskError(db, row.task_id, result.error);
+      notifyFreeCanvasImage(db, imageGenId, { error: result.error });
       log.error('[图生] ✗ API返回错误', { id: imageGenId, error: result.error, total_elapsed: elapsed() });
       if (row.scene_id != null) {
         try { db.prepare('UPDATE scenes SET error_msg = ?, updated_at = ? WHERE id = ?').run(result.error, now2, row.scene_id); } catch (_) {}
@@ -1446,6 +1458,7 @@ async function processImageGeneration(db, log, imageGenId) {
     db.prepare(
       'UPDATE image_generations SET status = ?, image_url = ?, local_path = ?, completed_at = ?, updated_at = ? WHERE id = ?'
     ).run('completed', persistedImageUrl, localPath, now2, now2, imageGenId);
+    notifyFreeCanvasImage(db, imageGenId, { url: persistedImageUrl, local_path: localPath || '' });
     if (row.task_id) {
       taskService.updateTaskResult(db, row.task_id, {
         image_generation_id: imageGenId,
@@ -1544,6 +1557,7 @@ async function processImageGeneration(db, log, imageGenId) {
       'failed', (err.message || '').slice(0, 500), now2, imageGenId
     );
     if (row.task_id) taskService.updateTaskError(db, row.task_id, err.message);
+    notifyFreeCanvasImage(db, imageGenId, { error: err.message });
     log.error('[图生] ✗ 异常', { id: imageGenId, error: err.message, stack: (err.stack || '').slice(0, 400), total_elapsed: elapsed() });
     if (row.scene_id != null) {
       try { db.prepare('UPDATE scenes SET error_msg = ?, updated_at = ? WHERE id = ?').run(err.message, now2, row.scene_id); } catch (_) {}

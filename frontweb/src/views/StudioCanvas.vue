@@ -30,7 +30,15 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+        <el-button type="danger" plain :disabled="!canDeleteSelected()" @click="onDelete">
+          删除节点
+        </el-button>
       </header>
+      <div v-if="pendingNodes.length" class="studio-confirm">
+        <span>{{ pendingSummary }}</span>
+        <el-button type="primary" :loading="confirmBusy" :disabled="confirmBusy" @click="onConfirm(true)">允许</el-button>
+        <el-button :loading="confirmBusy" :disabled="confirmBusy" @click="onConfirm(false)">拒绝</el-button>
+      </div>
       <div class="studio-flow">
         <VueFlow
           v-if="!loading"
@@ -42,6 +50,8 @@
           :fit-view-on-init="flowNodes.length > 0"
           class="studio-vue-flow"
           @connect="onConnect"
+          @node-click="onNodeClick"
+          @pane-click="selectedId = ''"
           @node-drag-start="onNodeDragStart"
           @node-drag="onNodeDrag"
           @node-drag-stop="onNodeDragStop"
@@ -55,17 +65,32 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, markRaw, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, h, inject, markRaw, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Handle, Position, VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElInput, ElMessage, ElSelect, ElOption } from 'element-plus'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
 import '@vue-flow/controls/dist/style.css'
-import { command, get } from '@/api/freeCanvas'
-import { documentFromCommandResponse } from '@/utils/freeCanvasReceipt'
+import { command, confirmRun, get, upload } from '@/api/freeCanvas'
+import { aiAPI } from '@/api/ai'
+import { documentFromCommandResponse, pendingConfirmNodes } from '@/utils/freeCanvasReceipt'
+
+const STUDIO_NODE_KEY = 'studio-node-controls'
+
+const NODE_MODEL_SERVICES = {
+  text: ['text'],
+  script: ['text'],
+  storyboard: ['text'],
+  character: ['image', 'storyboard_image'],
+  scene: ['image', 'storyboard_image'],
+  prop: ['image', 'storyboard_image'],
+  image: ['image', 'storyboard_image'],
+  video: ['video'],
+  audio: ['tts'],
+}
 
 const NODE_TYPES = [
   { type: 'text', label: '文本' },
@@ -98,6 +123,66 @@ const MAIN_FIELD = {
   image: 'prompt',
   video: 'prompt',
   group: 'title',
+}
+
+const NODE_FIELDS = {
+  text: [{ key: 'text', label: '文本', kind: 'area' }],
+  script: [
+    { key: 'title', label: '标题', kind: 'text' },
+    { key: 'premise', label: '前提', kind: 'area' },
+    { key: 'text', label: '正文', kind: 'area' },
+  ],
+  character: [
+    { key: 'name', label: '名字', kind: 'text' },
+    { key: 'prompt', label: '形象', kind: 'area' },
+  ],
+  scene: [
+    { key: 'name', label: '名字', kind: 'text' },
+    { key: 'prompt', label: '场景', kind: 'area' },
+  ],
+  prop: [
+    { key: 'name', label: '名字', kind: 'text' },
+    { key: 'prompt', label: '道具', kind: 'area' },
+  ],
+  storyboard: [
+    { key: 'shot_number', label: '镜号', kind: 'text' },
+    { key: 'action', label: '动作', kind: 'area' },
+    { key: 'dialogue', label: '台词', kind: 'area' },
+    { key: 'prompt', label: '提示词', kind: 'area' },
+    { key: 'duration', label: '时长', kind: 'duration' },
+  ],
+  image: [{ key: 'prompt', label: '提示词', kind: 'area' }],
+  video: [
+    { key: 'prompt', label: '提示词', kind: 'area' },
+    { key: 'duration', label: '时长', kind: 'duration' },
+  ],
+  audio: [
+    { key: 'text', label: '台词', kind: 'area' },
+    { key: 'voice_id', label: '音色', kind: 'text' },
+  ],
+  style: [{ key: 'text', label: '风格', kind: 'area' }],
+  group: [{ key: 'title', label: '标题', kind: 'text' }],
+}
+
+const NODE_ACTIONS = {
+  script: [
+    { action: 'generate_text', label: '生成正文' },
+    { action: 'split_storyboards', label: '拆成分镜' },
+  ],
+  storyboard: [{ action: 'generate_text', label: '生成这一镜' }],
+  character: [{ action: 'generate_image', label: '生成形象' }],
+  scene: [{ action: 'generate_image', label: '生成场景图' }],
+  prop: [{ action: 'generate_image', label: '生成道具图' }],
+  image: [{ action: 'generate_image', label: '生成图片' }],
+  video: [{ action: 'generate_video', label: '生成视频' }],
+  audio: [{ action: 'generate_audio', label: '生成配音' }],
+}
+
+const STATUS_TEXT = {
+  awaiting_confirm: '等待确认',
+  running: '生成中',
+  succeeded: '已完成',
+  failed: '失败',
 }
 
 const RELATION_ORDER = ['prompt_for', 'media_input_for', 'context_for', 'composition_input_for']
@@ -136,6 +221,68 @@ function mainFieldText(type, data) {
   return String(value)
 }
 
+function fieldsOf(type) {
+  return NODE_FIELDS[type] || []
+}
+
+function actionsOf(type) {
+  return NODE_ACTIONS[type] || []
+}
+
+function mediaUrl(source, key) {
+  const value = source?.data?.[key] ?? source?.[key]
+  return typeof value === 'string' && value ? value : ''
+}
+
+function flattenModels(raw) {
+  if (Array.isArray(raw)) return raw.map((item) => String(item || '').trim()).filter(Boolean)
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return flattenModels(parsed)
+    } catch (_) {}
+    return raw.split(/[,，]/).map((item) => item.trim()).filter(Boolean)
+  }
+  return []
+}
+
+function modelOptionsForType(type, configs) {
+  const services = NODE_MODEL_SERVICES[type]
+  if (!services) return []
+  const options = []
+  const seen = new Set()
+  for (const cfg of configs || []) {
+    if (!cfg || cfg.is_active === false) continue
+    if (!services.includes(cfg.service_type)) continue
+    const models = flattenModels(cfg.model)
+    const preferred = cfg.default_model ? String(cfg.default_model) : ''
+    for (const model of models) {
+      if (seen.has(model)) continue
+      seen.add(model)
+      options.push({
+        value: model,
+        label: `${model}（${cfg.name || cfg.service_type}）`,
+        isDefault: Boolean(cfg.is_default && (!preferred || preferred === model)),
+      })
+    }
+    if (preferred && !seen.has(preferred)) {
+      seen.add(preferred)
+      options.push({
+        value: preferred,
+        label: `${preferred}（${cfg.name || cfg.service_type}）`,
+        isDefault: Boolean(cfg.is_default),
+      })
+    }
+  }
+  return options
+}
+
+function defaultModelValue(options, current) {
+  if (current && options.some((item) => item.value === current)) return current
+  const preferred = options.find((item) => item.isDefault)
+  return preferred?.value || options[0]?.value || ''
+}
+
 const StudioNode = markRaw(defineComponent({
   name: 'StudioNode',
   inheritAttrs: false,
@@ -143,17 +290,194 @@ const StudioNode = markRaw(defineComponent({
     id: { type: String, default: '' },
     type: { type: String, default: '' },
     data: { type: Object, default: () => ({}) },
+    selected: { type: Boolean, default: false },
   },
   setup(props) {
+    const controls = inject(STUDIO_NODE_KEY, null)
+    const isSelected = computed(() => Boolean(props.selected || (controls && controls.selectedId.value === props.id)))
     return () => {
-      const text = mainFieldText(props.type, props.data)
+      const selected = isSelected.value
+      const drafts = controls?.fieldDrafts.value || {}
+      const status = props.data?.__status || ''
+      const error = props.data?.__error || ''
       const children = [
         h(Handle, { type: 'target', position: Position.Left }),
         h('div', { class: 'studio-node-name' }, TYPE_LABELS[props.type] || props.type),
       ]
-      if (text) children.push(h('div', { class: 'studio-node-text' }, text))
+      if (status && STATUS_TEXT[status]) {
+        children.push(h('div', {
+          class: {
+            'studio-node-status': true,
+            'is-busy': status === 'running' || status === 'awaiting_confirm',
+          },
+        }, [
+          (status === 'running' || status === 'awaiting_confirm') ? h('span', { class: 'studio-node-spinner' }) : null,
+          STATUS_TEXT[status],
+        ]))
+      }
+      if (error) children.push(h('div', { class: 'studio-node-error' }, error))
+      const preview = mainFieldText(props.type, props.data)
+      if (!selected && preview) children.push(h('div', { class: 'studio-node-text' }, preview))
+      const imageSrc = mediaUrl(props.data, 'image_url')
+      const videoSrc = mediaUrl(props.data, 'video_url')
+      if (imageSrc) children.push(h('img', { class: 'studio-node-media', src: imageSrc, alt: '' }))
+      if (videoSrc) children.push(h('video', { class: 'studio-node-media', src: videoSrc, controls: true }))
+      const refMedia = controls?.upstreamMedia?.(props.id) || null
+      const refSrc = refMedia ? mediaUrl(refMedia, 'image_url') : ''
+      if (!selected && props.type === 'video' && refSrc) {
+        children.push(h('div', { class: 'studio-node-ref' }, [
+          h('span', '参考图'),
+          h('img', { class: 'studio-node-ref-img', src: refSrc, alt: '' }),
+        ]))
+      }
+      if (selected && controls) {
+        const panel = []
+        const busy = controls.busyKey.value || ''
+        const nodeBusy = status === 'running'
+        const panelLocked = nodeBusy || status === 'awaiting_confirm' || Boolean(busy)
+        if (props.type === 'video') {
+          panel.push(h('div', { class: 'studio-node-ref-block nodrag nowheel' }, [
+            h('span', '参考图（上游图片）'),
+            refSrc
+              ? h('img', { class: 'studio-node-ref-img', src: refSrc, alt: '' })
+              : h('div', { class: 'studio-node-ref-empty' }, '请从图片/上传节点连到本节点'),
+          ]))
+        }
+        for (const field of fieldsOf(props.type)) {
+          const input = field.kind === 'duration'
+            ? h(ElSelect, {
+              modelValue: drafts[field.key],
+              'onUpdate:modelValue': (value) => {
+                controls.fieldDrafts.value = { ...controls.fieldDrafts.value, [field.key]: value }
+              },
+              size: 'small',
+              teleported: false,
+              disabled: panelLocked,
+              class: 'nodrag nowheel',
+            }, () => [3, 5, 8, 10].map((seconds) => h(ElOption, {
+              key: seconds,
+              label: `${seconds} 秒`,
+              value: String(seconds),
+            })))
+            : h(ElInput, {
+              modelValue: drafts[field.key],
+              'onUpdate:modelValue': (value) => {
+                controls.fieldDrafts.value = { ...controls.fieldDrafts.value, [field.key]: value }
+              },
+              type: field.kind === 'area' ? 'textarea' : 'text',
+              rows: field.key === 'text' || field.key === 'premise' ? 4 : 2,
+              size: 'small',
+              disabled: panelLocked,
+              class: 'nodrag nowheel',
+              onFocus: () => { controls.focusedField.value = field.key },
+            })
+          panel.push(h('label', { class: 'studio-node-field nodrag nowheel', key: field.key }, [
+            h('span', field.label),
+            input,
+          ]))
+        }
+        if (props.type === 'upload') {
+          panel.push(h('label', { class: 'studio-node-field nodrag nowheel' }, [
+            h('span', '上传图片'),
+            h('input', {
+              type: 'file',
+              accept: 'image/*',
+              class: 'nodrag nowheel',
+              disabled: panelLocked,
+              onChange: controls.onUploadFile,
+            }),
+          ]))
+        }
+        const modelOptions = modelOptionsForType(props.type, controls.aiConfigs.value)
+        if (modelOptions.length) {
+          const modelValue = defaultModelValue(modelOptions, controls.modelDraft.value || props.data?.model)
+          panel.push(h('label', { class: 'studio-node-field nodrag nowheel' }, [
+            h('span', '模型'),
+            h(ElSelect, {
+              modelValue,
+              'onUpdate:modelValue': (value) => { controls.modelDraft.value = value },
+              size: 'small',
+              teleported: false,
+              disabled: panelLocked,
+              class: 'nodrag nowheel studio-node-model',
+              placeholder: '选择模型',
+            }, () => modelOptions.map((item) => h(ElOption, {
+              key: item.value,
+              label: item.label,
+              value: item.value,
+            }))),
+          ]))
+        }
+        const acts = actionsOf(props.type)
+        const sendLoading = busy === `${props.id}:send`
+        const anyActionLoading = acts.some((item) => busy === `${props.id}:${item.action}`) || nodeBusy
+        if (acts.length) {
+          panel.push(h('label', { class: 'studio-node-field nodrag nowheel' }, [
+            h('span', '补充说明'),
+            h(ElInput, {
+              modelValue: controls.instructionDraft.value,
+              'onUpdate:modelValue': (value) => { controls.instructionDraft.value = value },
+              type: 'textarea',
+              rows: 2,
+              size: 'small',
+              placeholder: '可留空',
+              disabled: panelLocked,
+              class: 'nodrag nowheel',
+            }),
+          ]))
+        }
+        const pendingAction = props.data?.pending_action || ''
+        const deleteLoading = busy === `${props.id}:delete`
+        const buttons = [
+          h(ElButton, {
+            type: 'primary',
+            size: 'small',
+            loading: sendLoading,
+            disabled: panelLocked,
+            onClick: (event) => {
+              event.stopPropagation()
+              controls.onSend()
+            },
+          }, () => (sendLoading ? '保存中' : '保存')),
+          ...acts.map((item) => {
+            const actionLoading = busy === `${props.id}:${item.action}`
+              || (nodeBusy && (!pendingAction || pendingAction === item.action))
+            return h(ElButton, {
+              key: item.action,
+              type: 'primary',
+              plain: true,
+              size: 'small',
+              loading: actionLoading,
+              disabled: panelLocked,
+              onClick: (event) => {
+                event.stopPropagation()
+                controls.onRun(item.action)
+              },
+            }, () => (actionLoading ? '生成中' : item.label))
+          }),
+          h(ElButton, {
+            type: 'danger',
+            plain: true,
+            size: 'small',
+            loading: deleteLoading,
+            disabled: panelLocked,
+            onClick: (event) => {
+              event.stopPropagation()
+              controls.onDelete()
+            },
+          }, () => (deleteLoading ? '删除中' : '删除')),
+        ]
+        panel.push(h('div', { class: 'studio-node-actions nodrag nowheel' }, buttons))
+        children.push(h('div', { class: 'studio-node-panel nodrag nowheel' }, panel))
+      }
       children.push(h(Handle, { type: 'source', position: Position.Right }))
-      return h('div', { class: 'studio-node' }, children)
+      return h('div', {
+        class: {
+          'studio-node': true,
+          'is-selected': selected,
+          'is-wide': selected,
+        },
+      }, children)
     }
   },
 }))
@@ -171,11 +495,59 @@ const aspectRatio = ref('9:16')
 const confirmedAspect = ref('9:16')
 const document = ref({ nodes: [], edges: [] })
 const flowNodes = ref([])
+const selectedId = ref('')
+const fieldDrafts = ref({})
+const focusedField = ref('')
+const instructionDraft = ref('')
+const modelDraft = ref('')
+const aiConfigs = ref([])
+const busyKey = ref('')
+const confirmBusy = ref(false)
+let pollTimer = null
+
+const selected = computed(() => (
+  (document.value?.nodes || []).find((node) => node.id === selectedId.value) || null
+))
+const pendingNodes = computed(() => pendingConfirmNodes(document.value?.nodes))
+const pendingSummary = computed(() => {
+  const action = pendingNodes.value[0]?.data?.pending_action
+  const label = { generate_image: '出图', generate_video: '出视频', generate_audio: '配音' }[action] || '生成'
+  return `将为 ${pendingNodes.value.length} 个节点${label}`
+})
+
+function syncDrafts(node) {
+  if (!node) {
+    fieldDrafts.value = {}
+    modelDraft.value = ''
+    return
+  }
+  const data = node.data || {}
+  const next = {}
+  for (const field of fieldsOf(node.type)) {
+    if (focusedField.value === field.key && fieldDrafts.value[field.key] != null) {
+      next[field.key] = fieldDrafts.value[field.key]
+    } else {
+      const value = data[field.key]
+      next[field.key] = value == null ? '' : String(value)
+    }
+  }
+  fieldDrafts.value = next
+  const options = modelOptionsForType(node.type, aiConfigs.value)
+  modelDraft.value = defaultModelValue(options, data.model || modelDraft.value)
+}
+
+function onNodeClick(payload) {
+  const node = payload?.node || payload
+  if (node?.id) selectedId.value = node.id
+}
 
 const flowEdges = computed(() => (document.value?.edges || []).map((edge) => ({
   id: edge.id,
   source: edge.source,
   target: edge.target,
+  label: edge.relation === 'media_input_for' ? '参考图' : undefined,
+  labelStyle: edge.relation === 'media_input_for' ? { fill: '#a5b4fc', fontSize: 11 } : undefined,
+  labelBgStyle: edge.relation === 'media_input_for' ? { fill: '#18181b' } : undefined,
 })))
 
 let disposed = false
@@ -230,7 +602,12 @@ function toFlowNode(node) {
     id: node.id,
     type: node.type,
     position,
-    data: node.data && typeof node.data === 'object' ? { ...node.data } : {},
+    selected: node.id === selectedId.value,
+    data: {
+      ...(node.data && typeof node.data === 'object' ? node.data : {}),
+      __status: node.status || '',
+      __error: node.error || '',
+    },
   }
 }
 
@@ -393,10 +770,204 @@ function onConnect(connection) {
 }
 
 function onAddNode(type) {
+  const before = new Set((document.value?.nodes || []).map((node) => node.id))
   runCommand({
     name: 'apply_ops',
     ops: [{ op: 'create_node', temp_id: 'n', type }],
+  }).then((payload) => {
+    const doc = documentFromCommandResponse(payload)
+    const created = doc?.nodes?.find((node) => !before.has(node.id))
+    if (created) selectedId.value = created.id
   }).catch(() => {})
+}
+
+function isEditableTarget(target) {
+  if (!target || !(target instanceof Element)) return false
+  const tag = target.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+  if (target.isContentEditable) return true
+  return Boolean(target.closest('input, textarea, select, [contenteditable="true"], .el-input, .el-textarea, .el-select'))
+}
+
+function canDeleteSelected() {
+  const node = selected.value
+  if (!node || busyKey.value || confirmBusy.value) return false
+  if (node.status === 'running' || node.status === 'awaiting_confirm') return false
+  return true
+}
+
+function onDelete() {
+  const node = selected.value
+  if (!node || !canDeleteSelected()) return
+  const key = `${node.id}:delete`
+  const id = node.id
+  busyKey.value = key
+  runCommand({
+    name: 'delete_nodes',
+    node_ids: [id],
+    approved: true,
+  }).then(() => {
+    if (selectedId.value === id) selectedId.value = ''
+    ElMessage.success('已删除')
+  }).catch(() => {}).finally(() => {
+    if (busyKey.value === key) busyKey.value = ''
+  })
+}
+
+function onCanvasKeydown(event) {
+  if (event.key !== 'Delete' && event.key !== 'Backspace') return
+  if (isEditableTarget(event.target)) return
+  if (!canDeleteSelected()) return
+  event.preventDefault()
+  onDelete()
+}
+
+function fieldValue(field, raw) {
+  if (field.kind === 'duration') return Number(raw)
+  if (field.key === 'shot_number') {
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : raw
+  }
+  return raw
+}
+
+function collectFieldPatch(node) {
+  const patch = {}
+  for (const field of fieldsOf(node.type)) {
+    const next = fieldValue(field, fieldDrafts.value[field.key])
+    const current = node.data?.[field.key]
+    if (next === current || String(next ?? '') === String(current ?? '')) continue
+    patch[field.key] = next
+  }
+  const options = modelOptionsForType(node.type, aiConfigs.value)
+  if (options.length) {
+    const model = defaultModelValue(options, modelDraft.value || node.data?.model)
+    if (model && model !== (node.data?.model || '')) patch.model = model
+    modelDraft.value = model
+  }
+  return patch
+}
+
+function onSend() {
+  const node = selected.value
+  if (!node || busyKey.value) return
+  focusedField.value = ''
+  const patch = collectFieldPatch(node)
+  if (!Object.keys(patch).length) {
+    ElMessage.success('已是最新内容')
+    return
+  }
+  const key = `${node.id}:send`
+  busyKey.value = key
+  runCommand({
+    name: 'update_node',
+    id: node.id,
+    data: patch,
+  }).then(() => {
+    ElMessage.success('已保存')
+  }).catch(() => {}).finally(() => {
+    if (busyKey.value === key) busyKey.value = ''
+  })
+}
+
+function upstreamMedia(nodeId) {
+  const edges = document.value?.edges || []
+  for (const edge of edges) {
+    if (edge.target !== nodeId || edge.relation !== 'media_input_for') continue
+    const source = (document.value?.nodes || []).find((item) => item.id === edge.source)
+    if (source && (source.type === 'image' || source.type === 'upload')) return source
+  }
+  return null
+}
+
+function onRun(action) {
+  const node = selected.value
+  if (!node || busyKey.value) return
+  if (action === 'generate_video' && !upstreamMedia(node.id)) {
+    ElMessage.warning('请先把图片或上传节点连到本视频节点作为参考图')
+    return
+  }
+  focusedField.value = ''
+  const patch = collectFieldPatch(node)
+  const model = modelDraft.value || node.data?.model || undefined
+  const key = `${node.id}:${action}`
+  busyKey.value = key
+  const start = Object.keys(patch).length
+    ? runCommand({ name: 'update_node', id: node.id, data: patch })
+    : Promise.resolve()
+  start.then(() => runCommand({
+    name: 'run_node',
+    node_ids: [node.id],
+    action,
+    instruction: instructionDraft.value,
+    ...(model ? { model } : {}),
+  })).catch(() => {}).finally(() => {
+    // 异步生成会进入 running，由节点状态继续显示转圈；同步结束则立刻清掉。
+    const current = (document.value?.nodes || []).find((item) => item.id === node.id)
+    if (busyKey.value === key && current?.status !== 'running') busyKey.value = ''
+  })
+}
+
+function onConfirm(approved) {
+  if (confirmBusy.value) return
+  const id = route.params.id
+  confirmBusy.value = true
+  confirmRun(id, approved, revision.value).then((payload) => {
+    if (isCurrentCanvas(id)) applyPayload(payload)
+  }).catch((error) => {
+    if (isStale(error)) reload().catch(() => {})
+  }).finally(() => {
+    confirmBusy.value = false
+  })
+}
+
+async function onUploadFile(event) {
+  const file = event.target.files && event.target.files[0]
+  event.target.value = ''
+  const node = selected.value
+  if (!file || !node) return
+  try {
+    const payload = await upload(route.params.id, node.id, revision.value, file)
+    applyPayload(payload)
+  } catch (error) {
+    if (isStale(error)) reload().catch(() => {})
+  }
+}
+
+provide(STUDIO_NODE_KEY, {
+  selectedId,
+  fieldDrafts,
+  focusedField,
+  instructionDraft,
+  modelDraft,
+  aiConfigs,
+  busyKey,
+  upstreamMedia,
+  onSend,
+  onRun,
+  onDelete,
+  onUploadFile,
+})
+
+function syncPoll() {
+  const runningNodes = (document.value?.nodes || []).filter((node) => node.status === 'running')
+  if (runningNodes.length && !pollTimer) {
+    pollTimer = setInterval(() => {
+      reload().catch(() => {})
+    }, 3000)
+  }
+  if (!runningNodes.length && pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+  if (busyKey.value) {
+    const [nodeId, action] = busyKey.value.split(':')
+    if (action === 'send' || action === 'delete') return
+    const current = (document.value?.nodes || []).find((node) => node.id === nodeId)
+    if (!current || current.status === 'succeeded' || current.status === 'failed' || current.status === 'idle') {
+      busyKey.value = ''
+    }
+  }
 }
 
 function onTitleBlur() {
@@ -481,14 +1052,47 @@ async function load() {
 }
 
 watch(() => route.params.id, (id, prev) => {
-  if (id && id !== prev) load()
+  if (id && id !== prev) {
+    selectedId.value = ''
+    load()
+  }
 })
 
-onMounted(load)
+async function loadAiConfigs() {
+  try {
+    const rows = await aiAPI.list()
+    aiConfigs.value = Array.isArray(rows) ? rows : []
+  } catch {
+    aiConfigs.value = []
+  }
+}
+
+watch(selected, (node) => {
+  instructionDraft.value = ''
+  focusedField.value = ''
+  syncDrafts(node)
+})
+
+watch(selectedId, () => {
+  flowNodes.value = (document.value?.nodes || []).map(toFlowNode)
+})
+
+watch(document, () => {
+  syncPoll()
+}, { deep: true })
+
+onMounted(() => {
+  window.addEventListener('keydown', onCanvasKeydown)
+  loadAiConfigs()
+  load()
+})
 
 onBeforeUnmount(() => {
   disposed = true
+  window.removeEventListener('keydown', onCanvasKeydown)
   clearDragTracking()
+  clearInterval(pollTimer)
+  pollTimer = null
 })
 </script>
 
@@ -514,6 +1118,14 @@ onBeforeUnmount(() => {
 .studio-aspect {
   width: 110px;
 }
+.studio-confirm {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #312e81;
+  color: #e0e7ff;
+}
 .studio-flow {
   flex: 1;
   min-height: 0;
@@ -531,7 +1143,7 @@ onBeforeUnmount(() => {
 
 <style>
 .studio-node {
-  min-width: 148px;
+  min-width: 160px;
   max-width: 220px;
   padding: 10px 12px;
   border: 1px solid var(--border-muted, #3f3f46);
@@ -540,9 +1152,69 @@ onBeforeUnmount(() => {
   color: var(--text-primary);
   box-shadow: var(--shadow, 0 2px 12px rgba(0, 0, 0, 0.4));
 }
+.studio-node.is-wide {
+  min-width: 280px;
+  max-width: 320px;
+}
+.studio-node.is-selected {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.45), 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 5;
+}
 .studio-node-name {
   font-size: 12px;
   font-weight: 650;
+}
+.studio-node-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #a5b4fc;
+}
+.studio-node-status.is-busy {
+  color: #c4b5fd;
+}
+.studio-node-spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(196, 181, 253, 0.35);
+  border-top-color: #c4b5fd;
+  border-radius: 50%;
+  animation: studio-spin 0.8s linear infinite;
+}
+@keyframes studio-spin {
+  to { transform: rotate(360deg); }
+}
+.studio-node-error {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #f87171;
+  word-break: break-word;
+}
+.studio-node-ref,
+.studio-node-ref-block {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  color: #a5b4fc;
+}
+.studio-node-ref-img {
+  width: 100%;
+  max-height: 96px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #3f3f46;
+}
+.studio-node-ref-empty {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px dashed #52525b;
+  color: #a1a1aa;
+  line-height: 1.4;
 }
 .studio-node-text {
   margin-top: 6px;
@@ -554,6 +1226,33 @@ onBeforeUnmount(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+}
+.studio-node-media {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  border-radius: 8px;
+}
+.studio-node-panel {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-muted, #3f3f46);
+}
+.studio-node-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text-muted, #a1a1aa);
+}
+.studio-node-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.studio-node-model {
+  width: 100%;
 }
 .studio-node .vue-flow__handle {
   width: 9px;

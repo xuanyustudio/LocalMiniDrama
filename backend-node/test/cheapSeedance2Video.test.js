@@ -95,6 +95,24 @@ describe('cheap_seedance2 helpers', () => {
     assert.equal(videoClient.buildCheapSeedance2ContentUrl({ base_url: 'https://x' }, ''), null);
   });
 
+  it('needsAuthenticatedVideoDownload for content urls and provider', () => {
+    assert.equal(videoClient.needsAuthenticatedVideoDownload({ provider: 'cheap_seedance2' }, 'chatfire', ''), true);
+    assert.equal(videoClient.needsAuthenticatedVideoDownload({
+      provider: 'openai',
+      base_url: 'https://workbench.ohmybb.xyz/api/openai',
+    }, 'chatfire', ''), true);
+    assert.equal(videoClient.needsAuthenticatedVideoDownload(
+      { provider: 'openai' },
+      'chatfire',
+      'https://workbench.ohmybb.xyz/api/openai/v1/videos/abc/content'
+    ), true);
+    assert.equal(videoClient.needsAuthenticatedVideoDownload(
+      { provider: 'openai', base_url: 'https://api.openai.com' },
+      'openai',
+      'https://cdn.example.com/a.mp4'
+    ), false);
+  });
+
   it('configSupportsUniversalOmni', () => {
     assert.equal(videoClient.configSupportsUniversalOmni({ provider: 'cheap_seedance2' }), true);
     assert.equal(videoClient.configSupportsUniversalOmni({

@@ -47,6 +47,16 @@ function isWorkbenchOhmybbHost(baseUrl) {
   return String(baseUrl || '').toLowerCase().includes('workbench.ohmybb.xyz');
 }
 
+/** 成片 URL 需带 API Key 下载（低价 Seedance2 / ohmybb content 地址） */
+function needsAuthenticatedVideoDownload(config, provider, videoUrl) {
+  if (isCheapSeedance2Provider(config?.provider || provider)) return true;
+  if (isWorkbenchOhmybbHost(config?.base_url)) return true;
+  const url = String(videoUrl || '');
+  if (/workbench\.ohmybb\.xyz/i.test(url)) return true;
+  if (/\/v1\/videos\/[^/]+\/content(?:\?|$)/i.test(url)) return true;
+  return false;
+}
+
 /** 工作台已下架的模型 ID → 当前仍可用的替代模型 */
 const CHEAP_SEEDANCE2_RETIRED_MODELS = {
   'wb-seedance-2.5': 'wb-seedance-2-fast',
@@ -5021,6 +5031,8 @@ module.exports = {
   normalizeMinimaxH3Duration,
   normalizeMinimaxH3Resolution,
   isCheapSeedance2Provider,
+  isWorkbenchOhmybbHost,
+  needsAuthenticatedVideoDownload,
   configSupportsUniversalOmni,
   normalizeCheapSeedance2Duration,
   normalizeCheapSeedance2Size,

@@ -27,6 +27,21 @@ function firstOfType(graph, nodeId, relation, type) {
   return null;
 }
 
+function mediaPath(data) {
+  if (!data || typeof data !== 'object') return '';
+  if (nonEmpty(data.local_path)) return data.local_path;
+  if (nonEmpty(data.image_url)) return data.image_url;
+  return '';
+}
+
+function collectStyles(graph, nodeId) {
+  const styles = incoming(graph, nodeId, 'prompt_for')
+    .map((edge) => findNode(graph, edge.source))
+    .filter((source) => source && source.type === 'style' && nonEmpty(source.data?.text));
+  styles.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return styles;
+}
+
 function assemble(graph, node) {
   const data = node.data || {};
   const pieces = [];
@@ -42,11 +57,7 @@ function assemble(graph, node) {
     if (nonEmpty(source.data?.name)) pieces.push(source.data.name);
     if (nonEmpty(source.data?.prompt)) pieces.push(source.data.prompt);
   }
-  const styles = incoming(graph, node.id, 'prompt_for')
-    .map((edge) => findNode(graph, edge.source))
-    .filter((source) => source && source.type === 'style' && nonEmpty(source.data?.text));
-  styles.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  for (const style of styles) pieces.push(style.data.text);
+  for (const style of collectStyles(graph, node.id)) pieces.push(style.data.text);
   return pieces.join('，');
 }
 
@@ -56,27 +67,56 @@ function promptForImage(graph, nodeId) {
   return assemble(graph, node);
 }
 
-function upstreamImage(graph, nodeId) {
-  return firstOfType(graph, nodeId, 'media_input_for', 'image');
+function upstreamMedia(graph, nodeId) {
+  return firstOfType(graph, nodeId, 'media_input_for', 'image')
+    || firstOfType(graph, nodeId, 'media_input_for', 'upload');
 }
 
-function upstreamStoryboard(graph, nodeId, image) {
-  if (image) {
-    const viaImage = firstOfType(graph, image.id, 'prompt_for', 'storyboard');
+function upstreamStoryboard(graph, nodeId, media) {
+  if (media && media.type === 'image') {
+    const viaImage = firstOfType(graph, media.id, 'prompt_for', 'storyboard');
     if (viaImage) return viaImage;
   }
   return firstOfType(graph, nodeId, 'prompt_for', 'storyboard');
 }
 
+function withStyles(base, styles) {
+  const pieces = [];
+  if (nonEmpty(base)) pieces.push(base);
+  const seen = new Set();
+  for (const style of styles) {
+    if (!style || seen.has(style.id)) continue;
+    seen.add(style.id);
+    if (nonEmpty(style.data?.text)) pieces.push(style.data.text);
+  }
+  return pieces.join('，');
+}
+
 function promptForVideo(graph, nodeId) {
   const video = findNode(graph, nodeId);
-  const image = upstreamImage(graph, nodeId);
-  const storyboard = upstreamStoryboard(graph, nodeId, image);
-  const data = image?.data || {};
+  const media = upstreamMedia(graph, nodeId);
+  const storyboard = upstreamStoryboard(graph, nodeId, media);
+  const styleNodes = [];
+  if (media) styleNodes.push(...collectStyles(graph, media.id));
+  styleNodes.push(...collectStyles(graph, nodeId));
+
+  let prompt = '';
+  if (nonEmpty(video?.data?.prompt)) {
+    // 节点自己的提示词优先；风格词接在后面（对齐规格）
+    prompt = withStyles(video.data.prompt, styleNodes);
+  } else if (media && media.type === 'image') {
+    // 无自有提示词时，沿上游图片拼分镜/上下文/风格（兼容既有测试）
+    prompt = assemble(graph, media);
+  } else if (storyboard && nonEmpty(storyboard.data?.prompt)) {
+    prompt = withStyles(storyboard.data.prompt, styleNodes);
+  } else {
+    prompt = withStyles('', styleNodes);
+  }
+
   return {
-    prompt: image ? assemble(graph, image) : '',
+    prompt,
     duration: validDuration(video?.data?.duration) ?? validDuration(storyboard?.data?.duration) ?? 5,
-    imagePath: nonEmpty(data.local_path) ? data.local_path : (nonEmpty(data.image_url) ? data.image_url : ''),
+    imagePath: mediaPath(media?.data),
   };
 }
 
@@ -88,4 +128,4 @@ function spokenText(graph, nodeId) {
   return '';
 }
 
-module.exports = { promptForImage, promptForVideo, spokenText };
+module.exports = { promptForImage, promptForVideo, spokenText, upstreamMedia };

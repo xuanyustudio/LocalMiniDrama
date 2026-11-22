@@ -20,6 +20,13 @@ function setVideoGenFailed(db, videoGenId, errorMsg, now) {
       db.prepare('UPDATE video_generations SET status = ?, updated_at = ? WHERE id = ?').run('failed', now, videoGenId);
     } else throw e;
   }
+  try {
+    require('./freeCanvas/complete').noteFreeCanvasResult(db, {
+      generation_id: videoGenId,
+      kind: 'video',
+      error: (errorMsg || '').slice(0, 500),
+    });
+  } catch (_) {}
 }
 
 function list(db, query) {
@@ -102,11 +109,77 @@ function resolveVideosDir(storagePath, projectSubdir) {
   return { dir: path.join(storagePath, 'videos'), relPrefix: 'videos' };
 }
 
+function authHeadersForVideoDownload(apiKey) {
+  const key = apiKey != null ? String(apiKey).trim() : '';
+  if (!key) return {};
+  return { Authorization: key.startsWith('Bearer ') ? key : `Bearer ${key}` };
+}
+
+function looksLikeVideoBuffer(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 12) return false;
+  // ftyp.... / ISO BMFF，或常见 webm 开头
+  if (buf.slice(4, 8).toString('ascii') === 'ftyp') return true;
+  if (buf.slice(0, 4).toString('hex') === '1a45dfa3') return true;
+  const head = buf.slice(0, 64).toString('utf8').toLowerCase();
+  if (head.includes('<!doctype') || head.includes('<html') || head.includes('"error"')) return false;
+  return buf.length > 64 * 1024;
+}
+
+/**
+ * 拉取成片字节：鉴权场景优先 IPv4（避开 Windows IPv6 坑），失败再重试并回退 fetch。
+ * @returns {Promise<{ ok: true, buffer: Buffer } | { ok: false, status?: number, error?: string }>}
+ */
+async function fetchVideoBytes(videoUrl, headers, log, videoGenId) {
+  const auth = Boolean(headers && headers.Authorization);
+  const attempts = auth ? 3 : 1;
+  let last = { ok: false, error: '下载失败' };
+
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      const res = await ipv4Request(videoUrl, { method: 'GET', headers, timeoutMs: 180000 });
+      if (res.ok) {
+        const buffer = res.buffer();
+        if (!auth || looksLikeVideoBuffer(buffer) || buffer.length > 1024) {
+          return { ok: true, buffer };
+        }
+        last = { ok: false, status: res.status, error: '响应不像视频文件' };
+      } else {
+        last = { ok: false, status: res.status, error: `HTTP ${res.status}` };
+        log.warn('Download video failed', { status: res.status, videoGenId, auth, attempt: i });
+        // 401/403 换客户端也没用，直接结束
+        if (res.status === 401 || res.status === 403) break;
+      }
+    } catch (e) {
+      last = { ok: false, error: formatNetError(e) };
+      log.warn('Download video error', { videoGenId, auth, attempt: i, error: last.error });
+    }
+    if (i < attempts) await new Promise((r) => setTimeout(r, 800 * i));
+  }
+
+  // 鉴权下载：IPv4 不稳定时回退全局 fetch（可跟随重定向）
+  if (auth) {
+    try {
+      const res = await fetch(videoUrl, { method: 'GET', headers });
+      if (!res.ok) {
+        last = { ok: false, status: res.status, error: `HTTP ${res.status}` };
+        log.warn('Download video fetch fallback failed', { status: res.status, videoGenId });
+        return last;
+      }
+      const buffer = Buffer.from(await res.arrayBuffer());
+      return { ok: true, buffer };
+    } catch (e) {
+      last = { ok: false, error: formatNetError(e) };
+      log.warn('Download video fetch fallback error', { videoGenId, error: last.error });
+    }
+  }
+  return last;
+}
+
 /**
  * 将远程 video_url 下载到本地
  * @param {object} [options]
  * @param {string} [options.apiKey] 需要鉴权下载时传入（如 cheap_seedance2）
- * @returns {string|null} 相对 storage 根的路径，如 projects/.../videos/vg_1_xxx.mp4；无工程时为 videos/...
+ * @returns {Promise<string|null|{ error: string }>} 相对 storage 根的路径；失败时鉴权场景可回传 error
  */
 async function downloadVideoToLocal(storagePath, videoUrl, videoGenId, log, projectSubdir = null, options = null) {
   if (!videoUrl || typeof videoUrl !== 'string') return null;
@@ -116,25 +189,20 @@ async function downloadVideoToLocal(storagePath, videoUrl, videoGenId, log, proj
     const ext = (videoUrl.split('?')[0].match(/\.(mp4|webm|mov)$/i) || [])[1] || 'mp4';
     const name = `vg_${videoGenId}_${randomUUID().slice(0, 8)}.${ext}`;
     const filePath = path.join(dir, name);
-    const headers = {};
     const apiKey = options && options.apiKey != null ? String(options.apiKey).trim() : '';
-    if (apiKey) {
-      headers.Authorization = apiKey.startsWith('Bearer ') ? apiKey : `Bearer ${apiKey}`;
-    }
-    const res = apiKey
-      ? await ipv4Request(videoUrl, { method: 'GET', headers, timeoutMs: 180000 })
-      : await fetch(videoUrl, { method: 'GET', headers });
-    if (!res.ok) {
-      log.warn('Download video failed', { status: res.status, videoGenId, auth: !!apiKey });
+    const headers = authHeadersForVideoDownload(apiKey);
+    const got = await fetchVideoBytes(videoUrl, headers, log, videoGenId);
+    if (!got.ok) {
+      if (apiKey) return { error: got.error || `HTTP ${got.status || '?'}`, status: got.status };
       return null;
     }
-    const buf = apiKey ? res.buffer() : Buffer.from(await res.arrayBuffer());
-    fs.writeFileSync(filePath, buf);
+    fs.writeFileSync(filePath, got.buffer);
     const relativePath = `${relPrefix}/${name}`.replace(/\\/g, '/');
     log.info('Video saved to local', { videoGenId, local_path: relativePath, projectSubdir: projectSubdir || '(root)' });
     return relativePath;
   } catch (e) {
     log.warn('Download video error', { videoGenId, error: formatNetError(e) });
+    if (options && options.apiKey) return { error: formatNetError(e) };
     return null;
   }
 }
@@ -231,15 +299,35 @@ function resolveStoragePath(cfg) {
 async function finalizeSuccessfulVideo(db, log, videoGenId, row, rowForAspect, videoUrl, logLabel, aiConfig = null) {
   const now = new Date().toISOString();
   let localPath = null;
-  const requireAuthDownload = videoClient.isCheapSeedance2Provider(aiConfig?.provider || row?.provider);
-  const downloadOpts = requireAuthDownload && aiConfig?.api_key
-    ? { apiKey: aiConfig.api_key }
-    : null;
+  let downloadDetail = null;
+  // 按模型重新取配置，避免 create 时 provider 写成 chatfire、或轮询链路丢了 api_key
+  let config = aiConfig;
+  if (!config || !config.api_key || !config.provider) {
+    config = videoClient.getDefaultVideoConfig(db, row.model) || config || null;
+  }
+  const requireAuthDownload = videoClient.needsAuthenticatedVideoDownload(
+    config,
+    row?.provider,
+    videoUrl
+  );
+  if (requireAuthDownload && !(config && config.api_key)) {
+    const errMsg = '成片鉴权下载失败（未找到视频模型 API Key，请检查 AI 配置）';
+    log.warn('cheap_seedance2 auth download missing api_key', { videoGenId, video_url: videoUrl });
+    try {
+      db.prepare(
+        'UPDATE video_generations SET video_url = ?, updated_at = ? WHERE id = ?'
+      ).run(videoUrl, now, videoGenId);
+    } catch (_) {}
+    setVideoGenFailed(db, videoGenId, errMsg, now);
+    if (row.task_id) taskService.updateTaskError(db, row.task_id, errMsg);
+    return { ok: false, error: errMsg };
+  }
+  const downloadOpts = requireAuthDownload ? { apiKey: config.api_key } : null;
   try {
     const cfg = require('../config').loadConfig();
     const storagePath = resolveStoragePath(cfg);
     const projectSubdir = storageLayout.getProjectStorageSubdir(db, row.drama_id);
-    localPath = await downloadVideoToLocal(
+    const downloaded = await downloadVideoToLocal(
       storagePath,
       videoUrl,
       videoGenId,
@@ -247,13 +335,27 @@ async function finalizeSuccessfulVideo(db, log, videoGenId, row, rowForAspect, v
       projectSubdir,
       downloadOpts
     );
-    maybeNormalizeVideoAfterDownload(storagePath, localPath, rowForAspect, videoGenId, log);
+    if (downloaded && typeof downloaded === 'object' && downloaded.error) {
+      downloadDetail = downloaded.error;
+      localPath = null;
+    } else {
+      localPath = downloaded || null;
+      maybeNormalizeVideoAfterDownload(storagePath, localPath, rowForAspect, videoGenId, log);
+    }
   } catch (_) {}
 
-  // 低价 Seedance2：成片 URL 需鉴权，本地下载失败则不可标为可播成功
+  // 低价 Seedance2 / ohmybb content：成片 URL 需鉴权，本地下载失败则不可标为可播成功
   if (requireAuthDownload && !localPath) {
-    const errMsg = '成片鉴权下载失败（请检查 API Key，或稍后重试继续查询）';
-    log.warn('cheap_seedance2 auth download failed', { videoGenId, video_url: videoUrl });
+    const errMsg = downloadDetail
+      ? `成片鉴权下载失败（${downloadDetail}；请检查 API Key，或稍后重试继续查询）`
+      : '成片鉴权下载失败（请检查 API Key，或稍后重试继续查询）';
+    log.warn('cheap_seedance2 auth download failed', { videoGenId, video_url: videoUrl, detail: downloadDetail });
+    // 保留 video_url，方便「继续查询」再次鉴权拉取
+    try {
+      db.prepare(
+        'UPDATE video_generations SET video_url = ?, updated_at = ? WHERE id = ?'
+      ).run(videoUrl, now, videoGenId);
+    } catch (_) {}
     setVideoGenFailed(db, videoGenId, errMsg, now);
     if (row.task_id) taskService.updateTaskError(db, row.task_id, errMsg);
     return { ok: false, error: errMsg };
@@ -270,6 +372,15 @@ async function finalizeSuccessfulVideo(db, log, videoGenId, row, rowForAspect, v
       ).run('completed', videoUrl, localPath, now, videoGenId);
     } else throw e;
   }
+  try {
+    const publicUrl = localPath ? '/static/' + String(localPath).replace(/^\//, '') : videoUrl;
+    require('./freeCanvas/complete').noteFreeCanvasResult(db, {
+      generation_id: videoGenId,
+      kind: 'video',
+      url: publicUrl,
+      local_path: localPath || '',
+    });
+  } catch (_) {}
   if (row.storyboard_id) {
     try {
       db.prepare('UPDATE storyboards SET video_url = ?, local_path = ?, updated_at = ? WHERE id = ?').run(
@@ -605,6 +716,60 @@ async function processVideoGeneration(db, log, videoGenId) {
   }
 }
 
+function createGeneration(db, log, body) {
+  const task = taskService.createTask(db, log, 'video_generation', String(body.drama_id || ''));
+  const now = new Date().toISOString();
+  const dramaId = Number(body.drama_id) || 0;
+  const storyboardId = body.storyboard_id != null ? Number(body.storyboard_id) : null;
+  let prompt = body.prompt || '';
+  const style = (body.style || '').toString().trim();
+  if (style) {
+    const baseLower = String(prompt || '').toLowerCase();
+    const styleLower = style.toLowerCase();
+    if (!baseLower.includes(styleLower)) {
+      prompt = prompt ? `${prompt}. Style: ${style}` : `Style: ${style}`;
+    }
+  }
+  const model = body.model ?? null;
+  // 按模型解析真实厂商，避免默认写成 chatfire 导致后续鉴权判断偏差
+  const matched = videoClient.getDefaultVideoConfig(db, model || undefined);
+  const provider = body.provider || matched?.provider || 'chatfire';
+  const resolvedModel = model || matched?.default_model || null;
+  const duration = body.duration ?? null;
+  let aspectRatio = null;
+  if (body.aspect_ratio != null && String(body.aspect_ratio).trim() !== '') {
+    aspectRatio = videoClient.normalizeAspectRatioForApi(body.aspect_ratio);
+  }
+  if (!aspectRatio && dramaId) {
+    try {
+      const dramaRow = db.prepare('SELECT metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(dramaId);
+      if (dramaRow && dramaRow.metadata) {
+        const meta = typeof dramaRow.metadata === 'string' ? JSON.parse(dramaRow.metadata) : dramaRow.metadata;
+        if (meta && meta.aspect_ratio) aspectRatio = videoClient.normalizeAspectRatioForApi(meta.aspect_ratio);
+      }
+    } catch (_) {}
+  }
+  const resolution = body.resolution ?? null;
+  const seed = body.seed != null ? Number(body.seed) : null;
+  const cameraFixed = body.camera_fixed != null ? (body.camera_fixed ? 1 : 0) : null;
+  const watermark = body.watermark != null ? (body.watermark ? 1 : 0) : 0;
+  const imageUrl = body.image_url ?? null;
+  const firstFrameUrl = body.first_frame_url ?? body.first_frame_local_path ?? null;
+  const lastFrameUrl = body.last_frame_url ?? body.last_frame_local_path ?? null;
+  const refImagesJson = body.reference_image_urls && Array.isArray(body.reference_image_urls)
+    ? JSON.stringify(body.reference_image_urls.slice(0, 10))
+    : null;
+  db.prepare(
+    `INSERT INTO video_generations (drama_id, storyboard_id, provider, prompt, model, duration, aspect_ratio, resolution, seed, camera_fixed, watermark, image_url, first_frame_url, last_frame_url, reference_image_urls, status, task_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?)`
+  ).run(dramaId, storyboardId, provider, prompt, resolvedModel, duration, aspectRatio, resolution, seed, cameraFixed, watermark, imageUrl, firstFrameUrl, lastFrameUrl, refImagesJson, task.id, now, now);
+  const videoGenId = db.prepare('SELECT last_insert_rowid() as id').get().id;
+  setImmediate(() => {
+    processVideoGeneration(db, log, videoGenId);
+  });
+  return getById(db, videoGenId) || { id: videoGenId, task_id: task.id, status: 'processing' };
+}
+
 function deleteById(db, log, id) {
   const now = new Date().toISOString();
   const result = db.prepare('UPDATE video_generations SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL').run(now, Number(id));
@@ -614,6 +779,7 @@ function deleteById(db, log, id) {
 module.exports = {
   list,
   getById,
+  createGeneration,
   deleteById,
   processVideoGeneration,
   resumeProcessingVideoGenerations,

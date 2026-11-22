@@ -16,6 +16,10 @@ export function command(id, body) {
   return request.post(`/free-canvases/${id}/commands`, body)
 }
 
+export function confirmRun(id, approved, revision) {
+  return request.post(`/free-canvases/${id}/confirm-run`, { approved, revision })
+}
+
 export function upload(id, nodeId, revision, file) {
   const form = new FormData()
   form.append('file', file)

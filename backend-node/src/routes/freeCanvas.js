@@ -4,6 +4,11 @@ const response = require('../response');
 const { getCanvas, listCanvases, createCanvas, saveDocument, saveColumns } = require('../services/freeCanvas/store');
 const { applyCommand } = require('../services/freeCanvas/commands');
 const { summarize, findNode, runtimeIdFactory, clone } = require('../services/freeCanvas/document');
+const { runNode, confirmRun: confirmCanvasRun } = require('../services/freeCanvas/run');
+const aiClient = require('../services/aiClient');
+const imageService = require('../services/imageService');
+const videoService = require('../services/videoService');
+const ttsService = require('../services/ttsService');
 
 const ASPECT_RATIOS = new Set(['9:16', '16:9', '1:1']);
 
@@ -49,7 +54,68 @@ function uploadInput(req) {
   };
 }
 
-function routes(db, log) {
+function defaultRunDeps(db, log) {
+  return {
+    hasTextModel() {
+      return Boolean(aiClient.getDefaultConfig(db, 'text'));
+    },
+    hasImageModel() {
+      return Boolean(aiClient.getDefaultConfig(db, 'image') || aiClient.getDefaultConfig(db, 'storyboard_image'));
+    },
+    hasVideoModel() {
+      return Boolean(aiClient.getDefaultConfig(db, 'video'));
+    },
+    hasTts() {
+      return Boolean(aiClient.getDefaultConfig(db, 'tts'));
+    },
+    completeText(prompt, options = {}) {
+      return aiClient.generateText(
+        db,
+        log,
+        'text',
+        prompt,
+        '你是短剧编剧。只输出正文或 JSON，不要解释。',
+        { model: options.model || undefined }
+      );
+    },
+    createImage(body) {
+      return imageService.create(db, log, body);
+    },
+    createVideo(body) {
+      return videoService.createGeneration(db, log, body);
+    },
+    synthesize(body) {
+      return ttsService.synthesize(db, log, body);
+    },
+  };
+}
+
+async function executeCanvasRun(db, log, canvas, body, res, runDeps) {
+  try {
+    const applied = body.name === 'confirm_run'
+      ? await confirmCanvasRun(canvas.document, body.approved === true, runDeps, { aspectRatio: canvas.aspect_ratio })
+      : await runNode(canvas.document, body, runDeps);
+    if (!applied.ok) return response.badRequest(res, applied.error);
+    if (!applied.graph) return response.success(res, applied);
+    const saved = saveDocument(db, canvas.id, canvas.revision, applied.graph);
+    if (!saved.ok) return response.badRequest(res, saved.error);
+    return response.success(res, {
+      canvas: saved.canvas,
+      pending: applied.pending === true,
+      cancelled: applied.cancelled === true,
+      nodeIds: applied.nodeIds || [],
+      summary: applied.summary || '',
+      revision: saved.canvas.revision,
+      ...(applied.cancelled ? { agent_message: '用户取消了这次生成' } : {}),
+    });
+  } catch (err) {
+    log.error('free canvas run', { error: err.message });
+    return response.internalError(res, '画布运行失败');
+  }
+}
+
+function routes(db, log, injectedDeps) {
+  const runDeps = injectedDeps || defaultRunDeps(db, log);
   return {
     list(req, res) {
       try {
@@ -92,6 +158,10 @@ function routes(db, log) {
           return response.success(res, node);
         }
         if (body.name === 'update_canvas') return updateCanvas(db, canvas, body, res);
+        if (body.name === 'run_node') {
+          if (Number(body.revision) !== canvas.revision) return response.badRequest(res, '画布已被更新');
+          return executeCanvasRun(db, log, canvas, body, res, runDeps);
+        }
         if (body.name !== 'select_nodes' && Number(body.revision) !== canvas.revision) {
           return response.badRequest(res, '画布已被更新');
         }
@@ -107,6 +177,20 @@ function routes(db, log) {
       } catch (err) {
         log.error('free canvas command', { error: err.message });
         response.internalError(res, '画布命令失败');
+      }
+    },
+    confirm(req, res) {
+      try {
+        const canvas = getCanvas(db, req.params && req.params.id);
+        if (!canvas) return response.notFound(res, '画布不存在');
+        const body = req.body || {};
+        if (body.revision != null && body.revision !== '' && Number(body.revision) !== canvas.revision) {
+          return response.badRequest(res, '画布已被更新');
+        }
+        return executeCanvasRun(db, log, canvas, { name: 'confirm_run', approved: body.approved === true }, res, runDeps);
+      } catch (err) {
+        log.error('free canvas confirm', { error: err.message });
+        return response.internalError(res, '确认生成失败');
       }
     },
     async upload(req, res, deps) {

@@ -1,20 +1,20 @@
 const TYPES = ['text', 'script', 'character', 'scene', 'prop', 'storyboard', 'upload', 'image', 'video', 'audio', 'compose', 'style', 'group'];
 const WRITABLE = {
-  text: ['text'],
-  script: ['title', 'premise', 'text'],
-  character: ['name', 'prompt'],
-  scene: ['name', 'prompt'],
-  prop: ['name', 'prompt'],
-  storyboard: ['shot_number', 'action', 'dialogue', 'prompt', 'duration'],
+  text: ['text', 'model'],
+  script: ['title', 'premise', 'text', 'model'],
+  character: ['name', 'prompt', 'model'],
+  scene: ['name', 'prompt', 'model'],
+  prop: ['name', 'prompt', 'model'],
+  storyboard: ['shot_number', 'action', 'dialogue', 'prompt', 'duration', 'model'],
   upload: [],
-  image: ['prompt'],
-  video: ['prompt', 'duration'],
-  audio: ['text', 'voice_id'],
+  image: ['prompt', 'model'],
+  video: ['prompt', 'duration', 'model'],
+  audio: ['text', 'voice_id', 'model'],
   compose: [],
   style: ['text'],
   group: ['title'],
 };
-const LIMITS = { text: 20000, premise: 2000, prompt: 2000, action: 500, dialogue: 300, title: 80, name: 80 };
+const LIMITS = { text: 20000, premise: 2000, prompt: 2000, action: 500, dialogue: 300, title: 80, name: 80, model: 120 };
 const DURATIONS = new Set([3, 5, 8, 10]);
 const PAIRS = new Set([
   'text|prompt_for|script', 'text|prompt_for|storyboard', 'text|prompt_for|image', 'text|prompt_for|video',

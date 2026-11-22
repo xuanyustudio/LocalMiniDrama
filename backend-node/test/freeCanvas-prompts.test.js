@@ -33,4 +33,18 @@ describe('free canvas prompts', () => {
     assert.match(promptForVideo(graph, 'v').prompt, /夜戏/);
     assert.equal(spokenText(graph, 'a'), '谁');
   });
+
+  it('uses video prompt and upstream image path for i2v', () => {
+    const withMedia = {
+      nodes: [
+        { id: 'i', type: 'image', data: { prompt: '静帧', image_url: '/static/bird.png', local_path: 'free/bird.png' } },
+        { id: 'v', type: 'video', data: { prompt: '小鸟飞', duration: 8 } },
+      ],
+      edges: [{ source: 'i', target: 'v', relation: 'media_input_for' }],
+    };
+    const built = promptForVideo(withMedia, 'v');
+    assert.match(built.prompt, /小鸟飞/);
+    assert.equal(built.duration, 8);
+    assert.equal(built.imagePath, 'free/bird.png');
+  });
 });
