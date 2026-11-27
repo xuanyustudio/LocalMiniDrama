@@ -6,7 +6,7 @@
 
 *LocalMiniDrama · AI-powered short drama creator*
 
-[![version](https://img.shields.io/badge/version-1.2.9-blue?style=flat-square)](https://github.com/xuanyustudio/LocalMiniDrama/releases)
+[![version](https://img.shields.io/badge/version-1.2.10-blue?style=flat-square)](https://github.com/xuanyustudio/LocalMiniDrama/releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)](#-快速开始)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#-项目架构)
@@ -40,11 +40,11 @@
 
 ---
 
-## 📌 最新动态（v1.2.9）
+## 📌 最新动态（v1.2.10）
 
-- 🆕 **剧内助手**：剧集页、制作页、画布页可对话操作当前短剧（剧本、角色、场景、分镜、出图）；删除需确认
-- 🔧 **文本模型**：配置里存了多个模型时，助手使用默认的那一个，不再把整段名单当作模型名
-- 🔧 **桌面运行时**：Electron 升到 44，以便在安装包内运行助手
+- 🆕 **自由画布**：节点下方编辑 / 保存 / 生成 / 删除，支持图生视频多参考图与生成中状态
+- 🔧 **xAI 视频**：官方 Grok Imagine 的 `size` 改为 `848x480` / `1280x720` 等，不再误传 `480P`
+- 🔧 **Seedance 成片下载**：低价 Seedance2 鉴权下载加重试与回退，避免成片拉取失败
 
 完整记录 → **[CHANGELOG.md](CHANGELOG.md)**
 
